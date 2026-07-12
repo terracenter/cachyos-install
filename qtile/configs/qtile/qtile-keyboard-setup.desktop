@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Teclado (Qtile)
+GenericName=Configuración de Teclado
+Comment=Cambia la distribución de teclado en Qtile de forma rápida
+Exec=/home/usuario/.local/bin/qtile-keyboard-setup
+Icon=input-keyboard
+Terminal=false
+Type=Application
+Categories=Settings;HardwareSettings;
+Keywords=teclado;keyboard;layout;idioma;qtile;es;us;

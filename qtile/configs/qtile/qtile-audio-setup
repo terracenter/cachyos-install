@@ -1,0 +1,180 @@
+#!/usr/bin/env python3
+import subprocess
+import os
+import sys
+
+# 1. Obtener el nombre de la tarjeta de sonido
+card_name = ""
+try:
+    cards_out = subprocess.check_output(["pactl", "list", "cards", "short"], text=True)
+    for line in cards_out.strip().split('\n'):
+        parts = line.split()
+        if len(parts) >= 2 and "alsa_card" in parts[1]:
+            card_name = parts[1]
+            break
+except Exception:
+    pass
+
+# 2. Comprobar si la tarjeta tiene los perfiles mutuamente excluyentes de Headphones/Speaker
+has_laptop_split_profiles = False
+speaker_profile = "HiFi (HDMI1, HDMI2, HDMI3, Mic1, Mic2, Speaker)"
+headphones_profile = "HiFi (HDMI1, HDMI2, HDMI3, Headphones, Mic1, Mic2)"
+
+if card_name:
+    try:
+        cards_info = subprocess.check_output(["pactl", "list", "cards"], text=True)
+        if speaker_profile in cards_info and headphones_profile in cards_info:
+            has_laptop_split_profiles = True
+    except Exception:
+        pass
+
+# 3. Construir las opciones según el tipo de hardware
+options = []
+current_profile = ""
+current_default_sink = ""
+
+# Obtener sink por defecto actual
+try:
+    default_out = subprocess.check_output(["pamixer", "--get-default-sink"], text=True)
+    for line in default_out.split('\n'):
+        if '"' in line:
+            parts = line.split('"')
+            if len(parts) >= 3:
+                current_default_sink = parts[1]
+except Exception:
+    pass
+
+if has_laptop_split_profiles:
+    # Caso 1: Laptop con perfiles divididos (ej. Lenovo IdeaPad SOF)
+    try:
+        cards_info = subprocess.check_output(["pactl", "list", "cards"], text=True)
+        current_card = False
+        for line in cards_info.split('\n'):
+            if card_name in line:
+                current_card = True
+            elif line.startswith("Card #") or line.strip() == "":
+                current_card = False
+            
+            if current_card and "Perfil activo:" in line:
+                current_profile = line.split("Perfil activo:")[1].strip()
+            elif current_card and "Active Profile:" in line:
+                current_profile = line.split("Active Profile:")[1].strip()
+    except Exception:
+        pass
+
+    options = [
+        {
+            'id': 'speaker',
+            'desc': '󰓃 Altavoces Internos',
+            'profile': speaker_profile,
+            'sink': f'{card_name.replace("alsa_card.", "alsa_output.")}.HiFi__Speaker__sink'
+        },
+        {
+            'id': 'headphones',
+            'desc': '󰋋 Auriculares (Jack)',
+            'profile': headphones_profile,
+            'sink': f'{card_name.replace("alsa_card.", "alsa_output.")}.HiFi__Headphones__sink'
+        },
+        {
+            'id': 'hdmi1',
+            'desc': '󰽟 Monitor/TV HDMI (Puerto 1)',
+            'profile': None,
+            'sink': f'{card_name.replace("alsa_card.", "alsa_output.")}.HiFi__HDMI1__sink'
+        },
+        {
+            'id': 'hdmi2',
+            'desc': '󰽟 Monitor/TV HDMI (Puerto 2)',
+            'profile': None,
+            'sink': f'{card_name.replace("alsa_card.", "alsa_output.")}.HiFi__HDMI2__sink'
+        },
+        {
+            'id': 'hdmi3',
+            'desc': '󰽟 Monitor/TV HDMI (Puerto 3)',
+            'profile': None,
+            'sink': f'{card_name.replace("alsa_card.", "alsa_output.")}.HiFi__HDMI3__sink'
+        }
+    ]
+else:
+    # Caso 2: PC de escritorio o laptop estándar (listar sinks activos)
+    try:
+        sinks_out = subprocess.check_output(["pamixer", "--list-sinks"], text=True)
+        for line in sinks_out.strip().split('\n'):
+            import re
+            match = re.match(r'^(\d+)\s+"([^"]+)"\s+"[^"]+"\s+"([^"]+)"', line)
+            if match:
+                s_id, s_name, s_desc = match.groups()
+                display_desc = s_desc
+                if "Ryzen" in s_desc or "Analog" in s_desc or "Headphones" in s_desc:
+                    display_desc = "󰋋 Auriculares / Altavoces Analógicos"
+                elif "HDMI" in s_desc or "Radeon" in s_desc or "DisplayPort" in s_desc:
+                    port = s_name.split('.')[-1]
+                    port_num = port.replace('pro-output-', 'Puerto ')
+                    display_desc = f"󰽟 Monitor/TV HDMI ({port_num})"
+                
+                options.append({
+                    'id': s_id,
+                    'desc': display_desc,
+                    'profile': None,
+                    'sink': s_name
+                })
+    except Exception:
+        pass
+
+if not options:
+    subprocess.run(["notify-send", "Audio", "No se encontraron salidas de audio disponibles"])
+    sys.exit(0)
+
+# 4. Formatear la lista para Rofi
+rofi_input = ""
+option_map = {}
+
+for opt in options:
+    is_active = False
+    if has_laptop_split_profiles:
+        if opt['id'] in ['speaker', 'headphones']:
+            is_active = (current_profile == opt['profile'] and current_default_sink == opt['sink'])
+        else:
+            is_active = (current_default_sink == opt['sink'])
+    else:
+        is_active = (current_default_sink == opt['sink'])
+        
+    prefix = "● " if is_active else "  "
+    line = f"{prefix}{opt['desc']}"
+    rofi_input += line + "\n"
+    option_map[line] = opt
+
+# 5. Ejecutar Rofi
+theme_path = os.path.expanduser("~/.config/omarchy/current/rofi.rasi")
+rofi_cmd = ["rofi", "-dmenu", "-p", "Salida de Audio", "-no-show-icons", "-no-custom", "-theme-str", "window {width: 32%;}"]
+if os.path.exists(theme_path):
+    rofi_cmd.extend(["-theme", theme_path])
+
+try:
+    proc = subprocess.run(rofi_cmd, input=rofi_input, text=True, capture_output=True)
+    selected = proc.stdout.rstrip('\n')
+except Exception:
+    sys.exit(1)
+
+# 6. Aplicar el cambio seleccionado
+if selected in option_map:
+    target = option_map[selected]
+    
+    # A) Cambiar perfil de la tarjeta si aplica
+    if target['profile'] and card_name:
+        subprocess.run(["pactl", "set-card-profile", card_name, target['profile']])
+        
+    # B) Establecer la salida por defecto
+    subprocess.run(["pactl", "set-default-sink", target['sink']])
+    
+    # C) Mover flujos de audio activos
+    try:
+        inputs_out = subprocess.check_output(["pactl", "list", "short", "sink-inputs"], text=True)
+        for line in inputs_out.strip().split('\n'):
+            if line:
+                input_id = line.split()[0]
+                subprocess.run(["pactl", "move-sink-input", input_id, target['sink']])
+    except Exception:
+        pass
+        
+    # D) Notificar al usuario
+    subprocess.run(["notify-send", "-t", "2000", "Salida de Audio", f"Cambiado a:\n{target['desc']}"])

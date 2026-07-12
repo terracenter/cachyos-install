@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Salir (Cerrar Sesión)
+Comment=Menú visual de apagado, reinicio y suspensión
+Exec=~/.local/bin/qtile-exit
+Icon=system-log-out
+Terminal=false
+Type=Application
+Categories=System;Settings;
+Keywords=salir;apagar;reiniciar;suspender;bloquear;session;exit;power;

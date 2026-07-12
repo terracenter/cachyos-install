@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+THEMES_DIR="${HOME}/.config/omarchy/themes"
+CURRENT="${HOME}/.config/omarchy/current/theme"
+
+TEMA=$(ls "$THEMES_DIR" | rofi -dmenu -p "Tema" -i -theme-str 'window {width: 300px;}')
+[[ -z "$TEMA" ]] && exit 0
+
+"${HOME}/.local/bin/theme-apply" "$TEMA"

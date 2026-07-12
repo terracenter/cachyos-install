@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Pantalla y energía (X11)
+Comment=Configura tiempos de inactividad, bloqueo y suspensión
+Exec=~/.local/bin/idle-settings
+Icon=preferences-system-power
+Terminal=false
+Type=Application
+Categories=Settings;System;
+Keywords=idle;ahorro;pantalla;suspension;energia;bloqueo;

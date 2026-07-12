@@ -1,0 +1,51 @@
+#!/bin/bash
+# qtile-touchpad-setup
+# Script para configurar el touchpad (activar/desactivar y bloqueo al escribir) con Rofi en Qtile (X11)
+
+# Buscar el dispositivo touchpad
+device=$(xinput list --name-only | grep -i "touchpad" | head -n 1)
+
+if [[ -z "$device" ]]; then
+    notify-send "Touchpad" "No se detectó ningún touchpad compatible en este equipo."
+    exit 1
+fi
+
+# Obtener estado de activación del dispositivo
+state=$(xinput list-props "$device" | grep "Device Enabled" | awk '{print $NF}')
+if [[ "$state" -eq 1 ]]; then
+    current_status="Activado"
+else
+    current_status="Desactivado"
+fi
+
+# Obtener estado de "Disable While Typing" (DWT)
+dwt_state=$(xinput list-props "$device" | grep "libinput Disable While Typing Enabled (" | awk '{print $NF}')
+if [[ "$dwt_state" -eq 1 ]]; then
+    current_dwt="Sí"
+else
+    current_dwt="No"
+fi
+
+OPTIONS="Activar Touchpad\nDesactivar Touchpad\nActivar Bloqueo al Escribir (DWT)\nDesactivar Bloqueo al Escribir (DWT)"
+CHOICE=$(echo -e "$OPTIONS" | rofi -dmenu -p "Touchpad ($current_status | Bloqueo: $current_dwt)" -i -theme-str 'window {width: 380px;}')
+
+[[ -z "$CHOICE" ]] && exit 0
+
+case "$CHOICE" in
+    *"Activar Touchpad"*)
+        xinput enable "$device"
+        notify-send -u low "Touchpad" "Touchpad activado."
+        ;;
+    *"Desactivar Touchpad"*)
+        xinput disable "$device"
+        notify-send -u low "Touchpad" "Touchpad desactivado."
+        ;;
+    *"Activar Bloqueo al Escribir"*)
+        xinput set-prop "$device" "libinput Disable While Typing Enabled" 1
+        notify-send -u low "Touchpad" "Bloqueo al escribir (DWT) activado."
+        ;;
+    *"Desactivar Bloqueo al Escribir"*)
+        xinput set-prop "$device" "libinput Disable While Typing Enabled" 0
+        notify-send -u low "Touchpad" "Bloqueo al escribir (DWT) desactivado."
+        ;;
+esac

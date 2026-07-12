@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+THEME="${1:-$(cat "${HOME}/.config/omarchy/current/theme" 2>/dev/null || echo catppuccin)}"
+THEMES_DIR="${HOME}/.config/omarchy/themes"
+CURRENT_DIR="${HOME}/.config/omarchy/current"
+TEMPLATES_DIR="${HOME}/.local/share/omarchy-local/themed"
+COLORS_FILE="${THEMES_DIR}/${THEME}/colors.toml"
+
+[[ -f "$COLORS_FILE" ]] || { echo "Tema '$THEME' no encontrado: $COLORS_FILE" >&2; exit 1; }
+
+_val() { grep "^${1}[[:space:]]*=" "$COLORS_FILE" | sed 's/.*= *"\(.*\)"/\1/'; }
+_opt() { grep "^${1}[[:space:]]*=" "$COLORS_FILE" 2>/dev/null | sed 's/.*= *"\(.*\)"/\1/' || true; }
+
+wallpaper=$(_val wallpaper)
+accent=$(_val accent);               cursor=$(_val cursor)
+foreground=$(_val foreground);       background=$(_val background)
+mantle=$(_val mantle)
+selection_foreground=$(_val selection_foreground)
+selection_background=$(_val selection_background)
+color0=$(_val color0);   color1=$(_val color1);   color2=$(_val color2);   color3=$(_val color3)
+color4=$(_val color4);   color5=$(_val color5);   color6=$(_val color6);   color7=$(_val color7)
+color8=$(_val color8);   color9=$(_val color9);   color10=$(_val color10); color11=$(_val color11)
+color12=$(_val color12); color13=$(_val color13); color14=$(_val color14); color15=$(_val color15)
+
+accent_strip="${accent#\#}";      background_strip="${background#\#}"
+foreground_strip="${foreground#\#}"; color0_strip="${color0#\#}"; color2_strip="${color2#\#}"
+
+SED_ARGS=(
+    -e "s|{{ accent }}|${accent}|g"
+    -e "s|{{ cursor }}|${cursor}|g"
+    -e "s|{{ foreground }}|${foreground}|g"
+    -e "s|{{ background }}|${background}|g"
+    -e "s|{{ mantle }}|${mantle}|g"
+    -e "s|{{ selection_foreground }}|${selection_foreground}|g"
+    -e "s|{{ selection_background }}|${selection_background}|g"
+    -e "s|{{ color0 }}|${color0}|g"   -e "s|{{ color1 }}|${color1}|g"
+    -e "s|{{ color2 }}|${color2}|g"   -e "s|{{ color3 }}|${color3}|g"
+    -e "s|{{ color4 }}|${color4}|g"   -e "s|{{ color5 }}|${color5}|g"
+    -e "s|{{ color6 }}|${color6}|g"   -e "s|{{ color7 }}|${color7}|g"
+    -e "s|{{ color8 }}|${color8}|g"   -e "s|{{ color9 }}|${color9}|g"
+    -e "s|{{ color10 }}|${color10}|g" -e "s|{{ color11 }}|${color11}|g"
+    -e "s|{{ color12 }}|${color12}|g" -e "s|{{ color13 }}|${color13}|g"
+    -e "s|{{ color14 }}|${color14}|g" -e "s|{{ color15 }}|${color15}|g"
+    -e "s|{{ accent_strip }}|${accent_strip}|g"
+    -e "s|{{ background_strip }}|${background_strip}|g"
+    -e "s|{{ foreground_strip }}|${foreground_strip}|g"
+    -e "s|{{ color0_strip }}|${color0_strip}|g"
+    -e "s|{{ color2_strip }}|${color2_strip}|g"
+)
+
+sed "${SED_ARGS[@]}" "${TEMPLATES_DIR}/alacritty-colors.toml.tpl" > "${CURRENT_DIR}/alacritty-colors.toml"
+sed "${SED_ARGS[@]}" "${TEMPLATES_DIR}/waybar-colors.css.tpl"     > "${CURRENT_DIR}/waybar-colors.css"
+sed "${SED_ARGS[@]}" "${TEMPLATES_DIR}/hyprland-colors.lua.tpl"   > "${CURRENT_DIR}/hyprland-colors.lua"
+sed "${SED_ARGS[@]}" "${TEMPLATES_DIR}/hyprlock-colors.conf.tpl"  > "${CURRENT_DIR}/hyprlock-colors.conf"
+sed "${SED_ARGS[@]}" "${TEMPLATES_DIR}/mako-colors.ini.tpl"       > "${CURRENT_DIR}/mako-colors.ini"
+
+MAKO_CFG="${HOME}/.config/mako/config"
+sed -i "s|^background-color=.*|background-color=${background}|" "$MAKO_CFG"
+sed -i "s|^text-color=.*|text-color=${foreground}|"             "$MAKO_CFG"
+sed -i "0,/^border-color=.*/s|^border-color=.*|border-color=${accent}|" "$MAKO_CFG"
+
+# GTK (campos opcionales en colors.toml; gsettings no requiere WAYLAND_DISPLAY)
+gtk_theme_field=$(_opt gtk_theme)
+color_scheme_field=$(_opt color_scheme)
+cursor_theme_field=$(_opt cursor_theme)
+icon_theme_field=$(_opt icon_theme)
+
+if [[ -n "${gtk_theme_field:-}" ]]; then
+    gsettings set org.gnome.desktop.interface gtk-theme    "$gtk_theme_field" 2>/dev/null || true
+    [[ -n "${color_scheme_field:-}" ]] && gsettings set org.gnome.desktop.interface color-scheme  "$color_scheme_field" 2>/dev/null || true
+    [[ -n "${cursor_theme_field:-}" ]] && gsettings set org.gnome.desktop.interface cursor-theme  "$cursor_theme_field" 2>/dev/null || true
+    [[ -n "${icon_theme_field:-}" ]]   && gsettings set org.gnome.desktop.interface icon-theme    "$icon_theme_field"   2>/dev/null || true
+
+    prefer_dark_int=1
+    [[ "${color_scheme_field:-prefer-dark}" == "prefer-light" ]] && prefer_dark_int=0
+    for _d in "$HOME/.config/gtk-3.0" "$HOME/.config/gtk-4.0"; do
+        [[ -f "$_d/settings.ini" ]] || continue
+        sed -i "s|^gtk-theme-name=.*|gtk-theme-name=${gtk_theme_field}|" "$_d/settings.ini"
+        sed -i "s|^gtk-application-prefer-dark-theme=.*|gtk-application-prefer-dark-theme=${prefer_dark_int}|" "$_d/settings.ini"
+        [[ -n "${cursor_theme_field:-}" ]] && sed -i "s|^gtk-cursor-theme-name=.*|gtk-cursor-theme-name=${cursor_theme_field}|" "$_d/settings.ini"
+        [[ -n "${icon_theme_field:-}" ]]   && sed -i "s|^gtk-icon-theme-name=.*|gtk-icon-theme-name=${icon_theme_field}|"     "$_d/settings.ini"
+    done
+fi
+
+HYPR_SIG=$(ls "/run/user/$(id -u)/hypr/" 2>/dev/null | tail -1)
+if [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
+    if pgrep -x waybar >/dev/null 2>&1; then
+        pkill waybar 2>/dev/null || true
+        sleep 0.5
+        nohup waybar >/dev/null 2>&1 &
+    fi
+    [[ -n "${HYPR_SIG:-}" ]] && HYPRLAND_INSTANCE_SIGNATURE="$HYPR_SIG" hyprctl reload
+fi
+
+pgrep -x mako >/dev/null 2>&1 && [[ -n "${WAYLAND_DISPLAY:-}" ]] && makoctl reload 2>/dev/null || true
+
+if [[ -n "${wallpaper:-}" && -f "$wallpaper" && -n "${WAYLAND_DISPLAY:-}" ]]; then
+    pkill swaybg 2>/dev/null || true
+    nohup swaybg -i "$wallpaper" -m fill >/dev/null 2>&1 &
+fi
+
+echo "$THEME" > "${CURRENT_DIR}/theme"
+echo "Tema '${THEME}' aplicado."

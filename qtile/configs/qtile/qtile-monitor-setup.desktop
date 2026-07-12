@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Monitores (Qtile)
+GenericName=Gestor de Pantallas
+Comment=Configura perfiles de monitores y workspaces en Qtile
+Exec=/home/usuario/.local/bin/qtile-monitor-setup
+Icon=video-display
+Terminal=false
+Type=Application
+Categories=Settings;HardwareSettings;
+Keywords=monitor;pantalla;display;layout;qtile;xrandr;

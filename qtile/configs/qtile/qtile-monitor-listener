@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# qtile-monitor-listener — Daemon de eventos de monitor para Qtile (X11)
+# Detecta conexión/desconexión de monitores físicos leyendo sysfs y aplica configuración
+
+SETUP_SCRIPT="$HOME/.local/bin/qtile-monitor-setup"
+log() { echo "[qtile-monitor-listener] $(date '+%H:%M:%S') $*"; }
+
+# Esperar a que la sesión cargue
+sleep 3
+
+log "Detectando monitores al inicializar..."
+bash "$SETUP_SCRIPT" --auto
+
+# Estado inicial del sysfs
+last_state=""
+while true; do
+    # Concatenar el estado de todos los puertos de video conectados en el sistema
+    current_state=$(cat /sys/class/drm/*/status 2>/dev/null | tr '\n' ',')
+    
+    if [[ "$current_state" != "$last_state" ]]; then
+        if [[ -n "$last_state" ]]; then
+            log "Cambio en el estado de los monitores detectado. Reconfigurando en 2 segundos..."
+            sleep 2
+            bash "$SETUP_SCRIPT" --auto
+        fi
+        last_state="$current_state"
+    fi
+    sleep 3
+done

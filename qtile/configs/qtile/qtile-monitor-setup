@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+# qtile-monitor-setup — Configuración de monitores y workspaces para Qtile (X11)
+# Uso: Super+Ctrl+M (interactivo Rofi) o --auto (automático por listener)
+
+PROFILE_FILE="$HOME/.config/qtile/monitor_profile"
+mkdir -p "$HOME/.config/qtile"
+
+# Dependencias
+for dep in rofi xrandr notify-send awk; do
+    command -v "$dep" &>/dev/null || { echo "[qtile-monitor] ERROR: '$dep' no encontrado" >&2; exit 1; }
+done
+
+# Obtener nombre del monitor interno (Laptop)
+INTERNAL_MON=$(xrandr | grep -E '^eDP[-_]?[0-9]+ connected' | awk '{print $1}')
+if [[ -z "$INTERNAL_MON" ]]; then
+    # Fallback al primer monitor conectado si no se detecta eDP
+    INTERNAL_MON=$(xrandr | grep ' connected' | head -n 1 | awk '{print $1}')
+fi
+
+# Obtener nombre del monitor externo (Siragon u otros)
+EXTERNAL_MON=$(xrandr | grep ' connected' | grep -v "$INTERNAL_MON" | head -n 1 | awk '{print $1}')
+
+apply_profile_doble() {
+    local position="${1:-right}"
+    if [[ -n "$EXTERNAL_MON" ]]; then
+        if [[ "$position" == "left" ]]; then
+            # Externo a la izquierda, Laptop a la derecha (principal)
+            xrandr --output "$INTERNAL_MON" --auto --primary --output "$EXTERNAL_MON" --auto --left-of "$INTERNAL_MON"
+            echo "doble" > "$PROFILE_FILE"
+            qtile cmd-obj -o cmd -f reload_config 2>/dev/null || true
+            notify-send "🖥️ Perfil Doble X11" "Externo ($EXTERNAL_MON) [Izq] + Laptop ($INTERNAL_MON) [Der]\nWorkspaces: 1-5 / 6-10" --urgency=low --expire-time=4000
+        else
+            # Laptop a la izquierda (principal), Externo a la derecha
+            xrandr --output "$INTERNAL_MON" --auto --primary --output "$EXTERNAL_MON" --auto --right-of "$INTERNAL_MON"
+            echo "doble" > "$PROFILE_FILE"
+            qtile cmd-obj -o cmd -f reload_config 2>/dev/null || true
+            notify-send "🖥️ Perfil Doble X11" "Laptop ($INTERNAL_MON) [Izq] + Externo ($EXTERNAL_MON) [Der]\nWorkspaces: 1-5 / 6-10" --urgency=low --expire-time=4000
+        fi
+    else
+        apply_profile_unico
+    fi
+}
+
+apply_profile_unico() {
+    # Solo el monitor interno
+    xrandr --output "$INTERNAL_MON" --auto --primary
+    if [[ -n "$EXTERNAL_MON" ]]; then
+        xrandr --output "$EXTERNAL_MON" --off
+    fi
+    echo "unico" > "$PROFILE_FILE"
+    qtile cmd-obj -o cmd -f reload_config 2>/dev/null || true
+    notify-send "🖥️ Perfil Único X11" "Laptop ($INTERNAL_MON) configurada.\nWorkspaces: 1-10" --urgency=low --expire-time=4000
+}
+
+apply_profile_externo_only() {
+    if [[ -n "$EXTERNAL_MON" ]]; then
+        # Solo el monitor externo
+        xrandr --output "$EXTERNAL_MON" --auto --primary --output "$INTERNAL_MON" --off
+        echo "unico" > "$PROFILE_FILE"
+        qtile cmd-obj -o cmd -f reload_config 2>/dev/null || true
+        notify-send "🖥️ Perfil Externo X11" "$EXTERNAL_MON configurado como principal.\nWorkspaces: 1-10" --urgency=low --expire-time=4000
+    else
+        apply_profile_unico
+    fi
+}
+
+if [[ "$1" == "--auto" ]]; then
+    if [[ -n "$EXTERNAL_MON" ]]; then
+        # Por defecto usar doble con externo a la derecha
+        apply_profile_doble "right"
+    else
+        apply_profile_unico
+    fi
+    exit 0
+fi
+
+# Modo interactivo (Rofi)
+options=""
+if [[ -n "$EXTERNAL_MON" ]]; then
+    options="1 🖥️  Doble: Laptop (Izq) + Externo (Der)
+2 🖥️  Doble: Externo (Izq) + Laptop (Der)
+3 🖥️  Único: Solo Laptop
+4 🖥️  Externo: Solo Monitor Externo"
+else
+    options="3 🖥️  Único: Solo Laptop"
+fi
+
+choice=$(echo "$options" | rofi -dmenu \
+    -p "🖥️  Perfil de Monitores (Qtile)" \
+    -mesg "Selecciona el perfil de pantallas a aplicar:" \
+    -i -theme-str 'window {width: 600px;} listview {lines: 4;}' 2>/dev/null)
+
+[[ -z "$choice" ]] && { echo "[qtile-monitor] Cancelado"; exit 0; }
+
+case "$choice" in
+    *Laptop\ \(Izq*)  apply_profile_doble "right" ;;
+    *Externo\ \(Izq*) apply_profile_doble "left" ;;
+    *Laptop*)         apply_profile_unico ;;
+    *Externo*)        apply_profile_externo_only ;;
+esac

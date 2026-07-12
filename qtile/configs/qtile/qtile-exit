@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+THEME="$HOME/.config/omarchy/current/rofi.rasi"
+ROFI_ARGS=(-dmenu -p "Sesión" -no-show-icons -no-custom -theme-str 'window {width: 28%;}')
+[[ -f "$THEME" ]] && ROFI_ARGS+=(-theme "$THEME")
+
+CHOICE=$(printf 'Cancelar\nBloquear\nSuspender\nSalir\nReiniciar\nApagar' | rofi "${ROFI_ARGS[@]}")
+
+case "$CHOICE" in
+    "Bloquear")  ~/.local/bin/qtile-lock ;;
+    "Suspender") systemctl suspend ;;
+    "Salir")     qtile cmd-obj -o cmd -f shutdown ;;
+    "Reiniciar") systemctl reboot ;;
+    "Apagar")    systemctl poweroff ;;
+esac

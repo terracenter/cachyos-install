@@ -1,0 +1,8 @@
+*.tmp
+*~
+*.log
+__pycache__/
+*.pyc
+
+# Bitácora interna — vive en el vault (Obsidian/Planes/CachyOS/TASK_LOG.md), no en el repo público
+TASK_LOG.md

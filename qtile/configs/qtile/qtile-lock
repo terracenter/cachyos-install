@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+COLORS_FILE="$HOME/.config/omarchy/current/qtile-colors.json"
+
+if [ -f "$COLORS_FILE" ]; then
+    # Parse json manually (basic) or use jq if available. Since it's a simple json:
+    ACCENT=$(grep -o '"accent": *"[^"]*"' "$COLORS_FILE" | cut -d'"' -f4 | sed 's/#//')ff
+    BASE=$(grep -o '"background": *"[^"]*"' "$COLORS_FILE" | cut -d'"' -f4 | sed 's/#//')ff
+    TEXT=$(grep -o '"foreground": *"[^"]*"' "$COLORS_FILE" | cut -d'"' -f4 | sed 's/#//')ff
+else
+    ACCENT="b4befeff"
+    BASE="1e1e2eff"
+    TEXT="cdd6f4ff"
+fi
+
+i3lock --blur 7 --clock --indicator \
+    --ring-color="${ACCENT}" \
+    --inside-color="${BASE}" \
+    --time-color="${TEXT}" \
+    --date-color="${TEXT}" \
+    --keyhl-color="${TEXT}" \
+    --bshl-color="${TEXT}" \
+    --separator-color="${BASE}" \
+    --insidever-color="${BASE}" \
+    --insidewrong-color="${BASE}" \
+    --ringver-color="${ACCENT}" \
+    --ringwrong-color="f38ba8"

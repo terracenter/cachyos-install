@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+# qtile-keyboard-setup — Selección y configuración de distribución de teclado para Qtile (X11)
+# Uso: Ejecutar desde terminal (interactivo con números) o vía Rofi (cuando no hay terminal asociada o se pasa --rofi)
+
+PREF_FILE="$HOME/.config/qtile/keyboard_layout"
+mkdir -p "$HOME/.config/qtile"
+
+# Dependencias para modo gráfico
+for dep in setxkbmap notify-send awk; do
+    command -v "$dep" &>/dev/null || { echo "[qtile-keyboard] ERROR: '$dep' no encontrado" >&2; exit 1; }
+done
+
+apply_layout() {
+    local layout="$1"
+    local variant="$2"
+    local label="$3"
+
+    if [[ -n "$variant" ]]; then
+        setxkbmap "$layout" -variant "$variant"
+        echo -e "kb_layout=\"$layout\"\nkb_variant=\"$variant\"" > "$PREF_FILE"
+    else
+        setxkbmap "$layout"
+        echo -e "kb_layout=\"$layout\"\nkb_variant=\"\"" > "$PREF_FILE"
+    fi
+
+    notify-send "⌨️ Teclado X11" "Distribución establecida:\n$label" --urgency=low --expire-time=3000
+    echo "Distribución establecida: $label ($layout${variant:+, variant: $variant})"
+}
+
+show_cli_menu() {
+    echo "============================================="
+    echo "   Configuración de Teclado - CachyOS Qtile  "
+    echo "============================================="
+    echo "Seleccione una distribución de teclado:"
+    echo "1) Spanish (Latam)"
+    echo "2) Spanish (Euro)"
+    echo "3) English (US)"
+    echo "4) English (International)"
+    echo "5) Salir"
+    echo "============================================="
+    read -p "Ingrese una opción [1-5]: " opcion
+
+    case "$opcion" in
+        1) apply_layout "latam" "" "Spanish (Latam)" ;;
+        2) apply_layout "es" "" "Spanish (Euro)" ;;
+        3) apply_layout "us" "" "English (US)" ;;
+        4) apply_layout "us" "intl" "English (International)" ;;
+        5) echo "Cancelado."; exit 0 ;;
+        *) echo "Opción inválida."; exit 1 ;;
+    esac
+}
+
+show_rofi_menu() {
+    command -v rofi &>/dev/null || { echo "Rofi no está disponible en este entorno gráfico."; exit 1; }
+    
+    options="1 ⌨️  Spanish (Latam)
+2 ⌨️  Spanish (Euro)
+3 ⌨️  English (US)
+4 ⌨️  English (International)"
+
+    choice=$(echo "$options" | rofi -dmenu \
+        -p "⌨️  Distribución de Teclado" \
+        -mesg "Selecciona el layout para X11/Qtile:" \
+        -i -theme-str 'window {width: 500px;} listview {lines: 4;}' 2>/dev/null)
+
+    [[ -z "$choice" ]] && { echo "[qtile-keyboard] Cancelado"; exit 0; }
+
+    case "$choice" in
+        *"Spanish (Latam)"*)         apply_layout "latam" "" "Spanish (Latam)" ;;
+        *"Spanish (Euro)"*)         apply_layout "es" "" "Spanish (Euro)" ;;
+        *"English (US)"*)           apply_layout "us" "" "English (US)" ;;
+        *"English (International)"*) apply_layout "us" "intl" "English (International)" ;;
+    esac
+}
+
+# Decidir modo de ejecución
+if [[ "$1" == "--cli" ]]; then
+    show_cli_menu
+elif [[ "$1" == "--rofi" ]]; then
+    show_rofi_menu
+elif [[ -t 0 ]]; then
+    # Si la entrada estándar es un terminal interactivo
+    show_cli_menu
+else
+    # En otro caso, asumir modo gráfico (Rofi)
+    show_rofi_menu
+fi

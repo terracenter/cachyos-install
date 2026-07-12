@@ -1,0 +1,9 @@
+configuration {
+    modi:        "drun,run,window";
+    show-icons:  true;
+    icon-theme:  "Papirus-Dark";
+    drun-display-format: "{name}";
+    font:        "JetBrainsMono Nerd Font 12";
+}
+
+@theme "/home/usuario/.config/omarchy/current/rofi.rasi"

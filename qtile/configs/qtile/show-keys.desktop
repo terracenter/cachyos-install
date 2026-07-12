@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Atajos de teclado (Ayuda)
+Comment=Muestra la referencia de combinaciones de teclas
+Exec=~/.local/bin/show-keys
+Icon=help-browser
+Terminal=false
+Type=Application
+Categories=Utility;Documentation;
+Keywords=atajos;teclas;teclado;help;ayuda;keys;bindings;
