@@ -1509,6 +1509,7 @@ copy_configs() {
     mkdir -p ~/.local/share/applications
     cp "$CONFIG_DIR/qtile/qtile-keyboard-setup.desktop" ~/.local/share/applications/qtile-keyboard-setup.desktop
     cp "$CONFIG_DIR/qtile/qtile-monitor-setup.desktop" ~/.local/share/applications/qtile-monitor-setup.desktop
+    cp "$CONFIG_DIR/qtile/qtile-audio-setup.desktop" ~/.local/share/applications/qtile-audio-setup.desktop
     cp "$CONFIG_DIR/qtile/qtile-exit.desktop" ~/.local/share/applications/qtile-exit.desktop
     cp "$CONFIG_DIR/qtile/show-keys.desktop" ~/.local/share/applications/show-keys.desktop
     cp "$CONFIG_DIR/qtile/idle-settings.desktop" ~/.local/share/applications/idle-settings.desktop

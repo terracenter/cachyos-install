@@ -26,6 +26,48 @@ else
     fi
 fi
 
+# 0.2 Restaurar preferencia de audio
+audio_pref="$HOME/.config/qtile/audio_preference"
+if [[ -f "$audio_pref" ]]; then
+    source "$audio_pref"
+    
+    # Obtener el nombre de la tarjeta de sonido actual de forma dinámica
+    card_name=$(pactl list cards short | awk '{print $2}' | grep "alsa_card" | head -n 1)
+    
+    if [[ -n "$card_name" ]]; then
+        # 1. Aplicar perfil de tarjeta si está guardado
+        if [[ -n "$audio_profile" ]]; then
+            pactl set-card-profile "$card_name" "$audio_profile"
+        fi
+        
+        # 2. Restaurar la salida por defecto (sink)
+        if [[ -n "$audio_sink" ]]; then
+            # Si el sink guardado pertenece a ALSA, reconstruimos el nombre del sink
+            # dinámicamente usando el card_name actual por si varía el identificador PCI
+            if [[ "$audio_sink" == alsa_output.* ]]; then
+                actual_prefix="${card_name/alsa_card/alsa_output}"
+                suffix="${audio_sink##*.}"
+                pactl set-default-sink "${actual_prefix}.${suffix}"
+            else
+                pactl set-default-sink "$audio_sink"
+            fi
+        fi
+
+        # 3. Asegurar que los canales ALSA físicos estén desmutados según el perfil
+        if [[ "$audio_id" == "headphones" ]]; then
+            amixer -c 0 sset Master unmute &>/dev/null || true
+            amixer -c 0 sset Headphone unmute &>/dev/null || true
+            amixer -c sofhdadsp sset Master unmute &>/dev/null || true
+            amixer -c sofhdadsp sset Headphone unmute &>/dev/null || true
+        elif [[ "$audio_id" == "speaker" ]]; then
+            amixer -c 0 sset Master unmute &>/dev/null || true
+            amixer -c 0 sset Speaker unmute &>/dev/null || true
+            amixer -c sofhdadsp sset Master unmute &>/dev/null || true
+            amixer -c sofhdadsp sset Speaker unmute &>/dev/null || true
+        fi
+    fi
+fi
+
 # 1. Iniciar Picom (Comentado si da error sin config)
 if [ -f ~/.config/picom/picom.conf ]; then
     picom --config ~/.config/picom/picom.conf -b &

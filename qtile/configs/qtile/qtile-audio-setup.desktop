@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Audio (Qtile)
+GenericName=Salida de Audio
+Comment=Selecciona la salida de audio activa en Qtile (Altavoces, Audífonos, HDMI)
+Exec=~/.local/bin/qtile-audio-setup
+Icon=audio-volume-high
+Terminal=false
+Type=Application
+Categories=Settings;HardwareSettings;
+Keywords=audio;sonido;sound;output;salida;speaker;altavoces;audifonos;headphones;qtile;

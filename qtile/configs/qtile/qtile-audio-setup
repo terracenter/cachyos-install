@@ -176,5 +176,31 @@ if selected in option_map:
     except Exception:
         pass
         
-    # D) Notificar al usuario
+    # C.1) Asegurar que los canales físicos de ALSA estén desmutados (Master, Headphone/Speaker)
+    try:
+        if target['id'] == 'headphones':
+            for card in ["0", "sofhdadsp"]:
+                subprocess.run(["amixer", "-c", card, "sset", "Master", "unmute"], capture_output=True)
+                subprocess.run(["amixer", "-c", card, "sset", "Headphone", "unmute"], capture_output=True)
+        elif target['id'] == 'speaker':
+            for card in ["0", "sofhdadsp"]:
+                subprocess.run(["amixer", "-c", card, "sset", "Master", "unmute"], capture_output=True)
+                subprocess.run(["amixer", "-c", card, "sset", "Speaker", "unmute"], capture_output=True)
+    except Exception:
+        pass
+        
+    # D) Guardar preferencia para persistencia tras reinicios
+    pref_path = os.path.expanduser("~/.config/qtile/audio_preference")
+    try:
+        os.makedirs(os.path.dirname(pref_path), exist_ok=True)
+        with open(pref_path, "w") as f:
+            f.write(f'audio_id="{target["id"]}"\n')
+            profile_val = target["profile"] if target["profile"] else ""
+            f.write(f'audio_profile="{profile_val}"\n')
+            f.write(f'audio_sink="{target["sink"]}"\n')
+    except Exception:
+        pass
+
+    # E) Notificar al usuario
     subprocess.run(["notify-send", "-t", "2000", "Salida de Audio", f"Cambiado a:\n{target['desc']}"])
+
