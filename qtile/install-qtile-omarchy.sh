@@ -264,14 +264,12 @@ install_optional_packages() {
 # ─── Prerequisitos y Base ────────────────────────────────────────────────────
 install_base() {
     step "Instalando paquetes base para Qtile (X11)..."
-
     # Paquetes CRÍTICOS — sin estos no hay sesión gráfica arrancable
     paru_install xorg-server qtile python-psutil "${PKGS_FILES[@]}"
     ok "Paquetes críticos para sesión X11 instalados"
 
     # Paquetes no-críticos — cosmética y utilidades
-    paru_install --warn python-iwlib feh rofi alacritty pamixer brightnessctl shutter xclip rofi-greenclip simplescreenrecorder ttf-jetbrains-mono-nerd i3lock-color qtile-extras catppuccin-gtk-theme-mocha catppuccin-cursors-mocha papirus-icon-theme nwg-look python-dbus-fast python-pulsectl python-pulsectl-asyncio dunst htop btop
-
+    paru_install --warn python-iwlib feh rofi alacritty pamixer brightnessctl shutter xclip rofi-greenclip simplescreenrecorder ttf-jetbrains-mono-nerd i3lock-color qtile-extras catppuccin-gtk-theme-mocha catppuccin-cursors-mocha papirus-icon-theme fluent-icon-theme vimix-gtk-themes nwg-look python-dbus-fast python-pulsectl python-pulsectl-asyncio dunst htop btop
     if ! pacman -Q picom-ftlabs-git &>/dev/null; then
         $AUR_CMD -S --needed --noconfirm --skipreview picom-ftlabs-git || die "Error instalando picom-ftlabs-git"
     fi

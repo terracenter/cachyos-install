@@ -9,46 +9,86 @@ from libqtile import bar, layout, qtile, widget, hook
 from libqtile.config import Click, Drag, Group, Key, Match, Screen
 from libqtile.lazy import lazy
 
-mod = "mod4"
-terminal = "alacritty"
-launcher = "rofi -show drun"
+# Sticky windows (CachyOS upstream feature)
+sticky_windows = []
+
+@lazy.function
+def toggle_sticky_windows(qtile, window=None):
+    if window is None:
+        window = qtile.current_screen.group.current_window
+    if window in sticky_windows:
+        sticky_windows.remove(window)
+    else:
+        sticky_windows.append(window)
+    return window
+
+@hook.subscribe.setgroup
+def move_sticky_windows():
+    for window in sticky_windows:
+        window.togroup()
+
+@hook.subscribe.client_killed
+def remove_sticky_windows(window):
+    if window in sticky_windows:
+        sticky_windows.remove(window)
+
+@hook.subscribe.client_managed
+def auto_sticky_windows(window):
+    info = window.info()
+    if (info.get('wm_class') == ['Toolkit', 'firefox']
+            and info.get('name') == 'Picture-in-Picture'):
+        sticky_windows.append(window)
 
 keys = [
-    # Window focus (Omarchy style with Arrows)
+    # Navigation Matrix ⌨️ (CachyOS style: Vim keys + Arrows)
     Key([mod], "left", lazy.layout.left(), desc="Move focus to left"),
     Key([mod], "right", lazy.layout.right(), desc="Move focus to right"),
     Key([mod], "down", lazy.layout.down(), desc="Move focus down"),
     Key([mod], "up", lazy.layout.up(), desc="Move focus up"),
+    Key([mod], "h", lazy.layout.left(), desc="Move focus to left (Vim)"),
+    Key([mod], "l", lazy.layout.right(), desc="Move focus to right (Vim)"),
+    Key([mod], "j", lazy.layout.down(), desc="Move focus down (Vim)"),
+    Key([mod], "k", lazy.layout.up(), desc="Move focus up (Vim)"),
     
     # Monitor focus
     Key([mod], "comma", lazy.next_screen(), desc="Move focus to next monitor"),
     Key([mod], "period", lazy.prev_screen(), desc="Move focus to prev monitor"),
     
-    # Move windows
+    # Move windows (Navigation Matrix)
     Key([mod, "shift"], "left", lazy.layout.shuffle_left(), lazy.layout.swap_left(), lazy.layout.client_to_previous(), desc="Move window left"),
     Key([mod, "shift"], "right", lazy.layout.shuffle_right(), lazy.layout.swap_right(), lazy.layout.client_to_next(), desc="Move window right"),
     Key([mod, "shift"], "down", lazy.layout.shuffle_down(), desc="Move window down"),
     Key([mod, "shift"], "up", lazy.layout.shuffle_up(), desc="Move window up"),
+    Key([mod, "shift"], "h", lazy.layout.shuffle_left(), lazy.layout.swap_left(), lazy.layout.client_to_previous(), desc="Move window left (Vim)"),
+    Key([mod, "shift"], "l", lazy.layout.shuffle_right(), lazy.layout.swap_right(), lazy.layout.client_to_next(), desc="Move window right (Vim)"),
+    Key([mod, "shift"], "j", lazy.layout.shuffle_down(), desc="Move window down (Vim)"),
+    Key([mod, "shift"], "k", lazy.layout.shuffle_up(), desc="Move window up (Vim)"),
     
-    # Grow windows
+    # Grow windows (Navigation Matrix)
     Key([mod, "control"], "left", lazy.layout.grow_left(), lazy.layout.shrink_main(), lazy.layout.decrease_ratio(), desc="Shrink window / Grow left"),
     Key([mod, "control"], "right", lazy.layout.grow_right(), lazy.layout.grow_main(), lazy.layout.increase_ratio(), desc="Grow window right"),
     Key([mod, "control"], "down", lazy.layout.grow_down(), lazy.layout.shrink(), lazy.layout.increase_nmaster(), desc="Shrink window / Grow down"),
     Key([mod, "control"], "up", lazy.layout.grow_up(), lazy.layout.grow(), lazy.layout.decrease_nmaster(), desc="Grow window up"),
+    Key([mod, "control"], "h", lazy.layout.grow_left(), lazy.layout.shrink_main(), lazy.layout.decrease_ratio(), desc="Grow left (Vim)"),
+    Key([mod, "control"], "l", lazy.layout.grow_right(), lazy.layout.grow_main(), lazy.layout.increase_ratio(), desc="Grow right (Vim)"),
+    Key([mod, "control"], "j", lazy.layout.grow_down(), lazy.layout.shrink(), lazy.layout.increase_nmaster(), desc="Grow down (Vim)"),
+    Key([mod, "control"], "k", lazy.layout.grow_up(), lazy.layout.grow(), lazy.layout.decrease_nmaster(), desc="Grow up (Vim)"),
+    
     Key([mod], "n", lazy.layout.normalize(), desc="Reset all window sizes"),
     Key([mod, "shift"], "y", lazy.next_layout(), desc="Cycle window expansion / Layouts"),
     Key([mod, "control"], "m", lazy.spawn(os.path.expanduser("~/.local/bin/qtile-monitor-setup")), desc="Rofi Monitor Setup"),
     
-    # Launchers and controls (Omarchy exact match)
+    # Launchers and controls (Omarchy exact match + Sticky Window)
     Key([mod], "q", lazy.spawn(terminal), desc="Launch terminal"),
     Key([mod], "space", lazy.spawn(launcher), desc="Launch Rofi"),
     Key([mod], "e", lazy.spawn("nautilus"), desc="Launch file manager"),
     Key([mod, "shift"], "w", lazy.window.kill(), desc="Kill focused window"),
     Key([mod], "f", lazy.window.toggle_fullscreen(), desc="Toggle fullscreen"),
     Key([mod], "t", lazy.window.toggle_floating(), desc="Toggle floating"),
+    Key([mod, "shift"], "s", toggle_sticky_windows, desc="Toggle sticky window state (pin to all workspaces)"),
     Key([mod, "shift"], "t", lazy.spawn(os.path.expanduser("~/.local/bin/theme-switcher")), desc="Theme Switcher"),
     Key([mod, "shift"], "i", lazy.spawn(os.path.expanduser("~/.local/bin/idle-settings")), desc="Idle Settings"),
-    Key([mod], "k", lazy.spawn(os.path.expanduser("~/.local/bin/qtile-keyboard-setup")), desc="Keyboard Layout Setup"),
+    Key([mod, "shift"], "k", lazy.spawn(os.path.expanduser("~/.local/bin/qtile-keyboard-setup")), desc="Keyboard Layout Setup"),
     Key([mod], "slash", lazy.spawn(os.path.expanduser("~/.local/bin/show-keys")), desc="Show keybindings"),
     Key([mod, "control"], "t", lazy.spawn("alacritty -e btop"), desc="System Monitor"),
     
@@ -67,7 +107,7 @@ keys = [
     Key([], "XF86MonBrightnessDown", lazy.spawn("sh -c 'brightnessctl set 10%- && dunstify -a Brightness -r 2594 -u normal -h int:value:$(brightnessctl i | grep -oP \"(?<=\\()\\d+(?=%\\))\") \"Brillo: $(brightnessctl i | grep -oP \"(?<=\\()\\d+(?=%\\))\")%\"'"), desc="Brightness Down"),
     
     # Screen Recording and Capture (X11 alternatives)
-    Key([mod, "shift"], "s", lazy.spawn("simplescreenrecorder"), desc="Screen Recorder UI"),
+    Key([mod, "control"], "s", lazy.spawn("simplescreenrecorder"), desc="Screen Recorder UI"),
     Key([], "Print", lazy.spawn("shutter -s -c -e"), desc="Screenshot region to clipboard"),
     Key([mod], "a", lazy.spawn(os.path.expanduser("~/.local/bin/qtile-audio-setup")), desc="Switch audio output"),
 ]
