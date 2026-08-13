@@ -31,6 +31,25 @@ _on_error() {
 }
 trap '_on_error $LINENO "$BASH_COMMAND"' ERR
 
+# ─── Configuración de Video Intel para X11 (Modesetting DRI3) ───────────────────
+configure_intel_x11() {
+    if lspci | grep -Ei "VGA|3D|Display" | grep -qi intel; then
+        step "Configurando driver Intel para X11 (modesetting + DRI3)..."
+        sudo mkdir -p /etc/X11/xorg.conf.d
+        sudo tee /etc/X11/xorg.conf.d/20-intel.conf > /dev/null << 'INTEL_X11_EOF'
+# Configuración óptima Intel X11 (Modesetting + DRI3)
+# Previene fallos de xf86-video-intel en GPUs modernas (Iris Xe / Gen 8+)
+Section "Device"
+    Identifier  "Intel Graphics"
+    Driver      "modesetting"
+    Option      "DRI" "3"
+    Option      "AccelMethod" "glamor"
+EndSection
+INTEL_X11_EOF
+        ok "X11 Intel modesetting (DRI3 + glamor) configurado en /etc/X11/xorg.conf.d/20-intel.conf"
+    fi
+}
+
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 step()  { echo -e "\n${BOLD}▶  $1${NC}"; }
 ok()    { echo -e "   ${GREEN}✓  $1${NC}"; }
@@ -1596,6 +1615,7 @@ install_power_breaks() {
 
 # ─── MAIN ─────────────────────────────────────────────────────────────────────
 setup_aur
+configure_intel_x11
 select_file_manager
 menu_optional
 show_summary
