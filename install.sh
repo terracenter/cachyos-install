@@ -1,7 +1,7 @@
 #!/bin/bash
 # ┌─────────────────────────────────────────────────────────────────────────────┐
 # │ install.sh                                                                  │
-# │ Punto de entrada ÚNICO e Inteligente para CachyOS Installation Suite       │
+# │ Punto de entrada ÚNICO con Menús Estructurados e Inteligentes              │
 # └─────────────────────────────────────────────────────────────────────────────┘
 
 set -uo pipefail
@@ -45,80 +45,111 @@ die() {
     exit 1
 }
 
-# ─── Banner Principal ─────────────────────────────────────────────────────────
-header "CachyOS Installation Suite"
-echo -e "${BOLD}Punto de entrada único — Instalador Inteligente de CachyOS${NC}"
-echo "Soporta Instalación Base (BTRFS), Hyprland (Wayland), Qtile (X11) y Gaming"
-echo ""
+# ─── SUBMENÚ 1: INSTALACIÓN BASE ──────────────────────────────────────────────
+menu_base() {
+    header "Fase 1: Instalación Base (Live ISO / BTRFS)"
+    echo -e "${RED}${BOLD}⚠ ADVERTENCIA CRÍTICA: Esta opción FORMATEARÁ y BORRARÁ el disco seleccionado.${NC}\n"
 
-# ─── Menú Principal de Opciones ──────────────────────────────────────────────
-echo -e "${BOLD}Selecciona la acción a realizar:${NC}"
-echo "  1) Entorno de Escritorio: Hyprland (Wayland — Recomendado)"
-echo "  2) Entorno de Escritorio: Qtile (X11 — Modesetting Intel DRI3)"
-echo "  3) Instalación Base del Sistema (Particionado BTRFS / Formateo de Disco)"
-echo "  4) Desinstalar Qtile / Limpiar paquetes X11"
-echo "  5) Instalar Suite de Gaming (Steam, GameMode, MangoHud)"
-echo "  6) Salir"
-echo ""
+    read -p "PRIMERA CONFIRMACIÓN: ¿Estás SEGURO de formatear el disco? [escribe 'DESTRUIR']: " confirm1 < /dev/tty || confirm1=""
+    if [[ "$confirm1" != "DESTRUIR" ]]; then
+        die "Instalación base cancelada por seguridad. Se requiere escribir 'DESTRUIR'."
+    fi
 
-read -p "Opción [1-6]: " main_choice < /dev/tty || main_choice="6"
+    echo -e "\n${RED}${BOLD}⚠ SEGUNDA CONFIRMACIÓN FINAL:${NC}"
+    read -p "¿Confirmas por segunda vez que estás en un Live ISO y deseas CONTINUAR? [s/N]: " confirm2 < /dev/tty || confirm2=""
+    if [[ ! "$confirm2" =~ ^[sS]$ ]]; then
+        die "Instalación base cancelada en la segunda confirmación."
+    fi
 
-case "$main_choice" in
-    1)
-        [[ $EUID -eq 0 ]] && die "La instalación de escritorio debe ejecutarse como usuario normal (no root)."
-        step "Iniciando instalación de Hyprland (Wayland)..."
-        bash "$SCRIPT_DIR/hyprland/install-cachyos-hyprland.sh" || die "Fallo en instalador base de Hyprland"
-        SKIP_SYSTEM_UPDATE=1 bash "$SCRIPT_DIR/hyprland/install-hyprland-desktop.sh" || die "Fallo en configuración de Hyprland"
-        ok "Escritorio Hyprland instalado y configurado con éxito"
-        ;;
+    [[ $EUID -ne 0 ]] && die "La instalación base requiere ejecutarse como root (sudo ./install.sh)."
 
-    2)
-        [[ $EUID -eq 0 ]] && die "La instalación de escritorio debe ejecutarse como usuario normal (no root)."
-        step "Iniciando instalación de Qtile (X11)..."
-        bash "$SCRIPT_DIR/qtile/install-qtile-omarchy.sh" || die "Fallo en la instalación de Qtile"
-        ok "Escritorio Qtile (X11) instalado y configurado con éxito"
-        ;;
+    step "Iniciando Instalación Base..."
+    bash "$SCRIPT_DIR/base/install-base.sh" || die "Fallo en la instalación base"
+    ok "Instalación base completada exitosamente. Reinicia el sistema."
+}
 
-    3)
-        # Advertencia Doble para evitar borrado accidental
-        header "¡ADVERTENCIA CRÍTICA DE SEGURIDAD!"
-        echo -e "${RED}${BOLD}⚠ ATENCIÓN: La Instalación Base SOBREESCRIBIRÁ y FORMATEARÁ el disco seleccionado.${NC}"
-        echo -e "${RED}${BOLD}  Toda la información contenida en el disco SERÁ ELIMINADA PERMANENTEMENTE.${NC}\n"
+# ─── SUBMENÚ 2: HYPRLAND (WAYLAND) ────────────────────────────────────────────
+menu_hyprland() {
+    header "Entorno Hyprland (Wayland)"
+    echo "  1) Instalar Hyprland (Wayland + Herramientas nativas)"
+    echo "  2) Desinstalar Hyprland (Limpieza completa)"
+    echo "  3) Volver al menú principal"
+    echo ""
+    read -p "Opción [1-3]: " sub_choice < /dev/tty || sub_choice="3"
 
-        read -p "PRIMERA CONFIRMACIÓN: ¿Estás SEGURO de formatear el disco? [escribe 'DESTRUIR']: " confirm1 < /dev/tty || confirm1=""
-        if [[ "$confirm1" != "DESTRUIR" ]]; then
-            die "Instalación base cancelada por seguridad. Se requiere escribir 'DESTRUIR'."
-        fi
+    case "$sub_choice" in
+        1)
+            [[ $EUID -eq 0 ]] && die "La instalación debe ejecutarse como usuario normal (no root)."
+            step "Iniciando instalación de Hyprland (Wayland)..."
+            bash "$SCRIPT_DIR/hyprland/install-cachyos-hyprland.sh" || die "Fallo en instalador base de Hyprland"
+            SKIP_SYSTEM_UPDATE=1 bash "$SCRIPT_DIR/hyprland/install-hyprland-desktop.sh" || die "Fallo en configuración de Hyprland"
+            ok "Escritorio Hyprland instalado y configurado con éxito"
+            ;;
+        2)
+            [[ $EUID -eq 0 ]] && die "La desinstalación debe ejecutarse como usuario normal (no root)."
+            step "Desinstalando Hyprland..."
+            bash "$SCRIPT_DIR/hyprland/uninstall-hyprland-omarchy.sh" || die "Fallo en desinstalación de Hyprland"
+            ok "Hyprland desinstalado exitosamente"
+            ;;
+        *) return ;;
+    esac
+}
 
-        echo -e "\n${RED}${BOLD}⚠ SEGUNDA CONFIRMACIÓN FINAL:${NC}"
-        read -p "¿Confirmas por segunda vez que estás en un Live ISO y deseas CONTINUAR? [s/N]: " confirm2 < /dev/tty || confirm2=""
-        if [[ ! "$confirm2" =~ ^[sS]$ ]]; then
-            die "Instalación base cancelada en la segunda confirmación."
-        fi
+# ─── SUBMENÚ 3: QTILE (X11) ───────────────────────────────────────────────────
+menu_qtile() {
+    header "Entorno Qtile (X11)"
+    echo "  1) Instalar Qtile (X11 + Modesetting Intel DRI3)"
+    echo "  2) Desinstalar Qtile (Limpieza completa X11)"
+    echo "  3) Volver al menú principal"
+    echo ""
+    read -p "Opción [1-3]: " sub_choice < /dev/tty || sub_choice="3"
 
-        [[ $EUID -ne 0 ]] && die "La instalación base requiere ejecutarse como root (sudo ./install.sh)."
+    case "$sub_choice" in
+        1)
+            [[ $EUID -eq 0 ]] && die "La instalación debe ejecutarse como usuario normal (no root)."
+            step "Iniciando instalación de Qtile (X11)..."
+            bash "$SCRIPT_DIR/qtile/install-qtile-omarchy.sh" || die "Fallo en la instalación de Qtile"
+            ok "Escritorio Qtile (X11) instalado y configurado con éxito"
+            ;;
+        2)
+            [[ $EUID -eq 0 ]] && die "La desinstalación debe ejecutarse como usuario normal (no root)."
+            step "Desinstalando Qtile y paquetes X11..."
+            bash "$SCRIPT_DIR/qtile/uninstall-qtile-omarchy.sh" || die "Fallo al desinstalar Qtile"
+            ok "Qtile y paquetes X11 removidos con éxito"
+            ;;
+        *) return ;;
+    esac
+}
 
-        step "Iniciando Instalación Base (Live ISO)..."
-        bash "$SCRIPT_DIR/base/install-base.sh" || die "Fallo en la instalación base"
-        ok "Instalación base completada exitosamente. Reinicia el sistema."
-        ;;
+# ─── MENÚ PRINCIPAL ───────────────────────────────────────────────────────────
+main() {
+    header "CachyOS Installation Suite"
+    echo -e "${BOLD}Punto de Entrada Único — Estructura Jerárquica Ordenada${NC}\n"
 
-    4)
-        [[ $EUID -eq 0 ]] && die "La desinstalación debe ejecutarse como usuario normal (no root)."
-        step "Desinstalando Qtile y paquetes X11..."
-        bash "$SCRIPT_DIR/qtile/uninstall-qtile-omarchy.sh" || die "Fallo al desinstalar Qtile"
-        ok "Qtile y paquetes X11 removidos con éxito"
-        ;;
+    echo "  1) Instalación Base del Sistema (Particionado BTRFS / Formateo de Disco)"
+    echo "  2) Entorno de Escritorio: Hyprland (Wayland)"
+    echo "  3) Entorno de Escritorio: Qtile (X11)"
+    echo "  4) Suite de Gaming (Steam, GameMode, MangoHud)"
+    echo "  5) Salir"
+    echo ""
 
-    5)
-        [[ $EUID -eq 0 ]] && die "La instalación de gaming debe ejecutarse como usuario normal."
-        step "Instalando herramientas de Gaming..."
-        SKIP_SYSTEM_UPDATE=1 bash "$SCRIPT_DIR/gaming/install-gaming.sh" || die "Fallo en instalador de gaming"
-        ok "Suite de Gaming instalada exitosamente"
-        ;;
+    read -p "Selecciona una opción [1-5]: " main_choice < /dev/tty || main_choice="5"
 
-    6|*)
-        info "Operación cancelada por el usuario."
-        exit 0
-        ;;
-esac
+    case "$main_choice" in
+        1) menu_base ;;
+        2) menu_hyprland ;;
+        3) menu_qtile ;;
+        4)
+            [[ $EUID -eq 0 ]] && die "La instalación de gaming debe ejecutarse como usuario normal."
+            step "Instalando herramientas de Gaming..."
+            SKIP_SYSTEM_UPDATE=1 bash "$SCRIPT_DIR/gaming/install-gaming.sh" || die "Fallo en instalador de gaming"
+            ok "Suite de Gaming instalada exitosamente"
+            ;;
+        5|*)
+            echo "Operación finalizada."
+            exit 0
+            ;;
+    esac
+}
+
+main
