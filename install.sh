@@ -45,7 +45,36 @@ die() {
     exit 1
 }
 
-# ─── SUBMENÚ 1: INSTALACIÓN BASE ──────────────────────────────────────────────
+# ─── Validación de Conexión, Mirrors y Actualización de Sistema ─────────────
+prepare_system_and_mirrors() {
+    step "Verificando conectividad a internet..."
+    if ! ping -c 1 -W 3 archlinux.org &>/dev/null; then
+        die "No hay conexión a Internet. Verifica la red antes de continuar."
+    fi
+    ok "Conexión a Internet activa"
+
+    step "Validando repositorios y optimizando velocidad de mirrors..."
+    if command -v cachyos-rate-mirrors &>/dev/null; then
+        sudo cachyos-rate-mirrors || warn "cachyos-rate-mirrors falló — usando lista de mirrors actual"
+        ok "Mirrors optimizados según latencia y velocidad"
+    elif command -v rate-mirrors &>/dev/null; then
+        sudo rate-mirrors arch | sudo tee /etc/pacman.d/mirrorlist >/dev/null || warn "rate-mirrors falló"
+        ok "Mirrors Arch optimizados"
+    else
+        info "Optimizador de mirrors no instalado — usando repositorios predeterminados del sistema"
+    fi
+
+    step "Ejecutando actualización completa del sistema antes de instalar..."
+    # Desbloquear lock de pacman si quedó huérfano
+    local lock="/var/lib/pacman/db.lck"
+    if [[ -f "$lock" ]]; then
+        if ! pgrep -x pacman &>/dev/null; then
+            sudo rm -f "$lock"
+        fi
+    fi
+    sudo pacman -Syu --noconfirm || die "Falló la actualización preliminar del sistema."
+    ok "Sistema y base de paquetes 100% actualizados"
+}
 menu_base() {
     header "Fase 1: Instalación Base (Live ISO / BTRFS)"
     echo -e "${RED}${BOLD}⚠ ADVERTENCIA CRÍTICA: Esta opción FORMATEARÁ y BORRARÁ el disco seleccionado.${NC}\n"
@@ -89,6 +118,7 @@ menu_hyprland() {
                     warn "La instalación de escritorio debe ejecutarse como usuario normal (no root)."
                     return 0
                 fi
+                prepare_system_and_mirrors
                 step "Iniciando instalación de Hyprland (Wayland)..."
                 bash "$SCRIPT_DIR/hyprland/install-cachyos-hyprland.sh" || warn "Fallo en instalador base de Hyprland"
                 SKIP_SYSTEM_UPDATE=1 bash "$SCRIPT_DIR/hyprland/install-hyprland-desktop.sh" || warn "Fallo en configuración de Hyprland"
@@ -124,6 +154,7 @@ menu_qtile() {
                     warn "La instalación debe ejecutarse como usuario normal (no root)."
                     return 0
                 fi
+                prepare_system_and_mirrors
                 step "Iniciando instalación de Qtile (X11)..."
                 bash "$SCRIPT_DIR/qtile/install-qtile-omarchy.sh" || warn "Fallo en la instalación de Qtile"
                 ok "Escritorio Qtile (X11) instalado y configurado con éxito"
