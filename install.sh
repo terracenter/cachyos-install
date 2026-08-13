@@ -52,104 +52,130 @@ menu_base() {
 
     read -p "PRIMERA CONFIRMACIÓN: ¿Estás SEGURO de formatear el disco? [escribe 'DESTRUIR']: " confirm1 < /dev/tty || confirm1=""
     if [[ "$confirm1" != "DESTRUIR" ]]; then
-        die "Instalación base cancelada por seguridad. Se requiere escribir 'DESTRUIR'."
+        warn "Instalación base cancelada por seguridad. (No se escribió 'DESTRUIR')."
+        return 0
     fi
 
     echo -e "\n${RED}${BOLD}⚠ SEGUNDA CONFIRMACIÓN FINAL:${NC}"
     read -p "¿Confirmas por segunda vez que estás en un Live ISO y deseas CONTINUAR? [s/N]: " confirm2 < /dev/tty || confirm2=""
     if [[ ! "$confirm2" =~ ^[sS]$ ]]; then
-        die "Instalación base cancelada en la segunda confirmación."
+        warn "Instalación base cancelada en la segunda confirmación."
+        return 0
     fi
 
-    [[ $EUID -ne 0 ]] && die "La instalación base requiere ejecutarse como root (sudo ./install.sh)."
+    if [[ $EUID -ne 0 ]]; then
+        warn "La instalación base requiere ejecutarse como root (sudo ./install.sh)."
+        return 0
+    fi
 
     step "Iniciando Instalación Base..."
-    bash "$SCRIPT_DIR/base/install-base.sh" || die "Fallo en la instalación base"
+    bash "$SCRIPT_DIR/base/install-base.sh" || warn "Fallo o cancelación en la instalación base"
     ok "Instalación base completada exitosamente. Reinicia el sistema."
 }
 
 # ─── SUBMENÚ 2: HYPRLAND (WAYLAND) ────────────────────────────────────────────
 menu_hyprland() {
-    header "Entorno Hyprland (Wayland)"
-    echo "  1) Instalar Hyprland (Wayland + Herramientas nativas)"
-    echo "  2) Desinstalar Hyprland (Limpieza completa)"
-    echo "  3) Volver al menú principal"
-    echo ""
-    read -p "Opción [1-3]: " sub_choice < /dev/tty || sub_choice="3"
+    while true; do
+        header "Entorno Hyprland (Wayland)"
+        echo "  1) Instalar Hyprland (Wayland + Herramientas nativas)"
+        echo "  2) Desinstalar Hyprland (Limpieza completa)"
+        echo "  3) Volver al menú principal"
+        echo ""
+        read -p "Opción [1-3]: " sub_choice < /dev/tty || sub_choice="3"
 
-    case "$sub_choice" in
-        1)
-            [[ $EUID -eq 0 ]] && die "La instalación debe ejecutarse como usuario normal (no root)."
-            step "Iniciando instalación de Hyprland (Wayland)..."
-            bash "$SCRIPT_DIR/hyprland/install-cachyos-hyprland.sh" || die "Fallo en instalador base de Hyprland"
-            SKIP_SYSTEM_UPDATE=1 bash "$SCRIPT_DIR/hyprland/install-hyprland-desktop.sh" || die "Fallo en configuración de Hyprland"
-            ok "Escritorio Hyprland instalado y configurado con éxito"
-            ;;
-        2)
-            [[ $EUID -eq 0 ]] && die "La desinstalación debe ejecutarse como usuario normal (no root)."
-            step "Desinstalando Hyprland..."
-            bash "$SCRIPT_DIR/hyprland/uninstall-hyprland-omarchy.sh" || die "Fallo en desinstalación de Hyprland"
-            ok "Hyprland desinstalado exitosamente"
-            ;;
-        *) return ;;
-    esac
+        case "$sub_choice" in
+            1)
+                if [[ $EUID -eq 0 ]]; then
+                    warn "La instalación de escritorio debe ejecutarse como usuario normal (no root)."
+                    return 0
+                fi
+                step "Iniciando instalación de Hyprland (Wayland)..."
+                bash "$SCRIPT_DIR/hyprland/install-cachyos-hyprland.sh" || warn "Fallo en instalador base de Hyprland"
+                SKIP_SYSTEM_UPDATE=1 bash "$SCRIPT_DIR/hyprland/install-hyprland-desktop.sh" || warn "Fallo en configuración de Hyprland"
+                ok "Escritorio Hyprland instalado y configurado con éxito"
+                ;;
+            2)
+                if [[ $EUID -eq 0 ]]; then
+                    warn "La desinstalación debe ejecutarse como usuario normal (no root)."
+                    return 0
+                fi
+                step "Desinstalando Hyprland..."
+                bash "$SCRIPT_DIR/hyprland/uninstall-hyprland-omarchy.sh" || warn "Fallo en desinstalación de Hyprland"
+                ok "Hyprland desinstalado exitosamente"
+                ;;
+            *) return 0 ;;
+        esac
+    done
 }
 
 # ─── SUBMENÚ 3: QTILE (X11) ───────────────────────────────────────────────────
 menu_qtile() {
-    header "Entorno Qtile (X11)"
-    echo "  1) Instalar Qtile (X11 + Modesetting Intel DRI3)"
-    echo "  2) Desinstalar Qtile (Limpieza completa X11)"
-    echo "  3) Volver al menú principal"
-    echo ""
-    read -p "Opción [1-3]: " sub_choice < /dev/tty || sub_choice="3"
+    while true; do
+        header "Entorno Qtile (X11)"
+        echo "  1) Instalar Qtile (X11 + Modesetting Intel DRI3)"
+        echo "  2) Desinstalar Qtile (Limpieza completa X11)"
+        echo "  3) Volver al menú principal"
+        echo ""
+        read -p "Opción [1-3]: " sub_choice < /dev/tty || sub_choice="3"
 
-    case "$sub_choice" in
-        1)
-            [[ $EUID -eq 0 ]] && die "La instalación debe ejecutarse como usuario normal (no root)."
-            step "Iniciando instalación de Qtile (X11)..."
-            bash "$SCRIPT_DIR/qtile/install-qtile-omarchy.sh" || die "Fallo en la instalación de Qtile"
-            ok "Escritorio Qtile (X11) instalado y configurado con éxito"
-            ;;
-        2)
-            [[ $EUID -eq 0 ]] && die "La desinstalación debe ejecutarse como usuario normal (no root)."
-            step "Desinstalando Qtile y paquetes X11..."
-            bash "$SCRIPT_DIR/qtile/uninstall-qtile-omarchy.sh" || die "Fallo al desinstalar Qtile"
-            ok "Qtile y paquetes X11 removidos con éxito"
-            ;;
-        *) return ;;
-    esac
+        case "$sub_choice" in
+            1)
+                if [[ $EUID -eq 0 ]]; then
+                    warn "La instalación debe ejecutarse como usuario normal (no root)."
+                    return 0
+                fi
+                step "Iniciando instalación de Qtile (X11)..."
+                bash "$SCRIPT_DIR/qtile/install-qtile-omarchy.sh" || warn "Fallo en la instalación de Qtile"
+                ok "Escritorio Qtile (X11) instalado y configurado con éxito"
+                ;;
+            2)
+                if [[ $EUID -eq 0 ]]; then
+                    warn "La desinstalación debe ejecutarse como usuario normal (no root)."
+                    return 0
+                fi
+                step "Desinstalando Qtile y paquetes X11..."
+                bash "$SCRIPT_DIR/qtile/uninstall-qtile-omarchy.sh" || warn "Fallo al desinstalar Qtile"
+                ok "Qtile y paquetes X11 removidos con éxito"
+                ;;
+            *) return 0 ;;
+        esac
+    done
 }
 
 # ─── MENÚ PRINCIPAL ───────────────────────────────────────────────────────────
 main() {
-    header "CachyOS Installation Suite"
-    echo -e "${BOLD}Punto de Entrada Único — Estructura Jerárquica Ordenada${NC}\n"
+    while true; do
+        header "CachyOS Installation Suite"
+        echo -e "${BOLD}Punto de Entrada Único — Menú Interactivo${NC}\n"
 
-    echo "  1) Instalación Base del Sistema (Particionado BTRFS / Formateo de Disco)"
-    echo "  2) Entorno de Escritorio: Hyprland (Wayland)"
-    echo "  3) Entorno de Escritorio: Qtile (X11)"
-    echo "  4) Suite de Gaming (Steam, GameMode, MangoHud)"
-    echo "  5) Salir"
-    echo ""
+        echo "  1) Instalación Base del Sistema (Particionado BTRFS / Formateo de Disco)"
+        echo "  2) Entorno de Escritorio: Hyprland (Wayland)"
+        echo "  3) Entorno de Escritorio: Qtile (X11)"
+        echo "  4) Suite de Gaming (Steam, GameMode, MangoHud)"
+        echo "  5) Salir"
+        echo ""
 
-    read -p "Selecciona una opción [1-5]: " main_choice < /dev/tty || main_choice="5"
+        read -p "Selecciona una opción [1-5]: " main_choice < /dev/tty || main_choice="5"
 
-    case "$main_choice" in
-        1) menu_base ;;
-        2) menu_hyprland ;;
-        3) menu_qtile ;;
-        4)
-            [[ $EUID -eq 0 ]] && die "La instalación de gaming debe ejecutarse como usuario normal."
-            step "Instalando herramientas de Gaming..."
-            SKIP_SYSTEM_UPDATE=1 bash "$SCRIPT_DIR/gaming/install-gaming.sh" || die "Fallo en instalador de gaming"
-            ok "Suite de Gaming instalada exitosamente"
-            ;;
-        5|*)
-            echo "Operación finalizada."
-            exit 0
-            ;;
-    esac
+        case "$main_choice" in
+            1) menu_base ;;
+            2) menu_hyprland ;;
+            3) menu_qtile ;;
+            4)
+                if [[ $EUID -eq 0 ]]; then
+                    warn "La instalación de gaming debe ejecutarse como usuario normal."
+                else
+                    step "Instalando herramientas de Gaming..."
+                    SKIP_SYSTEM_UPDATE=1 bash "$SCRIPT_DIR/gaming/install-gaming.sh" || warn "Fallo en instalador de gaming"
+                    ok "Suite de Gaming instalada exitosamente"
+                fi
+                ;;
+            5|*)
+                echo -e "\n${GREEN}Operación finalizada.${NC}"
+                exit 0
+                ;;
+        esac
+    done
 }
 
 main

@@ -216,8 +216,9 @@ check_prereqs() {
 
     if [[ ${#missing[@]} -gt 0 ]]; then
         echo ""
-        warn "Paquetes faltantes: ${missing[*]}"
-        die "Ejecuta install-cachyos-hyprland.sh primero y luego vuelve a correr este script."
+        warn "Paquetes faltantes detectados: ${missing[*]}"
+        info "Instalando automáticamente paquetes faltantes con paru..."
+        paru -S --needed --noconfirm "${missing[@]}" || die "No se pudieron instalar los paquetes faltantes."
     fi
 
     ok "Prerequisitos satisfechos — install-cachyos-hyprland.sh completado"
