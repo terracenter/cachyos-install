@@ -86,7 +86,7 @@ PKGS_HYPRLAND=(
 )
 
 PKGS_BAR=(
-    waybar mako swayosd swaybg quickshell rofi-wayland
+    waybar mako swayosd swaybg rofi-wayland
 )
 
 PKGS_DM=(
@@ -276,7 +276,12 @@ select_file_manager() {
     echo "  1) Thunar (Ligero y rápido — recomendado para entornos livianos)"
     echo "  2) Nautilus (Moderno y estético — nativo de GNOME)"
     echo ""
-    read -p "Opción [1-2] (Por defecto 1): " fm_choice < /dev/tty
+    local fm_choice=""
+    if [[ -e /dev/tty ]]; then
+        read -p "Opción [1-2] (Por defecto 1): " fm_choice < /dev/tty || fm_choice="1"
+    else
+        fm_choice="1"
+    fi
     if [[ "$fm_choice" == "2" ]]; then
         FILE_MANAGER="nautilus"
         PKGS_FILES=(
