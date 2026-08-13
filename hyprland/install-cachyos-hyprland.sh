@@ -543,25 +543,9 @@ SDDM_EOF
     fi
 
     step "Ocultando sesión Hyprland sin UWSM de SDDM..."
-    # NoDisplay=true oculta la entrada en SDDM pero permite que uwsm la lea.
-    # Eliminar el archivo rompe uwsm start, que lo necesita para el entorno.
-    sudo grep -q 'NoDisplay=true' /usr/share/wayland-sessions/hyprland.desktop 2>/dev/null || \
-        sudo sed -i '/^\[Desktop Entry\]/a NoDisplay=true' /usr/share/wayland-sessions/hyprland.desktop
-    sudo mkdir -p /etc/pacman.d/hooks
-    sudo tee /etc/pacman.d/hooks/hyprland-hide-plain-session.hook > /dev/null << 'HOOK_EOF'
-[Trigger]
-Operation = Install
-Operation = Upgrade
-Type = Package
-Target = hyprland
-
-[Action]
-Description = Ocultar sesion Hyprland sin UWSM de SDDM...
-When = PostTransaction
-Exec = /bin/bash -c "grep -q 'NoDisplay=true' /usr/share/wayland-sessions/hyprland.desktop || sed -i '/^\\[Desktop Entry\\]/a NoDisplay=true' /usr/share/wayland-sessions/hyprland.desktop"
-HOOK_EOF
-    ok "Sesión plain 'hyprland.desktop' ocultada con NoDisplay=true"
-    ok "Hook pacman instalado — se re-aplica en cada actualización de hyprland"
+    # NoDisplay=true    # Asegurar que las sesiones de Hyprland estén visibles para SDDM y UWSM
+    sudo sed -i '/NoDisplay=true/d' /usr/share/wayland-sessions/hyprland.desktop 2>/dev/null || true
+    sudo rm -f /etc/pacman.d/hooks/hyprland-hide-plain-session.hook
 
     step "Habilitando servicios de audio..."
     systemctl --user enable --now pipewire.service pipewire-pulse.service wireplumber.service 2>/dev/null || true
