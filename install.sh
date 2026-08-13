@@ -106,7 +106,7 @@ case "$main_choice" in
     4)
         [[ $EUID -eq 0 ]] && die "La desinstalación debe ejecutarse como usuario normal (no root)."
         step "Desinstalando Qtile y paquetes X11..."
-        bash "$SCRIPT_DIR/uninstall-qtile-omarchy.sh" || die "Fallo al desinstalar Qtile"
+        bash "$SCRIPT_DIR/qtile/uninstall-qtile-omarchy.sh" || die "Fallo al desinstalar Qtile"
         ok "Qtile y paquetes X11 removidos con éxito"
         ;;
 
