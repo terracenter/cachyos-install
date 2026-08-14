@@ -2877,15 +2877,19 @@ with open(lua_path) as f:
     content = f.read()
 bin_dir = os.path.expanduser('~/.local/bin')
 block = (
-    '\n-- Referencia de keybindings\n'
+    '\n-- Referencia de keybindings e interacciones de ventanas\n'
     f'hl.bind(mainMod .. " + SLASH", hl.dsp.exec_cmd("{bin_dir}/show-keys"))\n'
+    'hl.bind(mainMod .. " + SHIFT + left",  hl.dsp.window.move({ direction = "left" }))\n'
+    'hl.bind(mainMod .. " + SHIFT + right", hl.dsp.window.move({ direction = "right" }))\n'
+    'hl.bind(mainMod .. " + SHIFT + up",    hl.dsp.window.move({ direction = "up" }))\n'
+    'hl.bind(mainMod .. " + SHIFT + down",  hl.dsp.window.move({ direction = "down" }))\n'
 )
 content += block
 with open(lua_path, 'w') as f:
     f.write(content)
 print('LISTO')
 PYEOF
-        ok "Binding Super+/ añadido a hyprland.lua"
+        ok "Bindings Super+Shift+Flechas añadidos a hyprland.lua"
     fi
 }
 
@@ -3261,24 +3265,24 @@ apply_profile_doble() {
         echo "# Fecha: $(date '+%Y-%m-%d %H:%M')"
         echo ""
         echo "# --- Monitores ---"
-        echo "hyprctl eval \"hl.monitor({output=\\\"HDMI-A-2\\\", mode=\\\"1366x768@60\\\", position=\\\"0x0\\\", scale=\\\"1\\\"})\""
-        echo "hyprctl eval \"hl.monitor({output=\\\"HDMI-A-1\\\", mode=\\\"1920x1080@60\\\", position=\\\"1366x0\\\", scale=\\\"1\\\"})\""
+        echo "hyprctl eval \"hl.monitor({output=\\\"HDMI-A-1\\\", mode=\\\"1920x1080@60\\\", position=\\\"0x0\\\", scale=\\\"1\\\"})\""
+        echo "hyprctl eval \"hl.monitor({output=\\\"HDMI-A-2\\\", mode=\\\"1366x768@60\\\", position=\\\"1920x0\\\", scale=\\\"1\\\"})\""
         echo ""
         echo "# --- Workspaces ---"
         for w in {1..5}; do
             df="false"; [[ "$w" -eq 1 ]] && df="true"
-            echo "hyprctl eval \"hl.workspace_rule({workspace=\\\"$w\\\", monitor=\\\"HDMI-A-2\\\", persistent=true, default=$df})\""
+            echo "hyprctl eval \"hl.workspace_rule({workspace=\\\"$w\\\", monitor=\\\"HDMI-A-1\\\", persistent=true, default=$df})\""
         done
         for w in {6..10}; do
             df="false"; [[ "$w" -eq 6 ]] && df="true"
-            echo "hyprctl eval \"hl.workspace_rule({workspace=\\\"$w\\\", monitor=\\\"HDMI-A-1\\\", persistent=true, default=$df})\""
+            echo "hyprctl eval \"hl.workspace_rule({workspace=\\\"$w\\\", monitor=\\\"HDMI-A-2\\\", persistent=true, default=$df})\""
         done
     } > "$PROFILE_FILE"
     
     chmod +x "$PROFILE_FILE"
     bash "$PROFILE_FILE"
     
-    notify-send "🖥️ Perfil Doble" "Samsung (Izq) + KTC (Principal)\nWorkspaces: 1-5 / 6-10" --urgency=low --expire-time=4000
+    notify-send "🖥️ Perfil Doble" "KTC (Principal 1-5) + Samsung (Secundario 6-10)" --urgency=low --expire-time=4000
 }
 
 apply_profile_unico() {
@@ -3419,7 +3423,7 @@ done
 LISTENER_EOF
 
     # 3. Instalar acceso directo .desktop
-    cat > "$app_dir/hypr-monitor-setup.desktop" << 'DESKTOP_EOF'
+    cat > "$app_dir/hypr-monitor-setup.desktop" << DESKTOP_EOF
 [Desktop Entry]
 Name=Configuración de Monitores
 GenericName=Gestor de Pantallas
