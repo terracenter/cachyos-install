@@ -2915,6 +2915,7 @@ bin_dir = os.path.expanduser('~/.local/bin')
 binds_to_ensure = [
     f'hl.bind(mainMod .. " + SLASH", hl.dsp.exec_cmd("{bin_dir}/show-keys"))',
     f'hl.bind(mainMod .. " + SHIFT + Y", hl.dsp.exec_cmd("{bin_dir}/cycle-window-size"))',
+    'hl.bind(mainMod .. " + SHIFT + R",     hl.dsp.exec_cmd("hyprctl reload"))',
     'hl.bind(mainMod .. " + SHIFT + left",  hl.dsp.window.move({ direction = "left" }))',
     'hl.bind(mainMod .. " + SHIFT + right", hl.dsp.window.move({ direction = "right" }))',
     'hl.bind(mainMod .. " + SHIFT + up",    hl.dsp.window.move({ direction = "up" }))',
