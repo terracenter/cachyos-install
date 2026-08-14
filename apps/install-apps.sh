@@ -74,6 +74,8 @@ PKGS_BROWSERS_AUR=(google-chrome brave-bin opera microsoft-edge-stable-bin)
 
 PKGS_SECURITY_OFFICIAL=(nftables lynis nmap wireshark-qt tcpdump netcat socat)
 
+PKGS_GUIPKG_AUR=(bauh)
+
 # ─── Menú de Selección ────────────────────────────────────────────────────────
 
 main() {
@@ -88,6 +90,7 @@ main() {
     local INSTALL_PRINT=false
     local INSTALL_SYNC=false
     local INSTALL_SECURITY=false
+    local INSTALL_GUIPKG=false
     local INSTALL_BROWSERS=()
 
     confirm "Herramientas de desarrollo (neovim, VSCode, rust, docker, lazygit...)" && INSTALL_DEV=true
@@ -96,6 +99,7 @@ main() {
     confirm "Impresión (CUPS, system-config-printer)"                               && INSTALL_PRINT=true
     confirm "Sincronización en la Nube (Dropbox, Megasync)"                         && INSTALL_SYNC=true
     confirm "Seguridad y Hardening (nftables, lynis, nmap, wireshark, tcpdump, socat)" && INSTALL_SECURITY=true
+    confirm "Gestor de Paquetes Gráfico (Bauh - Tienda de aplicaciones GUI)"        && INSTALL_GUIPKG=true
 
     echo -e "\n${BOLD}Navegadores adicionales:${NC}"
     for b in "${PKGS_BROWSERS_OFFICIAL[@]}" "${PKGS_BROWSERS_AUR[@]}"; do
@@ -108,7 +112,8 @@ main() {
     $INSTALL_OFFICE   && info "✓ Ofimática (LibreOffice, Obsidian, Typora)"
     $INSTALL_PRINT    && info "✓ Impresión (CUPS)"
     $INSTALL_SYNC     && info "✓ Sincronización en la Nube (Dropbox, Megasync)"
-    $INSTALL_SECURITY && info "✓ Seguridad y Hardening (nftables, lynis, nmap, wireshark, tcpdump, socat)"
+    $INSTALL_SECURITY && info "✓ Seguridad y Hardening (nftables, lynis, nmap, wireshark...)"
+    $INSTALL_GUIPKG   && info "✓ Gestor de Paquetes Gráfico (Bauh)"
     [[ ${#INSTALL_BROWSERS[@]} -gt 0 ]] && info "✓ Navegadores: ${INSTALL_BROWSERS[*]}"
 
     confirm "¿Proceder con la instalación de los paquetes seleccionados?" || die "Instalación de aplicaciones cancelada."
@@ -164,6 +169,12 @@ main() {
         else
             info "Security-Manager-NG se integrará cuando finalice su fase de desarrollo"
         fi
+    fi
+
+    if $INSTALL_GUIPKG; then
+        step "Instalando Gestor de Paquetes Gráfico (Bauh)..."
+        paru_install "${PKGS_GUIPKG_AUR[@]}"
+        ok "Bauh (Gestor gráfico de paquetes) instalado exitosamente"
     fi
 
     if [[ ${#INSTALL_BROWSERS[@]} -gt 0 ]]; then
