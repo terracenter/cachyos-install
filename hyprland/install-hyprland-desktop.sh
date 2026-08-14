@@ -550,7 +550,7 @@ WAYBAR_STYLE
     ok "pavucontrol y blueman instalados"
 
     step "Recargando waybar..."
-    pkill -x waybar 2>/dev/null; sleep 0.3 && uwsm app -- waybar &
+    pkill -x waybar 2>/dev/null || true; sleep 0.3 && (uwsm app -- waybar >/dev/null 2>&1 &)
     ok "waybar reiniciado"
 }
 
