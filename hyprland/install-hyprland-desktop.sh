@@ -897,12 +897,9 @@ install_alacritty() {
         ok "tema catppuccin-mocha descargado"
     fi
 
-    # Escribir alacritty.toml (idempotente — no sobreescribe si ya existe)
+    # Escribir alacritty.toml
     local cfg="$HOME/.config/alacritty/alacritty.toml"
-    if [[ -f "$cfg" ]]; then
-        ok "alacritty.toml ya existe — no se sobreescribe"
-    else
-        cat > "$cfg" << 'TOML'
+    cat > "$cfg" << 'TOML'
 [general]
 import = [
     "~/.config/alacritty/themes/catppuccin-mocha.toml",
@@ -926,8 +923,7 @@ style = { shape = "Block", blinking = "On" }
 [scrolling]
 history = 10000
 TOML
-        ok "alacritty.toml creado"
-    fi
+    ok "alacritty.toml actualizado"
 
     # Actualizar hyprland.lua: cambiar terminal de foot a alacritty
     local lua="$HOME/.config/hypr/hyprland.lua"
