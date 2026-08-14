@@ -2867,30 +2867,33 @@ SCRIPT_EOF
     chmod +x "$bin_dir/show-keys"
     ok "show-keys instalado en $bin_dir/show-keys"
 
-    if grep -q "show-keys" "$lua" 2>/dev/null; then
-        ok "Binding Super+/ ya configurado"
-    else
-        python3 << 'PYEOF'
+    python3 << 'PYEOF'
 import sys, os
 lua_path = os.path.expanduser('~/.config/hypr/hyprland.lua')
 with open(lua_path) as f:
     content = f.read()
 bin_dir = os.path.expanduser('~/.local/bin')
-block = (
-    '\n-- Referencia de keybindings e interacciones de ventanas\n'
-    f'hl.bind(mainMod .. " + SLASH", hl.dsp.exec_cmd("{bin_dir}/show-keys"))\n'
-    'hl.bind(mainMod .. " + SHIFT + left",  hl.dsp.window.move({ direction = "left" }))\n'
-    'hl.bind(mainMod .. " + SHIFT + right", hl.dsp.window.move({ direction = "right" }))\n'
-    'hl.bind(mainMod .. " + SHIFT + up",    hl.dsp.window.move({ direction = "up" }))\n'
-    'hl.bind(mainMod .. " + SHIFT + down",  hl.dsp.window.move({ direction = "down" }))\n'
-)
-content += block
-with open(lua_path, 'w') as f:
-    f.write(content)
-print('LISTO')
+
+binds_to_ensure = [
+    f'hl.bind(mainMod .. " + SLASH", hl.dsp.exec_cmd("{bin_dir}/show-keys"))',
+    'hl.bind(mainMod .. " + SHIFT + left",  hl.dsp.window.move({ direction = "left" }))',
+    'hl.bind(mainMod .. " + SHIFT + right", hl.dsp.window.move({ direction = "right" }))',
+    'hl.bind(mainMod .. " + SHIFT + up",    hl.dsp.window.move({ direction = "up" }))',
+    'hl.bind(mainMod .. " + SHIFT + down",  hl.dsp.window.move({ direction = "down" }))',
+]
+
+new_binds = []
+for b in binds_to_ensure:
+    if b not in content:
+        new_binds.append(b)
+
+if new_binds:
+    content += '\n-- Binds adicionales (show-keys + movimiento de ventanas)\n' + '\n'.join(new_binds) + '\n'
+    with open(lua_path, 'w') as f:
+        f.write(content)
+    print('BINDS_ACTUALIZADOS')
 PYEOF
-        ok "Bindings Super+Shift+Flechas añadidos a hyprland.lua"
-    fi
+    ok "Bindings Super+/ y Super+Shift+Flechas garantizados en hyprland.lua"
 }
 
 install_gpu_recorder() {
@@ -3250,46 +3253,41 @@ sleep 1
 monitors_json=$(hyprctl monitors -j 2>/dev/null)
 monitor_count=$(echo "$monitors_json" | jq 'length')
 
-# Detectar pantallas físicas presentes (dinámico si no coincide exactamente con HDMI-A-1)
-if [[ "$monitor_count" -gt 0 ]]; then
-    mon_list=$(echo "$monitors_json" | jq -r '.[].name')
-    has_ktc=$(echo "$monitors_json" | jq -e '.[] | select(.name=="HDMI-A-1")' &>/dev/null && echo "true" || echo "false")
-    has_samsung=$(echo "$monitors_json" | jq -e '.[] | select(.name=="HDMI-A-2")' &>/dev/null && echo "true" || echo "false")
-    has_tv=$(echo "$monitors_json" | jq -e '.[] | select(.name=="DP-2")' &>/dev/null && echo "true" || echo "false")
-fi
+# Detectar pantallas físicas dinámicamente desde Hyprland
+mon_names=($(echo "$monitors_json" | jq -r '.[].name'))
 
 apply_profile_doble() {
+    local primary="${mon_names[0]:-HDMI-A-1}"
+    local secondary="${mon_names[1]:-eDP-1}"
+
     {
         echo '#!/usr/bin/env bash'
-        echo "# Perfil generado automáticamente: Doble Monitor"
+        echo "# Perfil generado automáticamente: Doble Monitor Dinámico"
         echo "# Fecha: $(date '+%Y-%m-%d %H:%M')"
         echo ""
         echo "# --- Monitores ---"
-        echo "hyprctl eval \"hl.monitor({output=\\\"HDMI-A-1\\\", mode=\\\"1920x1080@60\\\", position=\\\"0x0\\\", scale=\\\"1\\\"})\""
-        echo "hyprctl eval \"hl.monitor({output=\\\"HDMI-A-2\\\", mode=\\\"1366x768@60\\\", position=\\\"1920x0\\\", scale=\\\"1\\\"})\""
+        echo "hyprctl eval \"hl.monitor({output=\\\"$primary\\\", mode=\\\"preferred\\\", position=\\\"0x0\\\", scale=\\\"1\\\"})\""
+        echo "hyprctl eval \"hl.monitor({output=\\\"$secondary\\\", mode=\\\"preferred\\\", position=\\\"1920x0\\\", scale=\\\"1\\\"})\""
         echo ""
         echo "# --- Workspaces ---"
         for w in {1..5}; do
             df="false"; [[ "$w" -eq 1 ]] && df="true"
-            echo "hyprctl eval \"hl.workspace_rule({workspace=\\\"$w\\\", monitor=\\\"HDMI-A-1\\\", persistent=true, default=$df})\""
+            echo "hyprctl eval \"hl.workspace_rule({workspace=\\\"$w\\\", monitor=\\\"$primary\\\", persistent=true, default=$df})\""
         done
         for w in {6..10}; do
             df="false"; [[ "$w" -eq 6 ]] && df="true"
-            echo "hyprctl eval \"hl.workspace_rule({workspace=\\\"$w\\\", monitor=\\\"HDMI-A-2\\\", persistent=true, default=$df})\""
+            echo "hyprctl eval \"hl.workspace_rule({workspace=\\\"$w\\\", monitor=\\\"$secondary\\\", persistent=true, default=$df})\""
         done
     } > "$PROFILE_FILE"
     
     chmod +x "$PROFILE_FILE"
     bash "$PROFILE_FILE"
     
-    notify-send "🖥️ Perfil Doble" "KTC (Principal 1-5) + Samsung (Secundario 6-10)" --urgency=low --expire-time=4000
+    notify-send "🖥️ Perfil Doble" "$primary (Principal 1-5) + $secondary (Secundario 6-10)" --urgency=low --expire-time=4000
 }
 
 apply_profile_unico() {
-    local mon_name
-    mon_name=$(echo "$monitors_json" | jq -r '.[0].name // "HDMI-A-1"')
-    local mode
-    mode=$(echo "$monitors_json" | jq -r '.[0].width // 1920' | awk '{w=$1} END {if (w <= 1366) print "1366x768@60"; else print "1920x1080@60"}')
+    local mon_name="${mon_names[0]:-HDMI-A-1}"
     
     {
         echo '#!/usr/bin/env bash'
@@ -3297,7 +3295,7 @@ apply_profile_unico() {
         echo "# Fecha: $(date '+%Y-%m-%d %H:%M')"
         echo ""
         echo "# --- Monitores ---"
-        echo "hyprctl eval \"hl.monitor({output=\\\"$mon_name\\\", mode=\\\"$mode\\\", position=\\\"0x0\\\", scale=\\\"1\\\"})\""
+        echo "hyprctl eval \"hl.monitor({output=\\\"$mon_name\\\", mode=\\\"preferred\\\", position=\\\"0x0\\\", scale=\\\"1\\\"})\""
         echo ""
         echo "# --- Workspaces ---"
         for w in {1..10}; do
@@ -3313,35 +3311,39 @@ apply_profile_unico() {
 }
 
 apply_profile_triple() {
+    local primary="${mon_names[0]:-HDMI-A-1}"
+    local secondary="${mon_names[1]:-HDMI-A-2}"
+    local tertiary="${mon_names[2]:-eDP-1}"
+
     {
         echo '#!/usr/bin/env bash'
-        echo "# Perfil generado automáticamente: Triple Monitor"
+        echo "# Perfil generado automáticamente: Triple Monitor Dinámico"
         echo "# Fecha: $(date '+%Y-%m-%d %H:%M')"
         echo ""
         echo "# --- Monitores ---"
-        echo "hyprctl eval \"hl.monitor({output=\\\"HDMI-A-2\\\", mode=\\\"1366x768@60\\\", position=\\\"0x0\\\", scale=\\\"1\\\"})\""
-        echo "hyprctl eval \"hl.monitor({output=\\\"HDMI-A-1\\\", mode=\\\"1920x1080@60\\\", position=\\\"1366x0\\\", scale=\\\"1\\\"})\""
-        echo "hyprctl eval \"hl.monitor({output=\\\"DP-2\\\", mode=\\\"1920x1080@60\\\", position=\\\"3286x0\\\", scale=\\\"2\\\"})\""
+        echo "hyprctl eval \"hl.monitor({output=\\\"$secondary\\\", mode=\\\"preferred\\\", position=\\\"0x0\\\", scale=\\\"1\\\"})\""
+        echo "hyprctl eval \"hl.monitor({output=\\\"$primary\\\", mode=\\\"preferred\\\", position=\\\"1920x0\\\", scale=\\\"1\\\"})\""
+        echo "hyprctl eval \"hl.monitor({output=\\\"$tertiary\\\", mode=\\\"preferred\\\", position=\\\"3840x0\\\", scale=\\\"1\\\"})\""
         echo ""
         echo "# --- Workspaces ---"
         for w in {1..4}; do
             df="false"; [[ "$w" -eq 1 ]] && df="true"
-            echo "hyprctl eval \"hl.workspace_rule({workspace=\\\"$w\\\", monitor=\\\"HDMI-A-2\\\", persistent=true, default=$df})\""
+            echo "hyprctl eval \"hl.workspace_rule({workspace=\\\"$w\\\", monitor=\\\"$secondary\\\", persistent=true, default=$df})\""
         done
         for w in {5..8}; do
             df="false"; [[ "$w" -eq 5 ]] && df="true"
-            echo "hyprctl eval \"hl.workspace_rule({workspace=\\\"$w\\\", monitor=\\\"HDMI-A-1\\\", persistent=true, default=$df})\""
+            echo "hyprctl eval \"hl.workspace_rule({workspace=\\\"$w\\\", monitor=\\\"$primary\\\", persistent=true, default=$df})\""
         done
         for w in {9..10}; do
             df="false"; [[ "$w" -eq 9 ]] && df="true"
-            echo "hyprctl eval \"hl.workspace_rule({workspace=\\\"$w\\\", monitor=\\\"DP-2\\\", persistent=true, default=$df})\""
+            echo "hyprctl eval \"hl.workspace_rule({workspace=\\\"$w\\\", monitor=\\\"$tertiary\\\", persistent=true, default=$df})\""
         done
     } > "$PROFILE_FILE"
     
     chmod +x "$PROFILE_FILE"
     bash "$PROFILE_FILE"
     
-    notify-send "🖥️ Perfil Triple" "Samsung (Izq) + KTC (Centro) + TV (Der)" --urgency=low --expire-time=4000
+    notify-send "🖥️ Perfil Triple" "$primary + $secondary + $tertiary" --urgency=low --expire-time=4000
 }
 
 if [[ "$1" == "--auto" ]]; then
@@ -3349,9 +3351,9 @@ if [[ "$1" == "--auto" ]]; then
         bash "$PROFILE_FILE"
         exit 0
     fi
-    if [[ "$has_ktc" == "true" && "$has_samsung" == "true" && "$has_tv" == "true" ]]; then
+    if [[ "${#mon_names[@]}" -ge 3 ]]; then
         apply_profile_triple
-    elif [[ "$has_ktc" == "true" && "$has_samsung" == "true" ]]; then
+    elif [[ "${#mon_names[@]}" -eq 2 ]]; then
         apply_profile_doble
     else
         apply_profile_unico
@@ -3359,9 +3361,9 @@ if [[ "$1" == "--auto" ]]; then
     exit 0
 fi
 
-options="1 🖥️  Doble: Samsung (Izq) + KTC (Centro)
-2 🖥️  Único: Monitor Principal
-3 🖥️  Triple: Samsung (Izq) + KTC (Centro) + TV (Der)"
+options="1 🖥️  Doble: Detectar 2 pantallas (${mon_names[0]:-Mon1} + ${mon_names[1]:-Mon2})
+2 🖥️  Único: Monitor Principal (${mon_names[0]:-Mon1})
+3 🖥️  Triple: Detectar 3 pantallas"
 
 ROFI_THEME="$HOME/.config/omarchy/current/rofi.rasi"
 ROFI_CMD=(rofi -dmenu -p "🖥️ Perfil de Monitores" -mesg "Selecciona el perfil de pantallas a aplicar:" -i)
