@@ -2879,13 +2879,13 @@ current_state=$(cat "$state_file" 2>/dev/null || echo "tiling")
 
 case "$current_state" in
     "tiling")
-        hyprctl dispatch setfloating active
-        hyprctl dispatch resizewindowpixel exact 50% 90%,active
+        hyprctl dispatch togglefloating
+        hyprctl dispatch resizeactive 600 400
         hyprctl dispatch centerwindow
         echo "float_width" > "$state_file"
         ;;
     "float_width")
-        hyprctl dispatch resizewindowpixel exact 90% 50%,active
+        hyprctl dispatch resizeactive -200 200
         hyprctl dispatch centerwindow
         echo "float_height" > "$state_file"
         ;;
@@ -2895,7 +2895,7 @@ case "$current_state" in
         ;;
     "maximized")
         hyprctl dispatch fullscreen 0
-        hyprctl dispatch settiled active
+        hyprctl dispatch togglefloating
         echo "tiling" > "$state_file"
         ;;
     *)
