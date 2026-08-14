@@ -205,10 +205,11 @@ main() {
         echo "  2) Entorno de Escritorio: Hyprland (Wayland)"
         echo "  3) Entorno de Escritorio: Qtile (X11)"
         echo "  4) Suite de Gaming (Steam, GameMode, MangoHud)"
-        echo "  5) Salir"
+        echo "  5) Suite de Aplicaciones (Desarrollo, QEMU, Ofimática, Impresión, Sync)"
+        echo "  6) Salir"
         echo ""
 
-        read -p "Selecciona una opción [1-5]: " main_choice < /dev/tty || main_choice="5"
+        read -p "Selecciona una opción [1-6]: " main_choice < /dev/tty || main_choice="6"
 
         case "$main_choice" in
             1) menu_base ;;
@@ -226,7 +227,19 @@ main() {
                     fi
                 fi
                 ;;
-            5|*)
+            5)
+                if [[ $EUID -eq 0 ]]; then
+                    warn "La instalación de aplicaciones debe ejecutarse como usuario normal."
+                else
+                    step "Iniciando Suite de Aplicaciones..."
+                    if bash "$SCRIPT_DIR/apps/install-apps.sh"; then
+                        ok "Aplicaciones instaladas exitosamente"
+                    else
+                        warn "Instalación de aplicaciones cancelada o no completada."
+                    fi
+                fi
+                ;;
+            6|*)
                 echo -e "\n${GREEN}Operación finalizada.${NC}"
                 exit 0
                 ;;
