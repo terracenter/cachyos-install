@@ -209,6 +209,9 @@ check_prereqs() {
     command -v cliphist  >/dev/null || missing+=("cliphist")
     command -v uwsm      >/dev/null || missing+=("uwsm")
     command -v swaybg    >/dev/null || missing+=("swaybg")
+    command -v hypridle   >/dev/null || missing+=("hypridle")
+    command -v hyprlock   >/dev/null || missing+=("hyprlock")
+    command -v hyprsunset >/dev/null || missing+=("hyprsunset")
 
     # Paquetes (no dejan binario en PATH pero son críticos)
     pacman -Q sddm          &>/dev/null || missing+=("sddm")
