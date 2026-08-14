@@ -82,7 +82,7 @@ PKGS_HYPRLAND=(
     hyprland-guiutils hyprland-preview-share-picker
     uwsm xdg-desktop-portal-hyprland xdg-desktop-portal-gtk
     xdg-terminal-exec qt5-wayland wl-clipboard cliphist
-    pipewire pipewire-alsa pipewire-pulse pipewire-jack wireplumber
+    pipewire pipewire-alsa pipewire-pulse jack2 wireplumber
 )
 
 PKGS_BAR=(
