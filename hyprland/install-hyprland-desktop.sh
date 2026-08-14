@@ -2838,6 +2838,8 @@ Super + P                →  Pseudo-tile
 Super + J                →  Cambiar split
 Super + G                →  Agrupar ventanas
 Super + Alt + Tab        →  Siguiente en grupo
+Super + Shift + ← ↑ ↓ →  →  Mover ventana
+Super + Shift + Y        →  Ciclar tamaño de ventana (50% alto ↔ 50% ancho ↔ 100% ↔ mosaico)
 
 ── Foco (Hyprland) ────────────────────────────
 Super + ← ↑ ↓ →          →  Enfocar ventana
@@ -2867,6 +2869,43 @@ SCRIPT_EOF
     chmod +x "$bin_dir/show-keys"
     ok "show-keys instalado en $bin_dir/show-keys"
 
+    # Generar script cycle-window-size para Super+Shift+Y
+    cat > "$bin_dir/cycle-window-size" << 'CYCLE_EOF'
+#!/usr/bin/env bash
+# cycle-window-size — Cicla tamaño de la ventana activa en Hyprland
+# Secuencia: Mosaico → Flotante (50% Ancho) → Flotante (50% Alto) → Maximizado → Mosaico
+
+state_file="$HOME/.cache/hypr-window-cycle-state"
+current_state=$(cat "$state_file" 2>/dev/null || echo "tiling")
+
+case "$current_state" in
+    "tiling")
+        hyprctl dispatch togglefloating
+        hyprctl dispatch resizeactive exact 50% 90%
+        hyprctl dispatch centerwindow
+        echo "float_width" > "$state_file"
+        ;;
+    "float_width")
+        hyprctl dispatch resizeactive exact 90% 50%
+        hyprctl dispatch centerwindow
+        echo "float_height" > "$state_file"
+        ;;
+    "float_height")
+        hyprctl dispatch fullscreen 1
+        echo "maximized" > "$state_file"
+        ;;
+    "maximized")
+        hyprctl dispatch fullscreen 0
+        hyprctl dispatch togglefloating
+        echo "tiling" > "$state_file"
+        ;;
+    *)
+        echo "tiling" > "$state_file"
+        ;;
+esac
+CYCLE_EOF
+    chmod +x "$bin_dir/cycle-window-size"
+
     python3 << 'PYEOF'
 import sys, os
 lua_path = os.path.expanduser('~/.config/hypr/hyprland.lua')
@@ -2876,6 +2915,7 @@ bin_dir = os.path.expanduser('~/.local/bin')
 
 binds_to_ensure = [
     f'hl.bind(mainMod .. " + SLASH", hl.dsp.exec_cmd("{bin_dir}/show-keys"))',
+    f'hl.bind(mainMod .. " + SHIFT + Y", hl.dsp.exec_cmd("{bin_dir}/cycle-window-size"))',
     'hl.bind(mainMod .. " + SHIFT + left",  hl.dsp.window.move({ direction = "left" }))',
     'hl.bind(mainMod .. " + SHIFT + right", hl.dsp.window.move({ direction = "right" }))',
     'hl.bind(mainMod .. " + SHIFT + up",    hl.dsp.window.move({ direction = "up" }))',
@@ -2888,12 +2928,12 @@ for b in binds_to_ensure:
         new_binds.append(b)
 
 if new_binds:
-    content += '\n-- Binds adicionales (show-keys + movimiento de ventanas)\n' + '\n'.join(new_binds) + '\n'
+    content += '\n-- Binds adicionales (show-keys + movimiento de ventanas + cycle Y)\n' + '\n'.join(new_binds) + '\n'
     with open(lua_path, 'w') as f:
         f.write(content)
     print('BINDS_ACTUALIZADOS')
 PYEOF
-    ok "Bindings Super+/ y Super+Shift+Flechas garantizados en hyprland.lua"
+    ok "Bindings Super+Shift+Y, Super+/ y Super+Shift+Flechas garantizados en hyprland.lua"
 }
 
 install_gpu_recorder() {
