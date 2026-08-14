@@ -102,8 +102,11 @@ menu_base() {
     fi
 
     step "Iniciando Instalación Base..."
-    bash "$SCRIPT_DIR/base/install-base.sh" || warn "Fallo o cancelación en la instalación base"
-    ok "Instalación base completada exitosamente. Reinicia el sistema."
+    if bash "$SCRIPT_DIR/base/install-base.sh"; then
+        ok "Instalación base completada exitosamente. Reinicia el sistema."
+    else
+        warn "Instalación base cancelada o no completada."
+    fi
 }
 
 # ─── SUBMENÚ 2: HYPRLAND (WAYLAND) ────────────────────────────────────────────
@@ -125,10 +128,13 @@ menu_hyprland() {
                 prepare_system_and_mirrors
                 step "Iniciando instalación de Hyprland (Wayland)..."
                 if bash "$SCRIPT_DIR/hyprland/install-cachyos-hyprland.sh"; then
-                    SKIP_SYSTEM_UPDATE=1 bash "$SCRIPT_DIR/hyprland/install-hyprland-desktop.sh" || warn "Fallo en configuración de Hyprland"
-                    ok "Escritorio Hyprland instalado y configurado con éxito"
+                    if SKIP_SYSTEM_UPDATE=1 bash "$SCRIPT_DIR/hyprland/install-hyprland-desktop.sh"; then
+                        ok "Escritorio Hyprland instalado y configurado con éxito"
+                    else
+                        warn "Fallo en la configuración de escritorio de Hyprland"
+                    fi
                 else
-                    warn "Instalación de Hyprland cancelada o fallida — se omitió la configuración de escritorio."
+                    warn "Instalación de Hyprland cancelada o no completada."
                 fi
                 ;;
             2)
@@ -137,8 +143,11 @@ menu_hyprland() {
                     return 0
                 fi
                 step "Desinstalando Hyprland..."
-                bash "$SCRIPT_DIR/hyprland/uninstall-hyprland-omarchy.sh" || warn "Fallo en desinstalación de Hyprland"
-                ok "Hyprland desinstalado exitosamente"
+                if bash "$SCRIPT_DIR/hyprland/uninstall-hyprland-omarchy.sh"; then
+                    ok "Hyprland desinstalado exitosamente"
+                else
+                    warn "Desinstalación de Hyprland cancelada o no completada."
+                fi
                 ;;
             *) return 0 ;;
         esac
@@ -163,8 +172,11 @@ menu_qtile() {
                 fi
                 prepare_system_and_mirrors
                 step "Iniciando instalación de Qtile (X11)..."
-                bash "$SCRIPT_DIR/qtile/install-qtile-omarchy.sh" || warn "Fallo en la instalación de Qtile"
-                ok "Escritorio Qtile (X11) instalado y configurado con éxito"
+                if bash "$SCRIPT_DIR/qtile/install-qtile-omarchy.sh"; then
+                    ok "Escritorio Qtile (X11) instalado y configurado con éxito"
+                else
+                    warn "Instalación de Qtile cancelada o no completada."
+                fi
                 ;;
             2)
                 if [[ $EUID -eq 0 ]]; then
@@ -172,8 +184,11 @@ menu_qtile() {
                     return 0
                 fi
                 step "Desinstalando Qtile y paquetes X11..."
-                bash "$SCRIPT_DIR/qtile/uninstall-qtile-omarchy.sh" || warn "Fallo al desinstalar Qtile"
-                ok "Qtile y paquetes X11 removidos con éxito"
+                if bash "$SCRIPT_DIR/qtile/uninstall-qtile-omarchy.sh"; then
+                    ok "Qtile y paquetes X11 removidos con éxito"
+                else
+                    warn "Desinstalación de Qtile cancelada o no completada."
+                fi
                 ;;
             *) return 0 ;;
         esac
@@ -204,8 +219,11 @@ main() {
                     warn "La instalación de gaming debe ejecutarse como usuario normal."
                 else
                     step "Instalando herramientas de Gaming..."
-                    SKIP_SYSTEM_UPDATE=1 bash "$SCRIPT_DIR/gaming/install-gaming.sh" || warn "Fallo en instalador de gaming"
-                    ok "Suite de Gaming instalada exitosamente"
+                    if SKIP_SYSTEM_UPDATE=1 bash "$SCRIPT_DIR/gaming/install-gaming.sh"; then
+                        ok "Suite de Gaming instalada exitosamente"
+                    else
+                        warn "Instalación de gaming cancelada o no completada."
+                    fi
                 fi
                 ;;
             5|*)
