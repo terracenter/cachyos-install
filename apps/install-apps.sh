@@ -72,7 +72,7 @@ PKGS_SYNC_AUR=(dropbox megasync-bin)
 PKGS_BROWSERS_OFFICIAL=(firefox)
 PKGS_BROWSERS_AUR=(google-chrome brave-bin opera microsoft-edge-stable-bin)
 
-PKGS_SECURITY_OFFICIAL=(nftables nmap wireshark-qt tcpdump netcat socat)
+PKGS_SECURITY_OFFICIAL=(nftables lynis nmap wireshark-qt tcpdump netcat socat)
 
 # ─── Menú de Selección ────────────────────────────────────────────────────────
 
@@ -95,7 +95,7 @@ main() {
     confirm "Suite ofimática (LibreOffice, Obsidian, Typora, Evince)"               && INSTALL_OFFICE=true
     confirm "Impresión (CUPS, system-config-printer)"                               && INSTALL_PRINT=true
     confirm "Sincronización en la Nube (Dropbox, Megasync)"                         && INSTALL_SYNC=true
-    confirm "Seguridad y Hardening (nftables, nmap, wireshark, tcpdump, socat)"     && INSTALL_SECURITY=true
+    confirm "Seguridad y Hardening (nftables, lynis, nmap, wireshark, tcpdump, socat)" && INSTALL_SECURITY=true
 
     echo -e "\n${BOLD}Navegadores adicionales:${NC}"
     for b in "${PKGS_BROWSERS_OFFICIAL[@]}" "${PKGS_BROWSERS_AUR[@]}"; do
@@ -108,7 +108,7 @@ main() {
     $INSTALL_OFFICE   && info "✓ Ofimática (LibreOffice, Obsidian, Typora)"
     $INSTALL_PRINT    && info "✓ Impresión (CUPS)"
     $INSTALL_SYNC     && info "✓ Sincronización en la Nube (Dropbox, Megasync)"
-    $INSTALL_SECURITY && info "✓ Seguridad y Hardening (nftables, nmap, wireshark, tcpdump, socat)"
+    $INSTALL_SECURITY && info "✓ Seguridad y Hardening (nftables, lynis, nmap, wireshark, tcpdump, socat)"
     [[ ${#INSTALL_BROWSERS[@]} -gt 0 ]] && info "✓ Navegadores: ${INSTALL_BROWSERS[*]}"
 
     confirm "¿Proceder con la instalación de los paquetes seleccionados?" || die "Instalación de aplicaciones cancelada."
