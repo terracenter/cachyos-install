@@ -2873,20 +2873,19 @@ SCRIPT_EOF
     cat > "$bin_dir/cycle-window-size" << 'CYCLE_EOF'
 #!/usr/bin/env bash
 # cycle-window-size — Cicla tamaño de la ventana activa en Hyprland
-# Secuencia: Mosaico → Flotante (50% Ancho) → Flotante (50% Alto) → Maximizado → Mosaico
 
 state_file="$HOME/.cache/hypr-window-cycle-state"
 current_state=$(cat "$state_file" 2>/dev/null || echo "tiling")
 
 case "$current_state" in
     "tiling")
-        hyprctl dispatch togglefloating
-        hyprctl dispatch resizeactive exact 50% 90%
+        hyprctl dispatch setfloating active
+        hyprctl dispatch resizewindowpixel exact 50% 90%,active
         hyprctl dispatch centerwindow
         echo "float_width" > "$state_file"
         ;;
     "float_width")
-        hyprctl dispatch resizeactive exact 90% 50%
+        hyprctl dispatch resizewindowpixel exact 90% 50%,active
         hyprctl dispatch centerwindow
         echo "float_height" > "$state_file"
         ;;
@@ -2896,7 +2895,7 @@ case "$current_state" in
         ;;
     "maximized")
         hyprctl dispatch fullscreen 0
-        hyprctl dispatch togglefloating
+        hyprctl dispatch settiled active
         echo "tiling" > "$state_file"
         ;;
     *)
