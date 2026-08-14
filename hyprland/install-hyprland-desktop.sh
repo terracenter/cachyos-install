@@ -208,6 +208,7 @@ check_prereqs() {
     command -v mako      >/dev/null || missing+=("mako")
     command -v cliphist  >/dev/null || missing+=("cliphist")
     command -v uwsm      >/dev/null || missing+=("uwsm")
+    command -v swaybg    >/dev/null || missing+=("swaybg")
 
     # Paquetes (no dejan binario en PATH pero son críticos)
     pacman -Q sddm          &>/dev/null || missing+=("sddm")
