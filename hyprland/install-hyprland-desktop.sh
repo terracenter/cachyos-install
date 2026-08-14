@@ -2767,16 +2767,53 @@ install_show_keys() {
     local bin_dir="$HOME/.local/bin"
     mkdir -p "$bin_dir"
 
-    if [[ ! -f "$bin_dir/show-keys" ]]; then
-        cat > "$bin_dir/show-keys" << 'SCRIPT_EOF'
+    # ── show-keys: referencia de keybindings ───────────────────────────────
+    cat > "$bin_dir/show-keys" << 'SCRIPT_EOF'
 #!/usr/bin/env bash
-# Muestra la referencia de keybindings de Hyprland en rofi
-THEME="$HOME/.config/rofi/themes/catppuccin-mocha.rasi"
-ROFI_ARGS=(-dmenu -p "Keybindings" -i -no-show-icons -no-custom -theme-str 'window {width: 55%;}')
+# Muestra la referencia de keybindings de Hyprland o Qtile en rofi
+THEME="$HOME/.config/omarchy/current/rofi.rasi"
+ROFI_ARGS=(-dmenu -p "Atajos" -i -no-show-icons -no-custom -theme-str 'window {width: 55%;}')
 [[ -f "$THEME" ]] && ROFI_ARGS+=(-theme "$THEME")
 
+if pgrep -x qtile >/dev/null; then
 cat <<'EOF' | rofi "${ROFI_ARGS[@]}"
-── Aplicaciones ──────────────────────────────
+── Aplicaciones (Qtile) ───────────────────────
+Super + Q                →  Terminal (alacritty)
+Super + E                →  Archivos (nautilus)
+Super + Space            →  Lanzador (rofi)
+Super + Ctrl + V         →  Portapapeles (greenclip)
+Super + Ctrl + T         →  Monitor (btop)
+Super + Shift + T        →  Selector de tema
+Super + Ctrl + M         →  Configuración de Monitores
+Super + K                →  Distribución de Teclado
+Super + Shift + I        →  Configuración de Energía (idle-settings)
+Super + /                →  Esta ayuda
+
+── Ventanas (Qtile) ───────────────────────────
+Super + Shift + W        →  Cerrar ventana
+Super + T                →  Flotante / tiling
+Super + F                →  Pantalla completa
+Super + Shift + Y        →  Rotar Layouts / Expansión de ventana
+
+── Foco (Qtile) ───────────────────────────────
+Super + ← ↑ ↓ →          →  Enfocar ventana
+Super + Shift + ← ↑ ↓ →  →  Mover ventana
+Super + Ctrl + ← ↑ ↓ →   →  Redimensionar ventana
+
+── Workspaces (Qtile) ─────────────────────────
+Super + 1-9 / 0          →  Ir a workspace
+Super + Shift + 1-9 / 0  →  Mover ventana a workspace
+
+── Sesión (Qtile) ─────────────────────────────
+Super + Ctrl + L         →  Bloquear pantalla (qtile-lock)
+Super + M / Shift + Q    →  Menú de sesión (Salir / Suspender / Apagar)
+
+── Capturas (Qtile) ───────────────────────────
+Super + Print            →  Capturar pantalla interactiva (shutter)
+EOF
+else
+cat <<'EOF' | rofi "${ROFI_ARGS[@]}"
+── Aplicaciones (Hyprland) ────────────────────
 Super + Q                →  Terminal (alacritty)
 Super + E                →  Archivos (nautilus)
 Super + Space            →  Lanzador (rofi)
@@ -2787,9 +2824,11 @@ Super + Ctrl + W         →  WiFi (nmtui)
 Super + Ctrl + T         →  Monitor (btop)
 Super + Ctrl + P         →  Pomodoro
 Super + Shift + T        →  Selector de tema
+Super + Ctrl + M         →  Configuración de Monitores
 Super + /                →  Esta ayuda
-── Ventanas ──────────────────────────────────
-Super + W                →  Cerrar ventana
+
+── Ventanas (Hyprland) ────────────────────────
+Super + Shift + W        →  Cerrar ventana
 Super + T                →  Flotante / tiling
 Super + F                →  Pantalla completa
 Super + Alt + F          →  Maximizar
@@ -2797,10 +2836,12 @@ Super + P                →  Pseudo-tile
 Super + J                →  Cambiar split
 Super + G                →  Agrupar ventanas
 Super + Alt + Tab        →  Siguiente en grupo
-── Foco ──────────────────────────────────────
-Super + ← ↑ ↓ →         →  Enfocar ventana
+
+── Foco (Hyprland) ────────────────────────────
+Super + ← ↑ ↓ →          →  Enfocar ventana
 Alt + Tab                →  Siguiente ventana
-── Workspaces ────────────────────────────────
+
+── Workspaces (Hyprland) ──────────────────────
 Super + 1-9 / 0          →  Ir a workspace
 Super + Shift + 1-9 / 0  →  Mover ventana a workspace
 Super + Tab              →  Workspace siguiente
@@ -2808,24 +2849,21 @@ Super + Shift + Tab      →  Workspace anterior
 Super + Ctrl + Tab       →  Workspace anterior (historial)
 Super + S                →  Scratchpad toggle
 Super + Shift + S        →  Mover a scratchpad
-── Sesión ────────────────────────────────────
-Super + Ctrl + L         →  Bloquear pantalla
-Super + M                →  Salir de Hyprland (con confirmación)
-── Notificaciones ────────────────────────────
-Super + ,                →  Descartar notificación
-Super + Shift + ,        →  Descartar todas
-── Capturas ──────────────────────────────────
+
+── Sesión (Hyprland) ──────────────────────────
+Super + Ctrl + L         →  Bloquear pantalla (hyprlock)
+Super + M                →  Menú de sesión (Salir / Suspender / Apagar)
+
+── Capturas (Hyprland) ────────────────────────
 Print                    →  Área → archivo
 Shift + Print            →  Ventana → archivo
 Alt + Print              →  Pantalla → archivo
 Ctrl + Print             →  Área → portapapeles
 EOF
+fi
 SCRIPT_EOF
-        chmod +x "$bin_dir/show-keys"
-        ok "show-keys instalado en $bin_dir/show-keys"
-    else
-        ok "show-keys ya existe"
-    fi
+    chmod +x "$bin_dir/show-keys"
+    ok "show-keys instalado en $bin_dir/show-keys"
 
     if grep -q "show-keys" "$lua" 2>/dev/null; then
         ok "Binding Super+/ ya configurado"
