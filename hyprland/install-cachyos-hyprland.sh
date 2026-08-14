@@ -119,6 +119,7 @@ PKGS_FONTS=(
 PKGS_THEMES=(
     gnome-themes-extra kvantum-qt5 papirus-icon-theme fontconfig
     catppuccin-gtk-theme-mocha catppuccin-cursors-mocha nwg-look
+    eww dart-sass
 )
 
 PKGS_CAPTURE=(

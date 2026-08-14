@@ -212,6 +212,8 @@ check_prereqs() {
     command -v hypridle   >/dev/null || missing+=("hypridle")
     command -v hyprlock   >/dev/null || missing+=("hyprlock")
     command -v hyprsunset >/dev/null || missing+=("hyprsunset")
+    command -v eww        >/dev/null || missing+=("eww")
+    command -v sass       >/dev/null || missing+=("dart-sass")
 
     # Paquetes (no dejan binario en PATH pero son críticos)
     pacman -Q sddm          &>/dev/null || missing+=("sddm")
