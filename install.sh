@@ -40,6 +40,10 @@ warn() {
     echo -e "${YELLOW}⚠${NC} $1"
 }
 
+info() {
+    echo -e "${CYAN}ℹ${NC} $1"
+}
+
 die() {
     echo -e "\n   ${RED}ERROR${NC}  $1\n" >&2
     exit 1
