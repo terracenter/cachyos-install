@@ -72,6 +72,8 @@ PKGS_SYNC_AUR=(dropbox megasync-bin)
 PKGS_BROWSERS_OFFICIAL=(firefox)
 PKGS_BROWSERS_AUR=(google-chrome brave-bin opera microsoft-edge-stable-bin)
 
+PKGS_SECURITY_OFFICIAL=(nftables nmap wireshark-qt tcpdump netcat socat)
+
 # ─── Menú de Selección ────────────────────────────────────────────────────────
 
 main() {
@@ -85,6 +87,7 @@ main() {
     local INSTALL_OFFICE=false
     local INSTALL_PRINT=false
     local INSTALL_SYNC=false
+    local INSTALL_SECURITY=false
     local INSTALL_BROWSERS=()
 
     confirm "Herramientas de desarrollo (neovim, VSCode, rust, docker, lazygit...)" && INSTALL_DEV=true
@@ -92,6 +95,7 @@ main() {
     confirm "Suite ofimática (LibreOffice, Obsidian, Typora, Evince)"               && INSTALL_OFFICE=true
     confirm "Impresión (CUPS, system-config-printer)"                               && INSTALL_PRINT=true
     confirm "Sincronización en la Nube (Dropbox, Megasync)"                         && INSTALL_SYNC=true
+    confirm "Seguridad y Hardening (nftables, nmap, wireshark, tcpdump, socat)"     && INSTALL_SECURITY=true
 
     echo -e "\n${BOLD}Navegadores adicionales:${NC}"
     for b in "${PKGS_BROWSERS_OFFICIAL[@]}" "${PKGS_BROWSERS_AUR[@]}"; do
@@ -99,11 +103,12 @@ main() {
     done
 
     echo -e "\n${BOLD}Resumen de Selección:${NC}"
-    $INSTALL_DEV    && info "✓ Desarrollo (neovim, VSCode, rust, docker...)"
-    $INSTALL_QEMU   && info "✓ Virtualización QEMU/VMM"
-    $INSTALL_OFFICE && info "✓ Ofimática (LibreOffice, Obsidian, Typora)"
-    $INSTALL_PRINT  && info "✓ Impresión (CUPS)"
-    $INSTALL_SYNC   && info "✓ Sincronización en la Nube (Dropbox, Megasync)"
+    $INSTALL_DEV      && info "✓ Desarrollo (neovim, VSCode, rust, docker...)"
+    $INSTALL_QEMU     && info "✓ Virtualización QEMU/VMM"
+    $INSTALL_OFFICE   && info "✓ Ofimática (LibreOffice, Obsidian, Typora)"
+    $INSTALL_PRINT    && info "✓ Impresión (CUPS)"
+    $INSTALL_SYNC     && info "✓ Sincronización en la Nube (Dropbox, Megasync)"
+    $INSTALL_SECURITY && info "✓ Seguridad y Hardening (nftables, nmap, wireshark, tcpdump, socat)"
     [[ ${#INSTALL_BROWSERS[@]} -gt 0 ]] && info "✓ Navegadores: ${INSTALL_BROWSERS[*]}"
 
     confirm "¿Proceder con la instalación de los paquetes seleccionados?" || die "Instalación de aplicaciones cancelada."
@@ -144,6 +149,21 @@ main() {
         step "Instalando Sincronización en la Nube..."
         paru_install "${PKGS_SYNC_AUR[@]}"
         ok "Dropbox / Megasync instalados"
+    fi
+
+    if $INSTALL_SECURITY; then
+        step "Instalando Suite de Seguridad y Hardening..."
+        paru_install "${PKGS_SECURITY_OFFICIAL[@]}"
+        sudo systemctl enable --now nftables.service 2>/dev/null || true
+        sudo usermod -aG wireshark "$USER" 2>/dev/null || true
+        ok "nftables nativo y herramientas de red/captura instaladas"
+
+        local smng_path="/home/freddy/Workspace/Desarrollo/Security-Manager-NG"
+        if [[ -d "$smng_path" ]]; then
+            info "Security-Manager-NG detectado en $smng_path (en desarrollo activo)"
+        else
+            info "Security-Manager-NG se integrará cuando finalice su fase de desarrollo"
+        fi
     fi
 
     if [[ ${#INSTALL_BROWSERS[@]} -gt 0 ]]; then
