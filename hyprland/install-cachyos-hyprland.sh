@@ -302,40 +302,8 @@ select_file_manager() {
 # ─── 3. Menú de componentes opcionales ───────────────────────────────────────
 
 menu_optional() {
-    header "Componentes opcionales"
-    echo -e "   Responde s/N para cada categoría:\n"
-
-    if confirm "Herramientas de desarrollo (neovim, VSCode, rust, docker, lazygit...)"; then
-        INSTALL_DEV=true
-    fi
-
-    if confirm "Virtualización QEMU/VMM (qemu-full, virt-manager, swtpm)"; then
-        INSTALL_QEMU=true
-    fi
-
-    if confirm "Suite ofimática (LibreOffice, Obsidian, Typora, Evince)"; then
-        INSTALL_OFFICE=true
-    fi
-
-    if confirm "Impresión (CUPS, system-config-printer)"; then
-        INSTALL_PRINT=true
-    fi
-
-    if confirm "Sincronización en la Nube (Dropbox, Megasync)"; then
-        INSTALL_SYNC=true
-    fi
-
-    if confirm "Spotify (cliente de música, AUR)"; then
-        INSTALL_SPOTIFY=true
-    fi
-
-    echo -e "\n${BOLD}   Navegadores a instalar:${NC}"
-
-    confirm "Firefox (oficial)" && INSTALL_BROWSERS+=("firefox")
-    confirm "Google Chrome (AUR)" && INSTALL_BROWSERS+=("google-chrome")
-    confirm "Brave (AUR)" && INSTALL_BROWSERS+=("brave-bin")
-    confirm "Opera (AUR)" && INSTALL_BROWSERS+=("opera")
-    confirm "Microsoft Edge (AUR)" && INSTALL_BROWSERS+=("microsoft-edge-stable-bin")
+    info "Las aplicaciones opcionales (Desarrollo, QEMU, Ofimática, Impresión, Sync, Navegadores) han sido desacopladas."
+    info "Podrás instalarlas de forma modular desde la Opción 5 del menú principal en cualquier momento."
 }
 
 # ─── 4. Resumen y confirmación ────────────────────────────────────────────────
