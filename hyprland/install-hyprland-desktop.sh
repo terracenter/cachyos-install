@@ -294,6 +294,8 @@ with open(lua_path) as f:
 
 new_block = (
     'hl.on("hyprland.start", function()\n'
+    '    hl.exec_cmd("bash ~/.config/hypr/monitor-profile.sh")\n'
+    '    hl.exec_cmd("uwsm app -- ~/.local/bin/hypr-monitor-listener")\n'
     '    hl.exec_cmd("uwsm app -- waybar")\n'
     '    hl.exec_cmd("uwsm app -- hypridle")\n'
     '    hl.exec_cmd("uwsm app -- swaybg -m fill -i ~/.config/omarchy/current/background")\n'
@@ -3244,10 +3246,13 @@ sleep 1
 monitors_json=$(hyprctl monitors -j 2>/dev/null)
 monitor_count=$(echo "$monitors_json" | jq 'length')
 
-# Detectar pantallas físicas presentes
-has_ktc=$(echo "$monitors_json" | jq -e '.[] | select(.name=="HDMI-A-1")' &>/dev/null && echo "true" || echo "false")
-has_samsung=$(echo "$monitors_json" | jq -e '.[] | select(.name=="HDMI-A-2")' &>/dev/null && echo "true" || echo "false")
-has_tv=$(echo "$monitors_json" | jq -e '.[] | select(.name=="DP-2")' &>/dev/null && echo "true" || echo "false")
+# Detectar pantallas físicas presentes (dinámico si no coincide exactamente con HDMI-A-1)
+if [[ "$monitor_count" -gt 0 ]]; then
+    mon_list=$(echo "$monitors_json" | jq -r '.[].name')
+    has_ktc=$(echo "$monitors_json" | jq -e '.[] | select(.name=="HDMI-A-1")' &>/dev/null && echo "true" || echo "false")
+    has_samsung=$(echo "$monitors_json" | jq -e '.[] | select(.name=="HDMI-A-2")' &>/dev/null && echo "true" || echo "false")
+    has_tv=$(echo "$monitors_json" | jq -e '.[] | select(.name=="DP-2")' &>/dev/null && echo "true" || echo "false")
+fi
 
 apply_profile_doble() {
     {
@@ -3277,10 +3282,10 @@ apply_profile_doble() {
 }
 
 apply_profile_unico() {
-    local mon_name="HDMI-A-1"
-    [[ "$has_ktc" == "false" && "$has_samsung" == "true" ]] && mon_name="HDMI-A-2"
-    local mode="1920x1080@60"
-    [[ "$mon_name" == "HDMI-A-2" ]] && mode="1366x768@60"
+    local mon_name
+    mon_name=$(echo "$monitors_json" | jq -r '.[0].name // "HDMI-A-1"')
+    local mode
+    mode=$(echo "$monitors_json" | jq -r '.[0].width // 1920' | awk '{w=$1} END {if (w <= 1366) print "1366x768@60"; else print "1920x1080@60"}')
     
     {
         echo '#!/usr/bin/env bash'
@@ -3336,6 +3341,10 @@ apply_profile_triple() {
 }
 
 if [[ "$1" == "--auto" ]]; then
+    if [[ -f "$PROFILE_FILE" ]]; then
+        bash "$PROFILE_FILE"
+        exit 0
+    fi
     if [[ "$has_ktc" == "true" && "$has_samsung" == "true" && "$has_tv" == "true" ]]; then
         apply_profile_triple
     elif [[ "$has_ktc" == "true" && "$has_samsung" == "true" ]]; then
@@ -3346,25 +3355,15 @@ if [[ "$1" == "--auto" ]]; then
     exit 0
 fi
 
-options=""
-if [[ "$has_ktc" == "true" && "$has_samsung" == "true" && "$has_tv" == "true" ]]; then
-    options="3 🖥️  Triple: Samsung (Izq) + KTC (Centro) + TV (Der)
-1 🖥️  Doble: Samsung (Izq) + KTC (Centro)
-2 🖥️  Único: KTC Principal"
-elif [[ "$has_ktc" == "true" && "$has_samsung" == "true" ]]; then
-    options="1 🖥️  Doble: Samsung (Izq) + KTC (Centro)
-2 🖥️  Único: KTC Principal
+options="1 🖥️  Doble: Samsung (Izq) + KTC (Centro)
+2 🖥️  Único: Monitor Principal
 3 🖥️  Triple: Samsung (Izq) + KTC (Centro) + TV (Der)"
-else
-    options="2 🖥️  Único: KTC Principal
-1 🖥️  Doble: Samsung (Izq) + KTC (Centro)
-3 🖥️  Triple: Samsung (Izq) + KTC (Centro) + TV (Der)"
-fi
 
-choice=$(echo "$options" | rofi -dmenu \
-    -p "🖥️  Perfil de Monitores" \
-    -mesg "Selecciona el perfil de pantallas a aplicar:" \
-    -i -theme-str 'window {width: 600px;} listview {lines: 3;}' 2>/dev/null)
+ROFI_THEME="$HOME/.config/omarchy/current/rofi.rasi"
+ROFI_CMD=(rofi -dmenu -p "🖥️ Perfil de Monitores" -mesg "Selecciona el perfil de pantallas a aplicar:" -i)
+[[ -f "$ROFI_THEME" ]] && ROFI_CMD+=(-theme "$ROFI_THEME")
+
+choice=$(echo "$options" | "${ROFI_CMD[@]}" 2>/dev/null)
 
 [[ -z "$choice" ]] && { echo "[hypr-monitor] Cancelado"; exit 0; }
 
