@@ -469,8 +469,8 @@ WAYBAR_CONFIG
 
     ok "config.jsonc instalado"
 
-    cat > ~/.config/waybar/style.css << 'WAYBAR_STYLE'
-@import "/home/usuario/.config/omarchy/current/waybar-colors.css";
+    cat > ~/.config/waybar/style.css << WAYBAR_STYLE
+@import "$HOME/.config/omarchy/current/waybar-colors.css";
 
 * {
   background-color: @background;
@@ -3385,7 +3385,7 @@ LISTENER_EOF
 Name=Configuración de Monitores
 GenericName=Gestor de Pantallas
 Comment=Configura perfiles de monitores y workspaces de forma rápida
-Exec=/home/usuario/.local/bin/hypr-monitor-setup
+Exec=$HOME/.local/bin/hypr-monitor-setup
 Icon=video-display
 Terminal=false
 Type=Application
