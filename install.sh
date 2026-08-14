@@ -124,9 +124,12 @@ menu_hyprland() {
                 fi
                 prepare_system_and_mirrors
                 step "Iniciando instalación de Hyprland (Wayland)..."
-                bash "$SCRIPT_DIR/hyprland/install-cachyos-hyprland.sh" || warn "Fallo en instalador base de Hyprland"
-                SKIP_SYSTEM_UPDATE=1 bash "$SCRIPT_DIR/hyprland/install-hyprland-desktop.sh" || warn "Fallo en configuración de Hyprland"
-                ok "Escritorio Hyprland instalado y configurado con éxito"
+                if bash "$SCRIPT_DIR/hyprland/install-cachyos-hyprland.sh"; then
+                    SKIP_SYSTEM_UPDATE=1 bash "$SCRIPT_DIR/hyprland/install-hyprland-desktop.sh" || warn "Fallo en configuración de Hyprland"
+                    ok "Escritorio Hyprland instalado y configurado con éxito"
+                else
+                    warn "Instalación de Hyprland cancelada o fallida — se omitió la configuración de escritorio."
+                fi
                 ;;
             2)
                 if [[ $EUID -eq 0 ]]; then
