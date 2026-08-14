@@ -2873,32 +2873,31 @@ SCRIPT_EOF
     cat > "$bin_dir/cycle-window-size" << 'CYCLE_EOF'
 #!/usr/bin/env bash
 # cycle-window-size — Cicla tamaño de la ventana activa en Hyprland
+# IMPORTANTE: usa hyprctl eval (Lua API) — hyprctl dispatch es legacy roto en Lua Hyprland
+# Ciclo: tiling → flotante centrada → maximizada → pantalla completa → tiling
 
 state_file="$HOME/.cache/hypr-window-cycle-state"
 current_state=$(cat "$state_file" 2>/dev/null || echo "tiling")
 
+H() { hyprctl eval "$1" 2>/dev/null; }
+
 case "$current_state" in
     "tiling")
-        hyprctl dispatch togglefloating
-        hyprctl dispatch resizeactive 600 400
-        hyprctl dispatch centerwindow
-        echo "float_width" > "$state_file"
+        H 'hl.dsp.window.float({ action="set", width=900, height=600 })'
+        H 'hl.dsp.window.center()'
+        echo "floating" > "$state_file"
         ;;
-    "float_width")
-        hyprctl dispatch resizeactive -200 200
-        hyprctl dispatch centerwindow
-        echo "float_height" > "$state_file"
-        ;;
-    "float_height")
-        hyprctl dispatch fullscreen 1
+    "floating")
+        H 'hl.dsp.window.float({ action="toggle" })'
+        H 'hl.dsp.window.fullscreen({ mode="maximized" })'
         echo "maximized" > "$state_file"
         ;;
     "maximized")
-        hyprctl dispatch fullscreen 0
-        hyprctl dispatch togglefloating
-        echo "tiling" > "$state_file"
+        H 'hl.dsp.window.fullscreen({ mode="fullscreen" })'
+        echo "fullscreen" > "$state_file"
         ;;
-    *)
+    "fullscreen"|*)
+        H 'hl.dsp.window.fullscreen({ mode="fullscreen" })'
         echo "tiling" > "$state_file"
         ;;
 esac
