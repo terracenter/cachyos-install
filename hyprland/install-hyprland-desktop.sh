@@ -656,6 +656,17 @@ install_swayosd() {
         ok "Bindings de volumen actualizados a swayosd-client"
     fi
 
+    # Migrar binds XF86Audio a hypr-audio-volume (control por app enfocada)
+    # Detecta ventana activa → ajusta volumen SOLO de esa app, no global
+    if grep -q "hypr-audio-volume" "$lua"; then
+        ok "Bindings de volumen por app (hypr-audio-volume) ya configurados"
+    else
+        sed -i 's|hl.dsp.exec_cmd("swayosd-client --output-volume raise"), { locked = true, repeating = true }|hl.dsp.exec_cmd(os.getenv("HOME") .. "/.local/bin/hypr-audio-volume raise"),   { locked = true, repeating = true }|g' "$lua"
+        sed -i 's|hl.dsp.exec_cmd("swayosd-client --output-volume lower"),      { locked = true, repeating = true }|hl.dsp.exec_cmd(os.getenv("HOME") .. "/.local/bin/hypr-audio-volume lower"),   { locked = true, repeating = true }|g' "$lua"
+        sed -i 's|hl.dsp.exec_cmd("swayosd-client --output-volume mute-toggle"),     { locked = true, repeating = true }|hl.dsp.exec_cmd(os.getenv("HOME") .. "/.local/bin/hypr-audio-volume mute-toggle"),   { locked = true, repeating = true }|g' "$lua"
+        ok "Bindings XF86Audio migrados a hypr-audio-volume (control por app)"
+    fi
+
     # Reemplazar bindings de brillo brightnessctl por swayosd-client (idempotente)
     if grep -q 'swayosd-client --brightness' "$lua"; then
         ok "Bindings de brillo con swayosd-client ya configurados"
@@ -1606,24 +1617,56 @@ EOF
     ok "idle-settings.desktop creado en ~/.local/share/applications/"
 }
 
-# ─── wiremix (mixer TUI PipeWire) ─────────────────────────────────────────────
-install_wiremix() {
-    step "Configurando wiremix..."
+# ─── wiremix REMOVIDO ───────────────────────────────────────────────────────────
+# Antes: install_wiremix() instalaba bind Super+Ctrl+A para alacritty -e wiremix
+# Ahora: hypr-audio-setup reemplaza la funcionalidad. Ver install_audio_setup().
 
-    local lua="$HOME/.config/hypr/hyprland.lua"
+# ─── hypr-audio-setup (selección + ruteo por app) + hypr-audio-volume (XF86Audio) ───
+install_audio_setup() {
+    step "Instalando hypr-audio-setup + hypr-audio-volume..."
 
-    if ! pacman -Q wiremix &>/dev/null; then
-        warn "wiremix no instalado — ejecuta: paru -S wiremix"
-        return
+    local bin_dir="$HOME/.local/bin"
+    local app_dir="$HOME/.local/share/applications"
+    local configs_dir="$SCRIPT_DIR/configs"
+    mkdir -p "$bin_dir" "$app_dir"
+
+    # Copiar hypr-audio-setup
+    if [[ -f "$configs_dir/hypr-audio-setup" ]]; then
+        cp "$configs_dir/hypr-audio-setup" "$bin_dir/hypr-audio-setup"
+        chmod +x "$bin_dir/hypr-audio-setup"
+        ok "hypr-audio-setup copiado a $bin_dir"
+    else
+        warn "No se encontró $configs_dir/hypr-audio-setup"
     fi
 
-    if [[ -f "$lua" ]] && grep -q "wiremix" "$lua"; then
-        ok "Keybinding Super+Ctrl+A (wiremix) ya existe"
-    elif [[ -f "$lua" ]]; then
-        sed -i '/exec_cmd("hyprlock")/a hl.bind(mainMod .. " + CTRL + A", hl.dsp.exec_cmd("alacritty -e wiremix"))' "$lua"
-        ok "Keybinding Super+Ctrl+A (wiremix) agregado"
+    # Copiar hypr-audio-volume
+    if [[ -f "$configs_dir/hypr-audio-volume" ]]; then
+        cp "$configs_dir/hypr-audio-volume" "$bin_dir/hypr-audio-volume"
+        chmod +x "$bin_dir/hypr-audio-volume"
+        ok "hypr-audio-volume copiado a $bin_dir"
     else
-        warn "No se encontró $lua — agrega manualmente: hl.bind(mainMod .. \" + CTRL + A\", hl.dsp.exec_cmd(\"alacritty -e wiremix\"))"
+        warn "No se encontró $configs_dir/hypr-audio-volume"
+    fi
+
+    # .desktop para integración en rofi
+    if [[ -f "$configs_dir/hypr-audio-setup.desktop" ]]; then
+        cp "$configs_dir/hypr-audio-setup.desktop" "$app_dir/hypr-audio-setup.desktop"
+        ok "hypr-audio-setup.desktop copiado a $app_dir"
+    else
+        warn "No se encontró $configs_dir/hypr-audio-setup.desktop"
+    fi
+
+    # Keybinding Super+Ctrl+A → hypr-audio-setup (reemplaza el viejo wiremix bind)
+    local lua="$HOME/.config/hypr/hyprland.lua"
+    if [[ -f "$lua" ]]; then
+        if grep -q "hypr-audio-setup" "$lua"; then
+            ok "Bind Super+Ctrl+A (hypr-audio-setup) ya existe"
+        else
+            sed -i '/exec_cmd("hyprlock")/a hl.bind(mainMod .. " + CTRL + A", hl.dsp.exec_cmd(os.getenv("HOME") .. "/.local/bin/hypr-audio-setup"))' "$lua"
+            ok "Bind Super+Ctrl+A (hypr-audio-setup) agregado"
+        fi
+    else
+        warn "No se encontró $lua — agrega manualmente: Super+Ctrl+A → hypr-audio-setup"
     fi
 }
 
@@ -1664,11 +1707,17 @@ if 'cliphist store' not in c and target in c:
 path = '$lua'
 with open(path) as f:
     c = f.read()
-target = 'hl.bind(mainMod .. \" + CTRL + A\", hl.dsp.exec_cmd(\"alacritty -e wiremix\"))'
-repl = target + \"\nhl.bind(mainMod .. \\\" + CTRL + V\\\", hl.dsp.exec_cmd(\\\"bash -c 'cliphist list | rofi -dmenu -p Portapapeles | cliphist decode | wl-copy'\\\"))\"
-if 'cliphist list' not in c and target in c:
+target = 'hl.bind(mainMod .. \" + CTRL + V\", hl.dsp.exec_cmd(\"rofi -modi'))'
+repl = 'hl.bind(mainMod .. \\\" + CTRL + V\\\", hl.dsp.exec_cmd(\\\"bash -c \\\\\\\"cliphist list | rofi -dmenu -p Portapapeles | cliphist decode | wl-copy\\\\\\\"\\\"))'
+if 'cliphist list' not in c and 'cliphist' not in c:
+    # Insertar antes del primer hl.bind (no dependiente de wiremix)
+    lines = c.split('\n')
+    for i, line in enumerate(lines):
+        if 'hl.bind' in line and 'CTRL + V' not in line:
+            lines.insert(i, repl.replace('\\\\\\\"', '\\\\').replace('\\\\', '\\\\\\\\'))
+            break
     with open(path, 'w') as f:
-        f.write(c.replace(target, repl, 1))
+        f.write('\n'.join(lines))
     print('OK')
 "
         ok "Keybinding Super+Ctrl+V (cliphist) agregado"
@@ -1900,7 +1949,6 @@ renames = [
     ('" + V", hl.dsp.window.float({ action = "toggle" })','" + T", hl.dsp.window.float({ action = "toggle" })'),
     ('" + R", hl.dsp.exec_cmd(menu)',                     '" + SPACE", hl.dsp.exec_cmd(menu)'),
     ('" + L", hl.dsp.exec_cmd("hyprlock")',               '" + CTRL + L", hl.dsp.exec_cmd("hyprlock")'),
-    ('" + A", hl.dsp.exec_cmd("alacritty -e wiremix")',   '" + CTRL + A", hl.dsp.exec_cmd("alacritty -e wiremix")'),
 ]
 for old, new in renames:
     if old in content:
@@ -2819,7 +2867,7 @@ cat <<'EOF' | rofi "${ROFI_ARGS[@]}"
 Super + Q                →  Terminal (alacritty)
 Super + E                →  Archivos (nautilus)
 Super + Space            →  Lanzador (rofi)
-Super + Ctrl + A         →  Audio (wiremix)
+Super + Ctrl + A         →  Audio (hypr-audio-setup)
 Super + Ctrl + V         →  Portapapeles (cliphist)
 Super + Ctrl + B         →  Bluetooth (blueman)
 Super + Ctrl + W         →  WiFi (nmtui)
@@ -3752,7 +3800,7 @@ main() {
     install_hyprlock
     install_idle_settings
     install_eww
-    install_wiremix
+    install_audio_setup
     install_mako
     install_rofi
     install_cliphist

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Audio (Hyprland)
+GenericName=Audio Mixer
+Comment=Configura salida, micrófono y ruteo por aplicación
+Exec=/home/freddy/.local/bin/hypr-audio-setup
+Icon=audio-card
+Terminal=false
+Type=Application
+Categories=Audio;Settings;
+Keywords=audio;sound;output;input;mic;speaker;headphone;
+StartupNotify=false

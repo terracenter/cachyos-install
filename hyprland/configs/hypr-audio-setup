@@ -1,0 +1,250 @@
+#!/usr/bin/env bash
+# hypr-audio-setup — Configuración de audio dinámica para Hyprland
+# Menú rofi con: salida default, entrada (mic) default, ruteo por app
+# Detecta todos los sinks/sources disponibles dinámicamente (Intel, USB, BT)
+# Persistencia en ~/.config/hypr/audio_preference
+
+PREF_FILE="$HOME/.config/hypr/audio_preference"
+THEME="$HOME/.config/omarchy/current/rofi.rasi"
+
+for dep in pactl rofi notify-send awk jq; do
+    command -v "$dep" &>/dev/null || { echo "[hypr-audio] ERROR: '$dep' no encontrado" >&2; exit 1; }
+done
+
+mkdir -p "$(dirname "$PREF_FILE")"
+
+rofi_run() {
+    local prompt="$1"
+    local mesg="$2"
+    local lines="$3"
+    shift 3
+    local input="$@"
+    local cmd=(rofi -dmenu -p "$prompt" -mesg "$mesg" -i -theme-str "window {width: 700px;} listview {lines: $lines;}")
+    [[ -f "$THEME" ]] && cmd+=(-theme "$THEME")
+    echo "$input" | "${cmd[@]}" 2>/dev/null
+}
+
+list_sinks() {
+    pactl list sinks short | awk '{
+        id=$1; name=$2; state=$NF;
+        printf "%s\t%s\t%s\n", id, name, state
+    }'
+}
+
+list_sources() {
+    pactl list sources short | awk '{
+        id=$1; name=$2; state=$NF;
+        if (name ~ /\.monitor$/) next
+        printf "%s\t%s\t%s\n", id, name, state
+    }'
+}
+
+list_sink_inputs() {
+    pactl list sink-inputs 2>/dev/null | awk '
+        /^Sink Input #/ { id=$3; next }
+        /application.process.binary = / {
+            binary=$0; sub(/.*= "/, "", binary); sub(/".*/, "", binary);
+            print id "\t" binary
+        }
+    '
+}
+
+list_sink_inputs_full() {
+    pactl list sink-inputs 2>/dev/null | awk '
+        /^Sink Input #/ {
+            id=$0; gsub(/^Sink Input #/, "", id); gsub(/[^0-9]/, "", id);
+            app_name=""; binary=""; next
+        }
+        /application.name = / { app_name=$0; sub(/.*= "/, "", app_name); sub(/".*/, "", app_name) }
+        /application.process.binary = / { binary=$0; sub(/.*= "/, "", binary); sub(/".*/, "", binary);
+            print id "\t" (app_name ? app_name : binary) "\t" binary
+        }
+    '
+}
+
+describe_sink() {
+    local name="$1"
+    case "$name" in
+        *HDMI1*|*HDMI\ 1*) echo "󰽟 HDMI 1" ;;
+        *HDMI2*|*HDMI\ 2*) echo "󰽟 HDMI 2" ;;
+        *HDMI3*|*HDMI\ 3*) echo "󰽟 HDMI 3" ;;
+        *Headphones*) echo "󰋋 Auriculares (Jack)" ;;
+        *Speaker*) echo "󰓃 Altavoces" ;;
+        *USB*|*usb-*) echo " USB Audio" ;;
+        *Bluez*|*bluez*) echo " Bluetooth" ;;
+        *) echo "$name" | awk -F'.' '{print toupper(substr($NF,1,1)) substr($NF,2)}' ;;
+    esac
+}
+
+describe_source() {
+    local name="$1"
+    case "$name" in
+        *Mic1*) echo " Micrófono Integrado 1" ;;
+        *Mic2*) echo " Micrófono Integrado 2" ;;
+        *USB*|*usb-*) echo " Micrófono USB" ;;
+        *Bluez*|*bluez*) echo " Micrófono Bluetooth" ;;
+        *) echo "$name" | awk -F'.' '{print toupper(substr($NF,1,1)) substr($NF,2)}' ;;
+    esac
+}
+
+get_app_name() {
+    local binary="$1"
+    echo "$binary" | sed 's/\..*//' | tr '[:lower:]' '[:upper:]'
+}
+
+default_sink_name() {
+    pactl get-default-sink 2>/dev/null
+}
+
+default_source_name() {
+    pactl get-default-source 2>/dev/null
+}
+
+save_pref() {
+    cat > "$PREF_FILE" << EOF
+default_sink="$(default_sink_name)"
+default_source="$(default_source_name)"
+EOF
+}
+
+restore_pref() {
+    [[ -f "$PREF_FILE" ]] || return 0
+    source "$PREF_FILE"
+    [[ -n "$default_sink" ]] && pactl set-default-sink "$default_sink" 2>/dev/null
+    [[ -n "$default_source" ]] && pactl set-default-source "$default_source" 2>/dev/null
+}
+
+select_default_sink() {
+    local current=$(default_sink_name)
+    local options=""
+    declare -A sink_map
+
+    while IFS=$'\t' read -r id name state; do
+        local desc=$(describe_sink "$name")
+        local marker="  "
+        [[ "$name" == "$current" ]] && marker="● "
+        local line="${marker}${desc}  [${state}]"
+        options+="$line"$'\n'
+        sink_map["$line"]="$name"
+    done < <(list_sinks)
+
+    [[ -z "$options" ]] && { notify-send "Audio" "No hay sinks disponibles" --urgency=critical; return 1; }
+
+    local choice=$(rofi_run "🔊 Salida de Audio" "Elige el sink por defecto. ● = activo" 8 "$options")
+    [[ -z "$choice" ]] && return 0
+
+    local selected="${sink_map[$choice]}"
+    [[ -z "$selected" ]] && return 1
+
+    pactl set-default-sink "$selected"
+
+    while IFS= read -r input_id; do
+        [[ -n "$input_id" ]] && pactl move-sink-input "$input_id" "$selected" 2>/dev/null
+    done < <(pactl list sink-inputs short 2>/dev/null | awk '{print $1}')
+
+    save_pref
+    notify-send "🔊 Salida de Audio" "Cambiado a:\n$(describe_sink "$selected")"
+}
+
+select_default_source() {
+    local current=$(default_source_name)
+    local options=""
+    declare -A src_map
+
+    while IFS=$'\t' read -r id name state; do
+        local desc=$(describe_source "$name")
+        local marker="  "
+        [[ "$name" == "$current" ]] && marker="● "
+        local line="${marker}${desc}  [${state}]"
+        options+="$line"$'\n'
+        src_map["$line"]="$name"
+    done < <(list_sources)
+
+    [[ -z "$options" ]] && { notify-send "Audio" "No hay micrófonos disponibles" --urgency=critical; return 1; }
+
+    local choice=$(rofi_run "🎤 Entrada de Audio" "Elige el micrófono por defecto. ● = activo" 8 "$options")
+    [[ -z "$choice" ]] && return 0
+
+    local selected="${src_map[$choice]}"
+    [[ -z "$selected" ]] && return 1
+
+    pactl set-default-source "$selected"
+
+    while IFS= read -r input_id; do
+        [[ -n "$input_id" ]] && pactl move-source-output "$input_id" "$selected" 2>/dev/null
+    done < <(pactl list source-outputs short 2>/dev/null | awk '{print $1}')
+
+    save_pref
+    notify-send "🎤 Entrada de Audio" "Cambiado a:\n$(describe_source "$selected")"
+}
+
+routing_per_app() {
+    declare -A app_map
+    local options=""
+    declare -A sink_for_input
+
+    while IFS=$'\t' read -r input_id app_name binary; do
+        local sink_id=$(pactl list sink-inputs short 2>/dev/null | awk -v i="$input_id" '$1==i{print $2}')
+        local sink_name=""
+        [[ -n "$sink_id" ]] && sink_name=$(pactl list sinks short 2>/dev/null | awk -v i="$sink_id" '$1==i{print $2}')
+        sink_for_input["$input_id"]="$sink_name"
+
+        local sink_desc=$(describe_sink "$sink_name")
+        local line="${app_name}  →  ${sink_desc}"
+        options+="$line"$'\n'
+        app_map["$line"]="$input_id"
+    done < <(list_sink_inputs_full)
+
+    [[ -z "$options" ]] && { notify-send "🔀 Ruteo por App" "No hay apps con audio configurado" --urgency=low; return 0; }
+
+    local choice=$(rofi_run "🔀 Ruteo por App" "Elige la app a re-rutear. apps pausadas también aparecen" 10 "$options")
+    [[ -z "$choice" ]] && return 0
+
+    local input_id="${app_map[$choice]}"
+    [[ -z "$input_id" ]] && return 1
+
+    local current_sink_name="${sink_for_input[$input_id]}"
+    local sink_options=""
+    declare -A sink_map2
+
+    while IFS=$'\t' read -r id name state; do
+        local desc=$(describe_sink "$name")
+        local marker="  "
+        [[ "$name" == "$current_sink_name" ]] && marker="● "
+        local line="${marker}${desc}"
+        sink_options+="$line"$'\n'
+        sink_map2["$line"]="$name"
+    done < <(list_sinks)
+
+    local sink_choice=$(rofi_run "🔀 Destino" "Mover app a:" 8 "$sink_options")
+    [[ -z "$sink_choice" ]] && return 0
+
+    local target_sink="${sink_map2[$sink_choice]}"
+    [[ -z "$target_sink" ]] && return 1
+
+    pactl move-sink-input "$input_id" "$target_sink"
+    notify-send "🔀 Ruteo" "App movida a:\n$(describe_sink "$target_sink")"
+}
+
+main() {
+    local options="1  🔊 Salida (default sink)
+2  🎤 Entrada (micrófono)
+3  🔀 Ruteo por app"
+
+    local choice=$(rofi_run "🔊 Audio — Hyprland" "Selecciona:" 3 "$options")
+    [[ -z "$choice" ]] && exit 0
+
+    case "$choice" in
+        *Salida*) select_default_sink ;;
+        *Entrada*) select_default_source ;;
+        *Ruteo*)  routing_per_app ;;
+    esac
+}
+
+case "$1" in
+    --restore) restore_pref; exit 0 ;;
+    --list-sinks) list_sinks; exit 0 ;;
+    --list-sources) list_sources; exit 0 ;;
+esac
+
+main

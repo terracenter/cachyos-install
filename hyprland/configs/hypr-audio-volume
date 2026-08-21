@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+# hypr-audio-volume — Control de volumen por app enfocada (Hyprland)
+# Uso: hypr-audio-volume raise | lower | mute-toggle [paso]
+
+ACTION="${1:-raise}"
+STEP="${2:-5%}"
+
+for dep in jq pactl hyprctl; do
+    command -v "$dep" &>/dev/null || { echo "[hypr-audio-volume] ERROR: '$dep' no encontrado" >&2; exit 1; }
+done
+
+ACTIVE_PID="${ACTIVE_PID_OVERRIDE:-$(hyprctl activewindow -j 2>/dev/null | jq -r '.pid // empty')}"
+
+if [[ -z "$ACTIVE_PID" ]]; then
+    swayosd-client --output-volume "$ACTION" 2>/dev/null
+    exit 0
+fi
+
+# Parsear sink-inputs: emitir el primer bloque donde process.id == ACTIVE_PID
+INPUT_DATA=$(pactl list sink-inputs 2>/dev/null | awk -v tp="$ACTIVE_PID" '
+    function try_emit(    ) {
+        if (match_flag && sink_id != "") {
+            print sink_id "|" app_name "|" vol_line
+            exit
+        }
+    }
+    /^Sink Input #[0-9]+/ {
+        try_emit()
+        match_flag = 0
+        sink_id = $NF
+        sub(/^#/, "", sink_id)
+        app_name = ""
+        vol_line = ""
+        in_block = 1
+        next
+    }
+    in_block && /^[[:space:]]*application\.process\.id[[:space:]]*=/ {
+        if (index($0, "\"" tp "\"") > 0) match_flag = 1
+    }
+    in_block && /^[[:space:]]*application\.name[[:space:]]*=/ {
+        ln = $0; sub(/.*= "/, "", ln); sub(/".*/, "", ln); app_name = ln
+    }
+    in_block && /^[[:space:]]*application\.process\.binary[[:space:]]*=/ {
+        ln = $0; sub(/.*= "/, "", ln); sub(/".*/, "", ln)
+        if (app_name == "") app_name = ln
+    }
+    in_block && /^[[:space:]]*Volume:/ && match_flag {
+        vol_line = $0
+        try_emit()
+    }
+    /^$/ { in_block = 0 }
+    END { try_emit() }
+')
+
+INPUT_ID=""
+APP_NAME=""
+VOL_RAW=""
+
+if [[ -n "$INPUT_DATA" ]]; then
+    INPUT_ID=$(echo "$INPUT_DATA" | cut -d'|' -f1)
+    APP_NAME=$(echo "$INPUT_DATA" | cut -d'|' -f2)
+    VOL_RAW=$(echo "$INPUT_DATA" | cut -d'|' -f3-)
+fi
+
+if [[ -z "$INPUT_ID" ]]; then
+    swayosd-client --output-volume "$ACTION" 2>/dev/null
+    notify-send "🔊 Volumen" "App sin audio. Sistema ajustado." --urgency=low --expire-time=2000
+    exit 0
+fi
+
+case "$ACTION" in
+    raise)      pactl set-sink-input-volume "$INPUT_ID" "+${STEP}" ;;
+    lower)      pactl set-sink-input-volume "$INPUT_ID" "-${STEP}" ;;
+    mute-toggle) pactl set-sink-input-mute "$INPUT_ID" toggle ;;
+esac
+
+if [[ -n "$VOL_RAW" ]]; then
+    PCT=$(echo "$VOL_RAW" | grep -oP 'front-left:\s*\K\d+/\d+' | head -1 | awk -F'/' '{
+        if ($2 > 0) { p = int($1 * 100 / $2); if (p > 100) p = 100; if (p < 0) p = 0; print p }
+        else print 0
+    }')
+    if [[ -n "$PCT" ]]; then
+        swayosd-client --output-volume "${PCT}%" 2>/dev/null
+    fi
+fi
+
+notify-send "🔊 $APP_NAME" "$ACTION" --urgency=low --expire-time=1500
