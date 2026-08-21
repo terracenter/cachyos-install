@@ -3278,8 +3278,7 @@ install_monitor_setup() {
     cat > "$bin_dir/hypr-monitor-setup" << 'SETUP_EOF'
 #!/usr/bin/env bash
 # hypr-monitor-setup — Configuración de monitores tipo ARandR para Hyprland
-# Uso: Super+Ctrl+M (interactivo) o llamado con --auto por el listener
-# Requiere: jq, rofi, hyprctl, notify-send, awk
+# v3.0 — Aplica cambios incrementalmente con hyprctl
 
 PROFILE_FILE="$HOME/.config/hypr/monitor-profile.sh"
 
@@ -3291,43 +3290,90 @@ get_monitors() {
     hyprctl monitors -j 2>/dev/null | jq -r '.[].name'
 }
 
-get_resolution() {
+get_mon_field() {
     local mon="$1"
-    hyprctl monitors -j 2>/dev/null | jq -r ".[] | select(.name == \"$mon\") | .width // 1920"
+    local field="$2"
+    hyprctl monitors -j 2>/dev/null | jq -r ".[] | select(.name == \"$mon\") | .${field} // empty"
+}
+
+apply_set() {
+    local mon="$1"
+    local pos="$2"
+    hyprctl eval "hl.monitor({output=\"$mon\", mode=\"preferred\", position=\"$pos\", scale=\"1\"})" >/dev/null
+}
+
+apply_off() {
+    local mon="$1"
+    hyprctl eval "hl.monitor({output=\"$mon\", mode=\"preferred\", position=\"0x0\", scale=\"1\", disable=\"true\"})" >/dev/null
 }
 
 apply_config() {
     local config="$1"
     local primary="$2"
 
+    # Fase 1: Aplicar primarias (position 0x0)
+    echo "$config" | while IFS='|' read -r mon pos ref; do
+        [[ -z "$mon" ]] && continue
+        if [[ "$pos" == "primary" ]]; then
+            apply_set "$mon" "0x0"
+        fi
+    done
+
+    sleep 0.3
+
+    # Fase 2: Aplicar relativos leyendo posición actual
+    echo "$config" | while IFS='|' read -r mon pos ref; do
+        [[ -z "$mon" ]] && continue
+        case "$pos" in
+            primary|off)
+                ;;
+            left-of|right-of|above|below)
+                local ref_x=$(get_mon_field "$ref" "x")
+                local ref_y=$(get_mon_field "$ref" "y")
+                local ref_w=$(get_mon_field "$ref" "width")
+                local ref_h=$(get_mon_field "$ref" "height")
+                [[ -z "$ref_x" ]] && ref_x=0
+                [[ -z "$ref_y" ]] && ref_y=0
+                [[ -z "$ref_w" ]] && ref_w=1920
+                [[ -z "$ref_h" ]] && ref_h=1080
+
+                local pos_x=$ref_x
+                local pos_y=$ref_y
+
+                case "$pos" in
+                    left-of)  pos_x=$((ref_x - ref_w)) ;;
+                    right-of) pos_x=$((ref_x + ref_w)) ;;
+                    above)    pos_y=$((ref_y - ref_h)) ;;
+                    below)    pos_y=$((ref_y + ref_h)) ;;
+                esac
+
+                apply_set "$mon" "${pos_x}x${pos_y}"
+                ;;
+            off)
+                apply_off "$mon"
+                ;;
+        esac
+    done
+
+    sleep 0.3
+
+    # Guardar perfil (generado desde estado actual para referencia futura)
     {
         echo '#!/usr/bin/env bash'
-        echo "# Perfil ARandR generado: $(date '+%Y-%m-%d %H:%M')"
+        echo "# Perfil generado: $(date '+%Y-%m-%d %H:%M')"
         echo ""
-        while IFS='|' read -r mon pos ref x y; do
-            [[ -z "$mon" ]] && continue
-            case "$pos" in
-                primary)
-                    echo "hyprctl eval \"hl.monitor({output=\\\"$mon\\\", mode=\\\"preferred\\\", position=\\\"0x0\\\", scale=\\\"1\\\"})\""
-                    ;;
-                left-of)
-                    echo "hyprctl eval \"hl.monitor({output=\\\"$mon\\\", mode=\\\"preferred\\\", position=\\\"$(($x - $(get_resolution "$ref")))x$((y))\\\", scale=\\\"1\\\"})\""
-                    ;;
-                right-of)
-                    local ref_w=$(get_resolution "$ref")
-                    echo "hyprctl eval \"hl.monitor({output=\\\"$mon\\\", mode=\\\"preferred\\\", position=\\\"$((x + ref_w))x$y\\\", scale=\\\"1\\\"})\""
-                    ;;
-                above)
-                    echo "hyprctl eval \"hl.monitor({output=\\\"$mon\\\", mode=\\\"preferred\\\", position=\\\"${x}x$((y - 1080))\\\", scale=\\\"1\\\"})\""
-                    ;;
-                below)
-                    echo "hyprctl eval \"hl.monitor({output=\\\"$mon\\\", mode=\\\"preferred\\\", position=\\\"${x}x$((y + 1080))\\\", scale=\\\"1\\\"})\""
-                    ;;
-                off)
-                    echo "hyprctl keyword monitor $mon disable"
-                    ;;
-            esac
-        done <<< "$config"
+        while IFS= read -r line; do
+            [[ -z "$line" ]] && continue
+            local m=$(echo "$line" | jq -r '.name')
+            local x=$(echo "$line" | jq -r '.x')
+            local y=$(echo "$line" | jq -r '.y')
+            local dis=$(echo "$line" | jq -r '.disabled')
+            if [[ "$dis" == "true" ]]; then
+                echo "hyprctl eval \"hl.monitor({output=\\\"$m\\\", mode=\\\"preferred\\\", position=\\\"0x0\\\", scale=\\\"1\\\", disable=\\\"true\\\"})\""
+            else
+                echo "hyprctl eval \"hl.monitor({output=\\\"$m\\\", mode=\\\"preferred\\\", position=\\\"${x}x${y}\\\", scale=\\\"1\\\"})\""
+            fi
+        done < <(hyprctl monitors -j 2>/dev/null | jq -c '.[]')
 
         echo ""
         echo "# Workspaces para $primary"
@@ -3336,167 +3382,145 @@ apply_config() {
             echo "hyprctl eval \"hl.workspace_rule({workspace=\\\"$w\\\", monitor=\\\"$primary\\\", persistent=true, default=$df})\""
         done
     } > "$PROFILE_FILE"
-
     chmod +x "$PROFILE_FILE"
-    bash "$PROFILE_FILE"
 
-    local count=$(echo "$config" | grep -c '|')
-    notify-send "🖥️  Configuración Applied" "$count monitor(es) configurado(s)" --urgency=low --expire-time=4000
+    # Notificación con estado actual
+    local summary=""
+    while IFS= read -r line; do
+        [[ -z "$line" ]] && continue
+        local m=$(echo "$line" | jq -r '.name')
+        local x=$(echo "$line" | jq -r '.x')
+        local y=$(echo "$line" | jq -r '.y')
+        local w=$(echo "$line" | jq -r '.width')
+        local dis=$(echo "$line" | jq -r '.disabled')
+        if [[ "$dis" == "true" ]]; then
+            summary+="  $m: OFF\n"
+        else
+            summary+="  $m: ${w}px @ ${x}x${y}\n"
+        fi
+    done < <(hyprctl monitors -j 2>/dev/null | jq -c '.[]')
+
+    notify-send "🖥️  Monitores Configurados" "$summary" --urgency=low --expire-time=5000
 }
 
-build_main_menu() {
+select_monitor() {
+    local prompt="$1"
+    local mesg="$2"
+    shift; shift
     local monitors=("$@")
-    local count=${#monitors[@]}
     local options=""
     local idx=1
-
     for mon in "${monitors[@]}"; do
         options+="$idx 🖥️  $mon\n"
         ((idx++))
     done
-    options+="$idx ⚡ Auto (encadenar der)\n"
-    ((idx++))
-    options+="$idx 🎯 Manual (posicionar)"
-
-    echo -e "$options"
-    echo "$count"
+    local choice=$(echo -e "$options" | rofi -dmenu \
+        -p "$prompt" \
+        -mesg "$mesg" \
+        -i -theme-str "window {width: 450px;} listview {lines: ${#monitors[@]};}" 2>/dev/null)
+    [[ -z "$choice" ]] && { echo "CANCEL"; return; }
+    local sel_idx=$(echo "$choice" | awk '{print $1}')
+    echo "${monitors[$((sel_idx-1))]}"
 }
 
-step_select_primary() {
-    local monitors=("$@")
-    local count=${#monitors[@]}
+select_position() {
+    local sel_mon="$1"
+    shift
+    local configured=("$@")
+    local ref_count=${#configured[@]}
+    local options=""
+    local idx=1
+    for ref in "${configured[@]}"; do
+        options+="$idx ← $ref\n"; ((idx++))
+    done
+    for ref in "${configured[@]}"; do
+        options+="$idx → $ref\n"; ((idx++))
+    done
+    for ref in "${configured[@]}"; do
+        options+="$idx ↑ $ref\n"; ((idx++))
+    done
+    for ref in "${configured[@]}"; do
+        options+="$idx ↓ $ref\n"; ((idx++))
+    done
+    options+="$idx ⏻ Apagar $sel_mon"
 
-    if [[ $count -eq 1 ]]; then
-        echo "${monitors[0]}|primary|0|0"
+    local choice=$(echo -e "$options" | rofi -dmenu \
+        -p "📍 Posición de $sel_mon" \
+        -mesg "Referencia: ${configured[*]}" \
+        -i -theme-str "window {width: 450px;} listview {lines: $((ref_count * 4 + 1));}" 2>/dev/null)
+
+    [[ -z "$choice" ]] && { echo "CANCEL"; return; }
+    local sel_idx=$(echo "$choice" | awk '{print $1}')
+    local last_idx=$((ref_count * 4 + 1))
+
+    if [[ $sel_idx -eq $last_idx ]]; then
+        echo "off|NONE"
         return
     fi
 
-    local options=""
-    local idx=1
-    for mon in "${monitors[@]}"; do
-        options+="$idx 🖥️  $mon\n"
-        ((idx++))
-    done
+    local ref_pos=$(( (sel_idx - 1) / ref_count ))
+    local ref_mon_idx=$(( (sel_idx - 1) % ref_count ))
+    local ref_mon="${configured[$ref_mon_idx]}"
 
-    local choice=$(echo -e "$options" | rofi -dmenu \
-        -p "🖥️  Monitor Principal" \
-        -mesg "Selecciona el monitor principal:" \
-        -i -theme-str "window {width: 400px;} listview {lines: $count;}" 2>/dev/null)
-
-    [[ -z "$choice" ]] && exit 0
-
-    local sel_idx=$(echo "$choice" | awk '{print $1}')
-    ((sel_idx--))
-    echo "${monitors[$sel_idx]}|primary|0|0"
+    case $ref_pos in
+        0) echo "left-of|$ref_mon" ;;
+        1) echo "right-of|$ref_mon" ;;
+        2) echo "above|$ref_mon" ;;
+        3) echo "below|$ref_mon" ;;
+    esac
 }
 
-step_position_monitors() {
-    local config="$1"
-    shift
-    local remaining=("$@")
-    local configured=()
-    local positions=()
+do_manual() {
+    local monitors=("$@")
 
-    while IFS='|' read -r mon pos x y; do
-        [[ -z "$mon" ]] && continue
-        configured+=("$mon")
-        positions+=("$x|$y")
-    done <<< "$config"
+    local primary=$(select_monitor "🖥️  Monitor Principal" "Selecciona cuál será el principal:" "${monitors[@]}")
+    [[ -z "$primary" || "$primary" == "CANCEL" ]] && exit 0
+
+    local configured=("$primary")
+    local remaining=()
+    for mon in "${monitors[@]}"; do
+        [[ "$mon" != "$primary" ]] && remaining+=("$mon")
+    done
+
+    local config="${primary}|primary|NONE"
 
     while [[ ${#remaining[@]} -gt 0 ]]; do
-        local options=""
-        local idx=1
-        for mon in "${remaining[@]}"; do
-            options+="$idx 🖥️  $mon\n"
-            ((idx++))
-        done
-        options+="$idx ↩️  Terminar"
+        local sel_mon=$(select_monitor "🖥️  Posicionar" "Remaining: ${#remaining[@]}. Elige cuál:" "${remaining[@]}")
+        [[ -z "$sel_mon" || "$sel_mon" == "CANCEL" ]] && exit 0
 
-        local choice=$(echo -e "$options" | rofi -dmenu \
-            -p "🖥️  Posicionar Monitor" \
-            -mesg "Remaining: ${#remaining[@]}. Elige cuál posicionar:" \
-            -i -theme-str "window {width: 400px;} listview {lines: $((${#remaining[@]} + 1));}" 2>/dev/null)
+        local pos_info=$(select_position "$sel_mon" "${configured[@]}")
+        [[ -z "$pos_info" || "$pos_info" == "CANCEL" ]] && exit 0
 
-        [[ -z "$choice" ]] && exit 0
+        local pos="${pos_info%|*}"
+        local ref="${pos_info#*|}"
 
-        local sel_idx=$(echo "$choice" | awk '{print $1}')
-        local total_opts=$(( ${#remaining[@]} + 1 ))
-
-        if [[ $sel_idx -eq $total_opts ]]; then
-            break
-        fi
-
-        ((sel_idx--))
-        local sel_mon="${remaining[$sel_idx]}"
-
-        options=""
-        idx=1
-        local ref_count=${#configured[@]}
-        for ((i=0; i<ref_count; i++)); do
-            options+="$idx ← ${configured[$i]}\n"; ((idx++))
-        done
-        for ((i=0; i<ref_count; i++)); do
-            options+="$idx → ${configured[$i]}\n"; ((idx++))
-        done
-        for ((i=0; i<ref_count; i++)); do
-            options+="$idx ↑ ${configured[$i]}\n"; ((idx++))
-        done
-        for ((i=0; i<ref_count; i++)); do
-            options+="$idx ↓ ${configured[$i]}\n"; ((idx++))
-        done
-        options+="$idx ⏻ Apagar"
-
-        local ref_choice=$(echo -e "$options" | rofi -dmenu \
-            -p "🖥️  Posición de $sel_mon" \
-            -mesg "Referencia: ${configured[*]}" \
-            -i -theme-str "window {width: 400px;} listview {lines: $((ref_count * 4 + 1));}" 2>/dev/null)
-
-        [[ -z "$ref_choice" ]] && exit 0
-
-        local ref_idx=$(echo "$ref_choice" | awk '{print $1}')
-        local last_idx=$((ref_count * 4 + 1))
-
-        if [[ $ref_idx -eq $last_idx ]]; then
-            config+="$sel_mon|off|0|0"
-        else
-            local ref_pos=$(( (ref_idx - 1) / ref_count ))
-            local ref_mon_idx=$(( (ref_idx - 1) % ref_count ))
-            local ref_mon="${configured[$ref_mon_idx]}"
-            local ref_x="${positions[$ref_mon_idx]%|*}"
-            local ref_y="${positions[$ref_mon_idx]#|}"
-
-            case $ref_pos in
-                0) config+="$sel_mon|left-of|$ref_mon|$ref_x|$ref_y" ;;
-                1) config+="$sel_mon|right-of|$ref_mon|$ref_x|$ref_y" ;;
-                2) config+="$sel_mon|above|$ref_mon|$ref_x|$ref_y" ;;
-                3) config+="$sel_mon|below|$ref_mon|$ref_x|$ref_y" ;;
-            esac
-        fi
+        config+="
+${sel_mon}|${pos}|${ref}"
 
         configured+=("$sel_mon")
-        positions+=("0|0")
-        remaining=("${remaining[@]/$sel_mon}")
+        local new_remaining=()
+        for m in "${remaining[@]}"; do
+            [[ "$m" != "$sel_mon" ]] && new_remaining+=("$m")
+        done
+        remaining=("${new_remaining[@]}")
     done
 
-    echo "$config"
+    apply_config "$config" "$primary"
 }
 
-auto_chain() {
+do_auto() {
     local monitors=("$@")
     local count=${#monitors[@]}
     local config=""
-    local x=0
-
     for ((i=0; i<count; i++)); do
         if [[ $i -eq 0 ]]; then
-            config+="${monitors[$i]}|primary|$x|0"
+            config+="${monitors[$i]}|primary|NONE"
         else
-            config+="\n${monitors[$i]}|right-of|prev|$x|0"
+            config+="
+${monitors[$i]}|right-of|${monitors[$((i-1))]}"
         fi
-        x=$((x + 1920))
     done
-
-    echo -e "$config"
+    apply_config "$config" "${monitors[0]}"
 }
 
 main() {
@@ -3514,76 +3538,50 @@ main() {
         exit 1
     fi
 
-    if command -v arandr &>/dev/null; then
-        options="1 🖥️  ARandr (Visual - Windows-like)
-2 ⚡ Auto (encadenar derecha)
-3 🎯 Manual (posicionar)"
-
-        local choice=$(echo -e "$options" | rofi -dmenu \
-            -p "🖥️  Monitores ($count)" \
-            -mesg "Selecciona cómo configurar:" \
-            -i -theme-str "window {width: 450px;} listview {lines: 3;}" 2>/dev/null)
-
-        [[ -z "$choice" ]] && exit 0
-
-        case "$choice" in
-            *ARandr*|*Visual*)
-                arandr
-                exit 0
-                ;;
-            *Auto*)
-                local config=$(auto_chain "${monitors[@]}")
-                apply_config "$config" "${monitors[0]}"
-                return
-                ;;
-            *Manual*)
-                ;;
-        esac
-    else
-        options="1 ⚡ Auto (encadenar derecha)
-2 🎯 Manual (posicionar)"
-
-        local choice=$(echo -e "$options" | rofi -dmenu \
-            -p "🖥️  Monitores ($count)" \
-            -mesg "Selecciona cómo configurar:" \
-            -i -theme-str "window {width: 450px;} listview {lines: 2;}" 2>/dev/null)
-
-        [[ -z "$choice" ]] && exit 0
-
-        case "$choice" in
-            *Auto*)
-                local config=$(auto_chain "${monitors[@]}")
-                apply_config "$config" "${monitors[0]}"
-                return
-                ;;
-        esac
+    if [[ $count -eq 1 ]]; then
+        apply_config "${monitors[0]}|primary|NONE" "${monitors[0]}"
+        return
     fi
 
-    local config=$(step_select_primary "${monitors[@]}")
-    local configured=()
-    while IFS='|' read -r mon pos x y; do
-        [[ -z "$mon" ]] && continue
-        configured+=("$mon")
-    done <<< "$config"
+    local options=""
+    if command -v arandr &>/dev/null; then
+        options="1 🖥️  ARandr (Visual)\n2 ⚡ Auto (cadena derecha)\n3 🎯 Manual (posicionar)"
+        local lines=3
+    else
+        options="1 ⚡ Auto (cadena derecha)\n2 🎯 Manual (posicionar)"
+        local lines=2
+    fi
 
-    local remaining=()
-    for mon in "${monitors[@]}"; do
-        local found=0
-        for cfg_mon in "${configured[@]}"; do
-            [[ "$mon" == "$cfg_mon" ]] && found=1 && break
-        done
-        [[ $found -eq 0 ]] && remaining+=("$mon")
-    done
+    local choice=$(echo -e "$options" | rofi -dmenu \
+        -p "🖥️  Monitores ($count)" \
+        -mesg "Elige método de configuración:" \
+        -i -theme-str "window {width: 500px;} listview {lines: $lines;}" 2>/dev/null)
 
-    config=$(step_position_monitors "$config" "${remaining[@]}")
-    apply_config "$config" "${monitors[0]}"
+    [[ -z "$choice" ]] && exit 0
+
+    case "$choice" in
+        *ARandr*|*Visual*)
+            arandr
+            ;;
+        *Auto*)
+            do_auto "${monitors[@]}"
+            ;;
+        *Manual*)
+            do_manual "${monitors[@]}"
+            ;;
+    esac
 }
 
 if [[ "$1" == "--auto" ]]; then
+    if [[ -f "$PROFILE_FILE" ]]; then
+        bash "$PROFILE_FILE"
+        exit 0
+    fi
     exit 0
 fi
 
 main
+
 SETUP_EOF
 
     # 2. Instalar hypr-monitor-listener
