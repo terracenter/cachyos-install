@@ -3278,7 +3278,8 @@ install_monitor_setup() {
     cat > "$bin_dir/hypr-monitor-setup" << 'SETUP_EOF'
 #!/usr/bin/env bash
 # hypr-monitor-setup — Configuración de monitores tipo ARandR para Hyprland
-# v3.0 — Aplica cambios incrementalmente con hyprctl
+# v5.1 — Workspaces dinámicos: 1-5 al primario (1 default), 6-10 a secundarios
+# FIX: variables con nombre 'mon' generan bug en bash local; usamos 'target'
 
 PROFILE_FILE="$HOME/.config/hypr/monitor-profile.sh"
 
@@ -3286,121 +3287,164 @@ for dep in jq rofi hyprctl notify-send awk; do
     command -v "$dep" &>/dev/null || { echo "[hypr-monitor] ERROR: '$dep' no encontrado" >&2; exit 1; }
 done
 
+WS_PER_MON=5
+
 get_monitors() {
-    hyprctl monitors -j 2>/dev/null | jq -r '.[].name'
+    hyprctl monitors -j 2>/dev/null | jq -r '.[].name | select(. != "")'
 }
 
 get_mon_field() {
-    local mon="$1"
+    local target_name="$1"
     local field="$2"
-    hyprctl monitors -j 2>/dev/null | jq -r ".[] | select(.name == \"$mon\") | .${field} // empty"
+    hyprctl monitors -j 2>/dev/null | jq -r ".[] | select(.name == \"$target_name\") | .${field} // empty"
 }
 
 apply_set() {
-    local mon="$1"
+    local target_name="$1"
     local pos="$2"
-    hyprctl eval "hl.monitor({output=\"$mon\", mode=\"preferred\", position=\"$pos\", scale=\"1\"})" >/dev/null
+    hyprctl eval "hl.monitor({output=\"$target_name\", mode=\"preferred\", position=\"$pos\", scale=\"1\"})" >/dev/null
 }
 
 apply_off() {
-    local mon="$1"
-    hyprctl eval "hl.monitor({output=\"$mon\", mode=\"preferred\", position=\"0x0\", scale=\"1\", disable=\"true\"})" >/dev/null
+    local target_name="$1"
+    hyprctl eval "hl.monitor({output=\"$target_name\", mode=\"preferred\", position=\"0x0\", scale=\"1\", disable=\"true\"})" >/dev/null
+}
+
+# Construye lista "WS_ID MON_NAME IS_DEFAULT" por línea
+build_workspace_assignment() {
+    local primary="$1"
+    shift
+    local others=("$@")
+    local total=${#others[@]}
+    ((total++))
+
+    local all_monitors=("$primary")
+    for m in "${others[@]}"; do
+        all_monitors+=("$m")
+    done
+
+    for ((i=0; i<total; i++)); do
+        local target="${all_monitors[$i]}"
+        local start=$((i * WS_PER_MON + 1))
+        local end=$((start + WS_PER_MON - 1))
+        for ((w=start; w<=end; w++)); do
+            if [[ $i -eq 0 && $w -eq 1 ]]; then
+                echo "$w $target true"
+            else
+                echo "$w $target false"
+            fi
+        done
+    done
 }
 
 apply_config() {
     local config="$1"
     local primary="$2"
 
-    # Fase 1: Aplicar primarias (position 0x0)
-    echo "$config" | while IFS='|' read -r mon pos ref; do
-        [[ -z "$mon" ]] && continue
-        if [[ "$pos" == "primary" ]]; then
-            apply_set "$mon" "0x0"
-        fi
-    done
+    local all_monitors=("$primary")
+    while IFS='|' read -r curname pos ref; do
+        [[ -z "$curname" ]] && continue
+        case "$pos" in
+            primary|off) ;;
+            *) all_monitors+=("$curname") ;;
+        esac
+    done <<< "$config"
 
+    # Fase 1: primaries a 0x0
+    echo "$config" | while IFS='|' read -r curname pos ref; do
+        [[ -z "$curname" ]] && continue
+        [[ "$pos" == "primary" ]] && apply_set "$curname" "0x0"
+    done
     sleep 0.3
 
-    # Fase 2: Aplicar relativos leyendo posición actual
-    echo "$config" | while IFS='|' read -r mon pos ref; do
-        [[ -z "$mon" ]] && continue
+    # Fase 2: relativos leyendo posición actual
+    echo "$config" | while IFS='|' read -r curname pos ref; do
+        [[ -z "$curname" ]] && continue
         case "$pos" in
-            primary|off)
-                ;;
+            primary|off) ;;
             left-of|right-of|above|below)
-                local ref_x=$(get_mon_field "$ref" "x")
-                local ref_y=$(get_mon_field "$ref" "y")
-                local ref_w=$(get_mon_field "$ref" "width")
-                local ref_h=$(get_mon_field "$ref" "height")
-                [[ -z "$ref_x" ]] && ref_x=0
-                [[ -z "$ref_y" ]] && ref_y=0
-                [[ -z "$ref_w" ]] && ref_w=1920
-                [[ -z "$ref_h" ]] && ref_h=1080
+                local rx=$(get_mon_field "$ref" "x")
+                local ry=$(get_mon_field "$ref" "y")
+                local rw=$(get_mon_field "$ref" "width")
+                local rh=$(get_mon_field "$ref" "height")
+                [[ -z "$rx" ]] && rx=0
+                [[ -z "$ry" ]] && ry=0
+                [[ -z "$rw" ]] && rw=1920
+                [[ -z "$rh" ]] && rh=1080
 
-                local pos_x=$ref_x
-                local pos_y=$ref_y
-
+                local pos_x=$rx
+                local pos_y=$ry
                 case "$pos" in
-                    left-of)  pos_x=$((ref_x - ref_w)) ;;
-                    right-of) pos_x=$((ref_x + ref_w)) ;;
-                    above)    pos_y=$((ref_y - ref_h)) ;;
-                    below)    pos_y=$((ref_y + ref_h)) ;;
+                    left-of)  pos_x=$((rx - rw)) ;;
+                    right-of) pos_x=$((rx + rw)) ;;
+                    above)    pos_y=$((ry - rh)) ;;
+                    below)    pos_y=$((ry + rh)) ;;
                 esac
-
-                apply_set "$mon" "${pos_x}x${pos_y}"
+                apply_set "$curname" "${pos_x}x${pos_y}"
                 ;;
             off)
-                apply_off "$mon"
+                apply_off "$curname"
                 ;;
         esac
     done
-
     sleep 0.3
 
-    # Guardar perfil (generado desde estado actual para referencia futura)
+    # Fase 3: workspaces
+    local ws_assignment
+    ws_assignment=$(build_workspace_assignment "${all_monitors[@]}")
+
+    # Guardar perfil
     {
         echo '#!/usr/bin/env bash'
         echo "# Perfil generado: $(date '+%Y-%m-%d %H:%M')"
         echo ""
         while IFS= read -r line; do
             [[ -z "$line" ]] && continue
-            local m=$(echo "$line" | jq -r '.name')
+            local name=$(echo "$line" | jq -r '.name')
             local x=$(echo "$line" | jq -r '.x')
             local y=$(echo "$line" | jq -r '.y')
             local dis=$(echo "$line" | jq -r '.disabled')
             if [[ "$dis" == "true" ]]; then
-                echo "hyprctl eval \"hl.monitor({output=\\\"$m\\\", mode=\\\"preferred\\\", position=\\\"0x0\\\", scale=\\\"1\\\", disable=\\\"true\\\"})\""
+                echo "hyprctl eval \"hl.monitor({output=\\\"$name\\\", mode=\\\"preferred\\\", position=\\\"0x0\\\", scale=\\\"1\\\", disable=\\\"true\\\"})\""
             else
-                echo "hyprctl eval \"hl.monitor({output=\\\"$m\\\", mode=\\\"preferred\\\", position=\\\"${x}x${y}\\\", scale=\\\"1\\\"})\""
+                echo "hyprctl eval \"hl.monitor({output=\\\"$name\\\", mode=\\\"preferred\\\", position=\\\"${x}x${y}\\\", scale=\\\"1\\\"})\""
             fi
         done < <(hyprctl monitors -j 2>/dev/null | jq -c '.[]')
 
         echo ""
-        echo "# Workspaces para $primary"
-        for w in {1..10}; do
-            df="false"; [[ "$w" -eq 1 ]] && df="true"
-            echo "hyprctl eval \"hl.workspace_rule({workspace=\\\"$w\\\", monitor=\\\"$primary\\\", persistent=true, default=$df})\""
-        done
+        echo "# Workspaces dinámicos (1-5 al primario, etc.)"
+        while read -r ws_id ws_name ws_default; do
+            [[ -z "$ws_id" ]] && continue
+            echo "hyprctl eval \"hl.workspace_rule({workspace=\\\"$ws_id\\\", monitor=\\\"$ws_name\\\", persistent=true, default=$ws_default})\""
+        done <<< "$ws_assignment"
     } > "$PROFILE_FILE"
     chmod +x "$PROFILE_FILE"
 
-    # Notificación con estado actual
+    # Notificación
     local summary=""
     while IFS= read -r line; do
         [[ -z "$line" ]] && continue
-        local m=$(echo "$line" | jq -r '.name')
+        local name=$(echo "$line" | jq -r '.name')
         local x=$(echo "$line" | jq -r '.x')
         local y=$(echo "$line" | jq -r '.y')
         local w=$(echo "$line" | jq -r '.width')
         local dis=$(echo "$line" | jq -r '.disabled')
         if [[ "$dis" == "true" ]]; then
-            summary+="  $m: OFF\n"
+            summary+="  $name: OFF\n"
         else
-            summary+="  $m: ${w}px @ ${x}x${y}\n"
+            summary+="  $name: ${w}px @ ${x}x${y}\n"
         fi
     done < <(hyprctl monitors -j 2>/dev/null | jq -c '.[]')
 
-    notify-send "🖥️  Monitores Configurados" "$summary" --urgency=low --expire-time=5000
+    summary+="\nWorkspaces:\n"
+    while read -r ws_id ws_name ws_default; do
+        [[ -z "$ws_id" ]] && continue
+        local marker=""
+        [[ "$ws_default" == "true" ]] && marker=" (DEFAULT)"
+        summary+="  WS$ws_id → $ws_name$marker\n"
+    done <<< "$ws_assignment"
+
+    notify-send "🖥️  Monitores y Workspaces" "$summary" --urgency=low --expire-time=6000
 }
 
 select_monitor() {
@@ -3410,8 +3454,8 @@ select_monitor() {
     local monitors=("$@")
     local options=""
     local idx=1
-    for mon in "${monitors[@]}"; do
-        options+="$idx 🖥️  $mon\n"
+    for m in "${monitors[@]}"; do
+        options+="$idx 🖥️  $m\n"
         ((idx++))
     done
     local choice=$(echo -e "$options" | rofi -dmenu \
@@ -3473,19 +3517,19 @@ select_position() {
 do_manual() {
     local monitors=("$@")
 
-    local primary=$(select_monitor "🖥️  Monitor Principal" "Selecciona cuál será el principal:" "${monitors[@]}")
+    local primary=$(select_monitor "🖥️  Monitor Principal" "Será principal + WS1-5(default)" "${monitors[@]}")
     [[ -z "$primary" || "$primary" == "CANCEL" ]] && exit 0
 
     local configured=("$primary")
     local remaining=()
-    for mon in "${monitors[@]}"; do
-        [[ "$mon" != "$primary" ]] && remaining+=("$mon")
+    for m in "${monitors[@]}"; do
+        [[ "$m" != "$primary" ]] && remaining+=("$m")
     done
 
     local config="${primary}|primary|NONE"
 
     while [[ ${#remaining[@]} -gt 0 ]]; do
-        local sel_mon=$(select_monitor "🖥️  Posicionar" "Remaining: ${#remaining[@]}. Elige cuál:" "${remaining[@]}")
+        local sel_mon=$(select_monitor "🖥️  Posicionar" "Restantes: ${#remaining[@]} → WS$(( ${#configured[@]} * WS_PER_MON + 1 ))-$(( ${#configured[@]} * WS_PER_MON + WS_PER_MON ))" "${remaining[@]}")
         [[ -z "$sel_mon" || "$sel_mon" == "CANCEL" ]] && exit 0
 
         local pos_info=$(select_position "$sel_mon" "${configured[@]}")
@@ -3526,9 +3570,9 @@ ${monitors[$i]}|right-of|${monitors[$((i-1))]}"
 main() {
     sleep 1
     local monitors=()
-    while IFS= read -r mon; do
-        [[ -z "$mon" ]] && continue
-        monitors+=("$mon")
+    while IFS= read -r m; do
+        [[ -z "$m" ]] && continue
+        monitors+=("$m")
     done < <(get_monitors)
 
     local count=${#monitors[@]}
@@ -3554,7 +3598,7 @@ main() {
 
     local choice=$(echo -e "$options" | rofi -dmenu \
         -p "🖥️  Monitores ($count)" \
-        -mesg "Elige método de configuración:" \
+        -mesg "WS1-5 al principal, WS6-10 a cada monitor adicional" \
         -i -theme-str "window {width: 500px;} listview {lines: $lines;}" 2>/dev/null)
 
     [[ -z "$choice" ]] && exit 0
