@@ -17,10 +17,14 @@ if [[ -z "$ACTIVE_PID" ]]; then
 fi
 
 # Parsear sink-inputs: emitir el primer bloque donde process.id == ACTIVE_PID
+# Capturamos Volume: al inicio del bloque (PipeWire puede emitir Volume: antes
+# o después de application.process.id según el cliente). El flag `done`
+# garantiza una sola emisión.
 INPUT_DATA=$(pactl list sink-inputs 2>/dev/null | awk -v tp="$ACTIVE_PID" '
     function try_emit(    ) {
-        if (match_flag && sink_id != "") {
+        if (match_flag && sink_id != "" && !done) {
             print sink_id "|" app_name "|" vol_line
+            done = 1
             exit
         }
     }
@@ -34,8 +38,15 @@ INPUT_DATA=$(pactl list sink-inputs 2>/dev/null | awk -v tp="$ACTIVE_PID" '
         in_block = 1
         next
     }
+    in_block && /^[[:space:]]*Volume:/ {
+        vol_line = $0
+        try_emit()
+    }
     in_block && /^[[:space:]]*application\.process\.id[[:space:]]*=/ {
-        if (index($0, "\"" tp "\"") > 0) match_flag = 1
+        if (index($0, "\"" tp "\"") > 0) {
+            match_flag = 1
+            try_emit()
+        }
     }
     in_block && /^[[:space:]]*application\.name[[:space:]]*=/ {
         ln = $0; sub(/.*= "/, "", ln); sub(/".*/, "", ln); app_name = ln
@@ -44,12 +55,7 @@ INPUT_DATA=$(pactl list sink-inputs 2>/dev/null | awk -v tp="$ACTIVE_PID" '
         ln = $0; sub(/.*= "/, "", ln); sub(/".*/, "", ln)
         if (app_name == "") app_name = ln
     }
-    in_block && /^[[:space:]]*Volume:/ && match_flag {
-        vol_line = $0
-        try_emit()
-    }
     /^$/ { in_block = 0 }
-    END { try_emit() }
 ')
 
 INPUT_ID=""
