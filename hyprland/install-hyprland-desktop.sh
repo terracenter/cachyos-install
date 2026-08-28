@@ -2349,11 +2349,36 @@ if [[ -n "${gtk_theme_field:-}" ]]; then
 fi
 
 HYPR_SIG=$(ls "/run/user/$(id -u)/hypr/" 2>/dev/null | tail -1)
+# Reinicio seguro de Waybar (solo si estaba en ejecución)
 if [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
+    # Señalamos si Waybar estaba activo antes de matar
     if pgrep -x waybar >/dev/null 2>&1; then
-        pkill waybar 2>/dev/null || true
-        sleep 0.5
-        nohup waybar >/dev/null 2>&1 &
+        waybar_was_running=1
+    else
+        waybar_was_running=0
+    fi
+    pkill waybar 2>/dev/null || true
+    sleep 0.5
+    # Intentamos lanzar waybar en background
+    nohup waybar >/dev/null 2>&1 &
+    # Esperamos un poco y verificamos que haya empezado
+    sleep 1
+    if ! pgrep -x waybar >/dev/null 2>&1; then
+        # Fallo al iniciar: intentamos recuperar el estado previo si era necesario
+        if [[ $waybar_was_running -eq 1 ]]; then
+            # Intentamos una segunda vez
+            sleep 1
+            nohup waybar >/dev/null 2>&1 &
+            sleep 1
+        fi
+        # Si todavía no está running, notificamos
+        if ! pgrep -x waybar >/dev/null 2>&1; then
+            if command -v notify-send >/dev/null 2>&1; then
+                notify-send "Theme Apply" "Error al reiniciar Waybar. Verifique su configuración." -u critical -t 5000
+            else
+                echo "Theme Apply: Error al reiniciar Waybar." >&2
+            fi
+        fi
     fi
     if pgrep -x eww >/dev/null 2>&1; then
         eww reload 2>/dev/null || true
@@ -2394,13 +2419,24 @@ set -euo pipefail
 
 THEMES_DIR="${HOME}/.config/omarchy/themes"
 
+# Comprobar entorno gráfico (Wayland o X11)
+if [[ -z "${WAYLAND_DISPLAY:-}" && -z "${DISPLAY:-}" ]]; then
+    # No hay entorno gráfico: notificar y salir sin error
+    if command -v notify-send >/dev/null 2>&1; then
+        notify-send "Theme Switcher" "No se detectó sesión Wayland/X11. Ejecute el atajo dentro de la sesión gráfica." -t 3000
+    else
+        echo "Theme Switcher: No se detectó sesión Wayland/X11. Ejecute el atajo dentro de la sesión gráfica." >&2
+    fi
+    exit 0
+fi
+
 TEMA=$(ls "$THEMES_DIR" | rofi -dmenu -p "Tema" -i -theme-str 'window {width: 300px;}')
 [[ -z "$TEMA" ]] && exit 0
 
 "${HOME}/.local/bin/theme-apply" "$TEMA"
 SWITCHER_EOF
     chmod +x "$bin_dir/theme-switcher"
-    ok "theme-switcher instalado"
+    ok "theme-switcher instalado (con verificación de entorno gráfico)"
 
     # ── Wallpapers y colors.toml: sparse-checkout del repo Omarchy ────────────
     if ! command -v git &>/dev/null; then
