@@ -513,6 +513,17 @@ SDDM_EOF
 
     step "Ocultando sesión Hyprland sin UWSM de SDDM..."
     # NoDisplay=true    # Asegurar que las sesiones de Hyprland estén visibles para SDDM y UWSM
+    if [[ ! -f /usr/share/wayland-sessions/hyprland.desktop ]]; then
+        warn "hyprland.desktop no existe en disco (pacman lo reclama en su metadata) — recreando"
+        sudo tee /usr/share/wayland-sessions/hyprland.desktop > /dev/null << 'HYPR_DESKTOP_EOF'
+[Desktop Entry]
+Name=Hyprland
+Comment=An intelligent dynamic tiling Wayland compositor
+Exec=Hyprland
+Type=Application
+HYPR_DESKTOP_EOF
+        ok "hyprland.desktop recreado en /usr/share/wayland-sessions/"
+    fi
     sudo sed -i '/NoDisplay=true/d' /usr/share/wayland-sessions/hyprland.desktop 2>/dev/null || true
     sudo rm -f /etc/pacman.d/hooks/hyprland-hide-plain-session.hook
 
