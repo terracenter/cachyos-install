@@ -545,6 +545,10 @@ HYPR_DESKTOP_EOF
     sudo systemctl enable --now bluetooth.service
     ok "bluetooth.service activo"
 
+    step "Desbloqueando adaptador Bluetooth (rfkill)..."
+    sudo rfkill unblock bluetooth 2>/dev/null || true
+    ok "Bluetooth desbloqueado vía rfkill"
+
     step "Habilitando avahi-daemon + mDNS..."
     sudo systemctl enable --now avahi-daemon.service
     ok "avahi-daemon habilitado"
