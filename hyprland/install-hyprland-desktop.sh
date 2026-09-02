@@ -2018,19 +2018,27 @@ if 'hl.dsp.exec_cmd("kb-switch")' not in content:
     else:
         print('AVISO: no se encontró anchor para Super+K — agrega manualmente')
 
-# Extras Omarchy batch 2026-09 (resize, F11, cerrar-todas) — idempotente
-if 'Extras Omarchy batch 2026-09' not in content:
-    anchor_extras = 'hl.bind(mainMod .. " + K",                     hl.dsp.exec_cmd("kb-switch"))'
-    extras_block = '''
-
--- Extras Omarchy batch 2026-09
+# Extras Omarchy batch 2026-09 (resize, F11, cerrar-todas) — idempotente, v2 (fix sintaxis Lua nativa tras validacion en vivo 2026-09-02)
+old_extras_block = '''-- Extras Omarchy batch 2026-09
 hl.bind(mainMod .. " + equal",                 hl.dsp.exec_cmd("hyprctl dispatch resizeactive 20 20"))
 hl.bind(mainMod .. " + minus",                 hl.dsp.exec_cmd("hyprctl dispatch resizeactive -20 -20"))
 hl.bind("F11",                                 hl.dsp.window.fullscreen({ mode = "fullscreen" }))
 hl.bind("SHIFT + F11",                         hl.dsp.window.fullscreen({ mode = "maximized" }))
 hl.bind("CTRL + ALT + Delete",                 hl.dsp.exec_cmd("hyprctl clients -j | jq -r '.[].address' | xargs -I{} hyprctl dispatch closewindow address:{}"))'''
+
+new_extras_block = '''-- Extras Omarchy batch 2026-09
+hl.bind(mainMod .. " + equal",                 hl.dsp.window.resize({ x = 20, y = 20, relative = true }))
+hl.bind(mainMod .. " + minus",                 hl.dsp.window.resize({ x = -20, y = -20, relative = true }))
+hl.bind("F11",                                 hl.dsp.window.fullscreen({ mode = "fullscreen" }))
+hl.bind("SHIFT + F11",                         hl.dsp.window.fullscreen({ mode = "maximized" }))
+hl.bind("CTRL + ALT + Delete",                 hl.dsp.exec_cmd("hyprctl clients -j | jq -r '.[].address' | xargs -I{} hyprctl dispatch 'hl.dsp.window.close({ window = \\"address:{}\\" })'"))'''
+
+if old_extras_block in content:
+    content = content.replace(old_extras_block, new_extras_block, 1)
+elif new_extras_block not in content:
+    anchor_extras = 'hl.bind(mainMod .. " + K",                     hl.dsp.exec_cmd("kb-switch"))'
     if anchor_extras in content:
-        content = content.replace(anchor_extras, anchor_extras + extras_block, 1)
+        content = content.replace(anchor_extras, anchor_extras + '\n\n' + new_extras_block, 1)
     else:
         print('AVISO: no se encontró anchor para extras batch 2026-09 — agrega manualmente')
 
