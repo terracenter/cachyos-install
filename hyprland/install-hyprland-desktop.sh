@@ -884,6 +884,35 @@ notify-send "Teclado" "${LABELS[$next]}" -t 2000
 EOF
     sudo chmod +x /usr/local/bin/kb-switch
     ok "kb-switch instalado en /usr/local/bin/"
+
+    # hypr-keyboard-setup: selección directa por Rofi (equivalente a qtile-keyboard-setup)
+    local bin_dir="$HOME/.local/bin"
+    local app_dir="$HOME/.local/share/applications"
+    local configs_dir="$SCRIPT_DIR/configs"
+    mkdir -p "$bin_dir" "$app_dir"
+
+    if [[ -f "$configs_dir/hypr-keyboard-setup" ]]; then
+        cp "$configs_dir/hypr-keyboard-setup" "$bin_dir/hypr-keyboard-setup"
+        chmod +x "$bin_dir/hypr-keyboard-setup"
+        ok "hypr-keyboard-setup copiado a $bin_dir"
+    else
+        warn "No se encontró $configs_dir/hypr-keyboard-setup"
+    fi
+
+    cat > "$app_dir/hypr-keyboard-setup.desktop" << DESKTOP_EOF
+[Desktop Entry]
+Name=Teclado (Hyprland)
+GenericName=Distribución de Teclado
+Comment=Selecciona la distribución de teclado (US Intl, Latam, España)
+Exec=$HOME/.local/bin/hypr-keyboard-setup
+Icon=input-keyboard
+Terminal=false
+Type=Application
+Categories=Settings;HardwareSettings;
+Keywords=keyboard;teclado;layout;distribucion;kb;hyprland;
+DESKTOP_EOF
+    ok "hypr-keyboard-setup.desktop copiado a $app_dir"
+    # El keybinding Super+Shift+K se agrega en install_omarchy_bindings (tras el bind de kb-switch)
 }
 
 # ─── Alacritty (terminal local con tema Catppuccin) ───────────────────────────
@@ -1648,13 +1677,22 @@ install_audio_setup() {
         warn "No se encontró $configs_dir/hypr-audio-volume"
     fi
 
-    # .desktop para integración en rofi
-    if [[ -f "$configs_dir/hypr-audio-setup.desktop" ]]; then
-        cp "$configs_dir/hypr-audio-setup.desktop" "$app_dir/hypr-audio-setup.desktop"
-        ok "hypr-audio-setup.desktop copiado a $app_dir"
-    else
-        warn "No se encontró $configs_dir/hypr-audio-setup.desktop"
-    fi
+    # .desktop para integración en rofi (generado con $HOME del usuario actual;
+    # nunca copiar el archivo estático, que quedaría con la ruta del usuario que lo generó)
+    cat > "$app_dir/hypr-audio-setup.desktop" << DESKTOP_EOF
+[Desktop Entry]
+Name=Audio (Hyprland)
+GenericName=Audio Mixer
+Comment=Configura salida, micrófono y ruteo por aplicación
+Exec=$HOME/.local/bin/hypr-audio-setup
+Icon=audio-card
+Terminal=false
+Type=Application
+Categories=Audio;Settings;
+Keywords=audio;sound;output;input;mic;speaker;headphone;
+StartupNotify=false
+DESKTOP_EOF
+    ok "hypr-audio-setup.desktop generado en $app_dir"
 
     # Keybinding Super+Ctrl+A → hypr-audio-setup (reemplaza el viejo wiremix bind)
     local lua="$HOME/.config/hypr/hyprland.lua"
@@ -2017,6 +2055,15 @@ if 'hl.dsp.exec_cmd("kb-switch")' not in content:
             'hl.bind(mainMod .. " + K",                     hl.dsp.exec_cmd("kb-switch"))\n' + anchor_k, 1)
     else:
         print('AVISO: no se encontró anchor para Super+K — agrega manualmente')
+
+# Super+Shift+K — hypr-keyboard-setup (selección de teclado por Rofi, idempotente)
+if 'hypr-keyboard-setup' not in content:
+    anchor_ks = 'hl.bind(mainMod .. " + CTRL + B"'
+    if anchor_ks in content:
+        content = content.replace(anchor_ks,
+            'hl.bind(mainMod .. " + SHIFT + K",             hl.dsp.exec_cmd(os.getenv("HOME") .. "/.local/bin/hypr-keyboard-setup"))\n' + anchor_ks, 1)
+    else:
+        print('AVISO: no se encontró anchor para Super+Shift+K — agrega manualmente')
 
 with open(lua_path, 'w') as f:
     f.write(content)
@@ -2871,7 +2918,7 @@ Super + Ctrl + V         →  Portapapeles (greenclip)
 Super + Ctrl + T         →  Monitor (btop)
 Super + Shift + T        →  Selector de tema
 Super + Ctrl + M         →  Configuración de Monitores
-Super + K                →  Distribución de Teclado
+Super + Shift + K        →  Distribución de Teclado
 Super + Shift + I        →  Configuración de Energía (idle-settings)
 Super + /                →  Esta ayuda
 
@@ -2911,6 +2958,8 @@ Super + Ctrl + T         →  Monitor (btop)
 Super + Ctrl + P         →  Pomodoro
 Super + Shift + T        →  Selector de tema
 Super + Ctrl + M         →  Configuración de Monitores
+Super + K                →  Ciclar distribución de teclado (US Intl / Latam / España)
+Super + Shift + K        →  Distribución de Teclado (menú Rofi)
 Super + /                →  Esta ayuda
 
 ── Ventanas (Hyprland) ────────────────────────
