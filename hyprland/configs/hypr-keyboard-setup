@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# hypr-keyboard-setup — Selección de distribución de teclado para Hyprland vía Rofi
+# Equivalente a qtile-keyboard-setup (X11), pero usando hyprctl para Wayland.
+# Comparte layouts y estado con kb-switch (Super+K) para que ambos queden sincronizados.
+
+STATE_FILE="$HOME/.cache/kb-switch-state"
+THEME="$HOME/.config/omarchy/current/rofi.rasi"
+
+LAYOUTS=(us:intl latam: es:)
+LABELS=("US Internacional (con acentos)" "Español Latinoamérica" "Español España")
+
+for dep in rofi notify-send; do
+    command -v "$dep" &>/dev/null || { echo "[hypr-keyboard] ERROR: '$dep' no encontrado" >&2; exit 1; }
+done
+
+apply_layout() {
+    local idx="$1"
+    local layout variant
+    IFS=':' read -r layout variant <<< "${LAYOUTS[$idx]}"
+
+    if pgrep -x Hyprland >/dev/null 2>&1; then
+        hyprctl keyword input:kb_layout "$layout" >/dev/null
+        hyprctl keyword input:kb_variant "$variant" >/dev/null
+    else
+        setxkbmap -layout "$layout" -variant "$variant"
+    fi
+
+    echo "$idx" > "$STATE_FILE"
+    notify-send "⌨️ Teclado" "${LABELS[$idx]}" --urgency=low --expire-time=3000
+    echo "Distribución establecida: ${LABELS[$idx]}"
+}
+
+options="1 ⌨️  ${LABELS[0]}
+2 ⌨️  ${LABELS[1]}
+3 ⌨️  ${LABELS[2]}"
+
+cmd=(rofi -dmenu -p "⌨️  Distribución de Teclado" \
+    -mesg "Selecciona el layout para Hyprland:" \
+    -i -theme-str 'window {width: 500px;} listview {lines: 3;}')
+[[ -f "$THEME" ]] && cmd+=(-theme "$THEME")
+
+choice=$(echo "$options" | "${cmd[@]}" 2>/dev/null)
+[[ -z "$choice" ]] && { echo "[hypr-keyboard] Cancelado"; exit 0; }
+
+case "$choice" in
+    1*) apply_layout 0 ;;
+    2*) apply_layout 1 ;;
+    3*) apply_layout 2 ;;
+esac
