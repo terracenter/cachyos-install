@@ -4,6 +4,8 @@ Scripts de instalación automatizada para **CachyOS** con BTRFS, snapshots Snapp
 
 Desarrollados y validados en hardware real como complemento del manual técnico completo disponible en **[humanbyte.net](https://humanbyte.net/manuales/de-gentoo-a-cachyos/)**.
 
+> Ver [ROADMAP.md](ROADMAP.md) para el estado de problemas conocidos y trabajo en curso.
+
 ---
 
 ## Instalación rápida
