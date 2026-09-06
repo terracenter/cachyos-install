@@ -527,6 +527,16 @@ HYPR_DESKTOP_EOF
     sudo sed -i '/NoDisplay=true/d' /usr/share/wayland-sessions/hyprland.desktop 2>/dev/null || true
     sudo rm -f /etc/pacman.d/hooks/hyprland-hide-plain-session.hook
 
+    step "Deshabilitando dunst (conflicto dbus con mako en org.freedesktop.Notifications)..."
+    if pacman -Qi dunst &>/dev/null; then
+        warn "dunst instalado — desinstalando (mako es el daemon oficial del instalador)"
+        sudo pacman -R --noconfirm dunst 2>/dev/null || true
+        rm -rf "$HOME/.config/dunst" 2>/dev/null || true
+        ok "dunst desinstalado, mako queda como único daemon de notificaciones"
+    else
+        ok "dunst no está instalado — nada que hacer"
+    fi
+
     step "Habilitando servicios de audio..."
     systemctl --user enable --now pipewire.service pipewire-pulse.service wireplumber.service 2>/dev/null || true
     ok "PipeWire habilitado"
@@ -534,6 +544,10 @@ HYPR_DESKTOP_EOF
     step "Habilitando Bluetooth..."
     sudo systemctl enable --now bluetooth.service
     ok "bluetooth.service activo"
+
+    step "Desbloqueando adaptador Bluetooth (rfkill)..."
+    sudo rfkill unblock bluetooth 2>/dev/null || true
+    ok "Bluetooth desbloqueado vía rfkill"
 
     step "Habilitando avahi-daemon + mDNS..."
     sudo systemctl enable --now avahi-daemon.service
