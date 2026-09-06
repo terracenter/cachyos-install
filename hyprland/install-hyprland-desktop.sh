@@ -2031,7 +2031,7 @@ hl.bind(mainMod .. " + equal",                 hl.dsp.window.resize({ x = 20, y 
 hl.bind(mainMod .. " + minus",                 hl.dsp.window.resize({ x = -20, y = -20, relative = true }))
 hl.bind("F11",                                 hl.dsp.window.fullscreen({ mode = "fullscreen" }))
 hl.bind("SHIFT + F11",                         hl.dsp.window.fullscreen({ mode = "maximized" }))
-hl.bind("CTRL + ALT + Delete",                 hl.dsp.exec_cmd("hyprctl clients -j | jq -r '.[].address' | xargs -I{} hyprctl dispatch 'hl.dsp.window.close({ window = \\"address:{}\\" })'"))'''
+hl.bind("CTRL + ALT + Delete",                 hl.dsp.exec_cmd("hyprctl clients -j | jq -r '.[].address' | xargs -I{} hyprctl dispatch closewindow address:{}"))'''
 
 if old_extras_block in content:
     content = content.replace(old_extras_block, new_extras_block, 1)
