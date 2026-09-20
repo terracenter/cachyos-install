@@ -10,19 +10,30 @@ Desarrollados y validados en hardware real como complemento del manual técnico 
 
 ```bash
 # Paso 1 — desde el Live USB de CachyOS (root, con red ya configurada)
-curl -fsSL https://raw.githubusercontent.com/terracenter/cachyos-install/main/bootstrap.sh | sudo bash
+# 1. Instalar git si no está presente
+pacman -Sy --noconfirm git
+
+# 2. Clonar el repositorio
+git clone https://github.com/terracenter/cachyos-install.git /tmp/cachyos-install
+cd /tmp/cachyos-install
+
+# 3. Ejecutar el menú interactivo como root (Fase 1)
+sudo ./install.sh
 ```
 
-Al terminar, **reinicia** e inicia sesión con el usuario que creaste. Luego:
+Desde el menú, selecciona **Opción 1** para la instalación base. Al terminar, **reinicia** e inicia sesión con el usuario que creaste. Luego:
 
 ```bash
 # Paso 2 — ya en el sistema instalado (usuario normal, no root)
-curl -fsSL https://raw.githubusercontent.com/terracenter/cachyos-install/main/bootstrap-desktop.sh | bash
+# 1. Clonar el repositorio localmente
+git clone https://github.com/terracenter/cachyos-install.git ~/cachyos-install
+cd ~/cachyos-install
+
+# 2. Ejecutar el menú interactivo como usuario normal (Fases de Escritorio y Apps)
+./install.sh
 ```
 
-El instalador de escritorio te guiará a través de un menú interactivo para elegir:
-1. **Entorno de escritorio** — Hyprland (Wayland) o Qtile (X11)
-2. **Herramientas de gaming** — Steam, GameMode, MangoHud, Proton-GE (opcional)
+El instalador te guiará a través de un menú interactivo para instalar los entornos de escritorio (Hyprland o Qtile), suite de gaming y aplicaciones.
 
 ---
 
@@ -30,10 +41,7 @@ El instalador de escritorio te guiará a través de un menú interactivo para el
 
 ```
 cachyos-install/
-├── bootstrap.sh                      ← Bootstrapper remoto Fase 1 (clona + delega a install.sh)
-├── install.sh                        ← Punto de entrada Fase 1 (base system only)
-├── bootstrap-desktop.sh              ← Bootstrapper remoto Fase 2 (clona + delega a install-desktop.sh)
-├── install-desktop.sh                ← Punto de entrada Fase 2 (post-reboot, usuario normal)
+├── install.sh                        ← Punto de entrada ÚNICO interactivo para TODAS las fases
 ├── README.md
 ├── LICENSE
 ├── base/
