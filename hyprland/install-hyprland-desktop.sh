@@ -384,22 +384,20 @@ install_waybar() {
     mkdir -p ~/.config/waybar
 
     cat > ~/.config/waybar/config.jsonc << 'WAYBAR_CONFIG'
+[
 {
   "reload_style_on_change": true,
   "layer": "top",
   "position": "top",
   "spacing": 0,
-  "height": 26,
+  "height": 30,
   "width": 0,
   "modules-left": ["custom/launcher", "hyprland/workspaces"],
   "modules-center": ["clock"],
   "modules-right": [
+    "custom/wlogout",
     "bluetooth",
-    "pulseaudio",
-    "backlight",
-    "cpu",
-    "battery",
-    "tray"
+    "pulseaudio"
   ],
 
   "hyprland/workspaces": {
@@ -407,102 +405,76 @@ install_waybar() {
     "format": "{icon}",
     "format-icons": {
       "default": "",
-      "1": "1",
-      "2": "2",
-      "3": "3",
-      "4": "4",
-      "5": "5",
-      "6": "6",
-      "7": "7",
-      "8": "8",
-      "9": "9",
-      "10": "0",
       "active": "󱓻"
     },
-    "persistent-workspaces": {
-      "1": [],
-      "2": [],
-      "3": [],
-      "4": [],
-      "5": []
-    }
+    "persistent-workspaces": { "1": [], "2": [], "3": [], "4": [], "5": [] }
   },
-
   "custom/launcher": {
     "format": "󰣇",
     "on-click": "uwsm app -- rofi -show drun",
-    "on-click-right": "uwsm app -- alacritty",
-    "tooltip-format": "Lanzador  Super+Space\nTerminal  Clic derecho"
+    "tooltip-format": "Lanzador"
   },
-
   "clock": {
     "format": "{:L%A %H:%M}",
-    "format-alt": "{:L%d %B W%V %Y}",
     "tooltip": false
   },
-
-  "cpu": {
-    "interval": 5,
-    "format": "󰍛",
-    "on-click": "uwsm app -- alacritty -e btop",
-    "tooltip-format": "CPU {usage}%"
+  "custom/wlogout": {
+    "format": "⏻",
+    "on-click": "uwsm app -- wlogout",
+    "tooltip": false
   },
-
-  "battery": {
-    "format-discharging": "{icon}",
-    "format-charging": "{icon}",
-    "format-plugged": "",
-    "format-full": "󰂅",
-    "format-icons": {
-      "charging": ["󰢜", "󰂆", "󰂇", "󰂈", "󰢝", "󰂉", "󰢞", "󰂊", "󰂋", "󰂅"],
-      "default": ["󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"]
-    },
-    "tooltip-format-discharging": "{power:>1.0f}W  {capacity}%",
-    "tooltip-format-charging": "{power:>1.0f}W  {capacity}%",
-    "interval": 5,
-    "states": {
-      "warning": 20,
-      "critical": 10
-    }
-  },
-
   "bluetooth": {
     "format": "",
     "format-off": "󰂲",
-    "format-disabled": "󰂲",
     "format-connected": "󰂱",
-    "format-no-controller": "",
-    "tooltip-format": "Dispositivos conectados: {num_connections}",
     "on-click": "uwsm app -- blueman-manager"
   },
-
   "pulseaudio": {
     "format": "{icon}",
     "on-click": "uwsm app -- swaync-client -t -sw",
     "on-click-right": "uwsm app -- pavucontrol",
-    "tooltip-format": "Volumen: {volume}%",
-    "scroll-step": 5,
     "format-muted": "󰖁",
     "format-icons": {
       "headphone": "󰋋",
-      "headset": "󰋎",
       "default": ["󰕿", "󰖀", "󰕾"]
     }
+  }
+},
+{
+  "reload_style_on_change": true,
+  "layer": "top",
+  "position": "bottom",
+  "spacing": 0,
+  "height": 26,
+  "width": 0,
+  "modules-left": ["hyprland/window"],
+  "modules-center": [],
+  "modules-right": [
+    "cpu",
+    "battery",
+    "tray"
+  ],
+  "hyprland/window": {
+    "max-length": 50,
+    "separate-outputs": true
   },
-
-  "backlight": {
-    "device": "intel_backlight",
-    "format": "{icon}",
-    "format-icons": ["󰃞", "󰃟", "󰃠"],
-    "scroll-step": 5,
-    "tooltip-format": "Brillo: {percent}%"
+  "cpu": {
+    "interval": 5,
+    "format": "󰍛 {usage}%",
+    "on-click": "uwsm app -- alacritty -e btop"
   },
-
+  "battery": {
+    "format-discharging": "{icon} {capacity}%",
+    "format-charging": "󰂄 {capacity}%",
+    "format-full": "󰂅 {capacity}%",
+    "format-icons": ["󰁺", "󰁼", "󰁾", "󰂀", "󰁹"]
+  },
   "tray": {
-    "icon-size": 12,
-    "spacing": 17
+    "icon-size": 18,
+    "spacing": 10
   }
 }
+]
 WAYBAR_CONFIG
 
     ok "config.jsonc instalado"
