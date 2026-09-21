@@ -205,7 +205,7 @@ check_prereqs() {
     command -v waybar    >/dev/null || missing+=("waybar")
     command -v rofi      >/dev/null || missing+=("rofi-wayland")
     command -v paru      >/dev/null || missing+=("paru")
-    command -v mako      >/dev/null || missing+=("mako")
+    command -v swaync    >/dev/null || missing+=("swaync")
     command -v cliphist  >/dev/null || missing+=("cliphist")
     command -v uwsm      >/dev/null || missing+=("uwsm")
     command -v swaybg    >/dev/null || missing+=("swaybg")
@@ -333,6 +333,34 @@ with open(lua_path, 'w') as f:
     f.writelines(lines)
 PYEOF
     fi
+    # Inyectar Keybinds de CachyOS (Resize, Lock, Wlogout)
+    if ! grep -q "wlogout" "$lua"; then
+        cat >> "$lua" << 'LUAEOF'
+
+-- Keybinds adicionales CachyOS
+hl.bind(mainMod, "R", hl.dsp.submap("resize"))
+hl.submap("resize", function()
+    hl.bind("", "right", hl.dsp.resizeactive("15 0"))
+    hl.bind("", "left", hl.dsp.resizeactive("-15 0"))
+    hl.bind("", "up", hl.dsp.resizeactive("0 -15"))
+    hl.bind("", "down", hl.dsp.resizeactive("0 15"))
+    hl.bind("", "escape", hl.dsp.submap_reset())
+end)
+
+hl.bind(mainMod .. " SHIFT", "M", hl.dsp.exec_cmd("uwsm app -- wlogout"))
+hl.bind(mainMod, "L", hl.dsp.exec_cmd("uwsm app -- hyprlock"))
+LUAEOF
+        ok "Keybinds de resize, wlogout y hyprlock inyectados en lua"
+    fi
+
+}
+
+
+# ─── Temas Visuales CachyOS (Nord) ────────────────────────────────────────────
+install_cachyos_themes() {
+    step "Instalando paquetes visuales de CachyOS (Nord / Iconos)..."
+    pacman_install kvantum qt5ct capitaine-cursors cachyos-nord-gtk-theme-git kvantum-theme-nordic-git cachyos-wallpapers cachyos-alacritty-config wlogout
+    ok "Paquetes de tematización instalados"
 }
 
 # ─── Fuentes Nerd Font ────────────────────────────────────────────────────────
@@ -341,7 +369,7 @@ install_fonts() {
     if pacman -Q ttf-jetbrains-mono-nerd &>/dev/null; then
         ok "ttf-jetbrains-mono-nerd ya instalada"
     else
-        pacman_install ttf-jetbrains-mono-nerd
+        pacman_install ttf-jetbrains-mono-nerd ttf-font-awesome otf-font-awesome awesome-terminal-fonts
         ok "ttf-jetbrains-mono-nerd instalada"
     fi
     fc-cache -f
@@ -448,8 +476,8 @@ install_waybar() {
 
   "pulseaudio": {
     "format": "{icon}",
-    "on-click": "uwsm app -- pavucontrol",
-    "on-click-right": "pamixer -t",
+    "on-click": "uwsm app -- swaync-client -t -sw",
+    "on-click-right": "uwsm app -- pavucontrol",
     "tooltip-format": "Volumen: {volume}%",
     "scroll-step": 5,
     "format-muted": "󰖁",
@@ -1862,7 +1890,7 @@ EOF
 }
 
 # ─── Mako (notificaciones Catppuccin Mocha) ───────────────────────────────────
-install_mako() {
+install_swaync() {
     step "Configurando mako (Catppuccin Mocha)..."
     mkdir -p "$HOME/.config/mako"
     local cfg="$HOME/.config/mako/config"
@@ -3820,6 +3848,7 @@ main() {
     update_system
     init_hyprland_config
     install_fonts
+    install_cachyos_themes
     install_waybar
     install_nm_applet
     install_audio
@@ -3837,7 +3866,7 @@ main() {
     install_idle_settings
     install_eww
     install_audio_setup
-    install_mako
+    install_swaync
     install_rofi
     install_cliphist
     install_wallpaper
