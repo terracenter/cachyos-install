@@ -378,9 +378,11 @@ setup_aur() {
 configure_mirrors() {
     step "Configurando mirrors (puede tardar ~1 minuto)..."
     if ! command -v cachyos-rate-mirrors &>/dev/null; then
-        warn "cachyos-rate-mirrors no está disponible — se omite (mirrors actuales se mantienen)"
-        return
+        step "Instalando cachyos-rate-mirrors..."
+        sudo pacman -S --noconfirm cachyos-rate-mirrors || warn "No se pudo instalar cachyos-rate-mirrors"
     fi
+    sudo cachyos-rate-mirrors \
+        || warn "cachyos-rate-mirrors falló — usando lista de mirrors actual"
     sudo cachyos-rate-mirrors \
         || warn "cachyos-rate-mirrors falló — continuando con mirrors actuales"
     ok "Mirrors configurados"

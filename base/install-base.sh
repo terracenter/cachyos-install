@@ -624,8 +624,12 @@ setup_swap() {
 # ─── 12. Mirrors ──────────────────────────────────────────────────────────────
 configure_mirrors() {
     step "Configurando mirrors (puede tardar ~1 minuto)..."
-    cachyos-rate-mirrors \
-        || die "cachyos-rate-mirrors falló"
+    if ! command -v cachyos-rate-mirrors &>/dev/null; then
+        step "Instalando cachyos-rate-mirrors..."
+        sudo pacman -S --noconfirm cachyos-rate-mirrors || warn "No se pudo instalar cachyos-rate-mirrors"
+    fi
+    sudo cachyos-rate-mirrors \
+        || warn "cachyos-rate-mirrors falló — usando lista de mirrors actual"
     ok "Mirrors configurados"
 }
 
@@ -655,8 +659,12 @@ install_pacstrap() {
         if grep -qE "returned error: [45][0-9]{2}|failed to retrieve some files" /tmp/pacstrap.log \
                 && (( attempt < max_retries )); then
             warn "Error de descarga en intento $attempt/$max_retries — seleccionando mirrors activos (~60 s)..."
-            cachyos-rate-mirrors &>/dev/null \
-                || warn "cachyos-rate-mirrors falló — continuando con mirrors actuales"
+    if ! command -v cachyos-rate-mirrors &>/dev/null; then
+        step "Instalando cachyos-rate-mirrors..."
+        sudo pacman -S --noconfirm cachyos-rate-mirrors || warn "No se pudo instalar cachyos-rate-mirrors"
+    fi
+    sudo cachyos-rate-mirrors \
+        || warn "cachyos-rate-mirrors falló — usando lista de mirrors actual"
             pacman -Syy --noconfirm &>/dev/null || true
             info "Reintentando (los paquetes ya en caché no se repiten)..."
             continue

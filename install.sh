@@ -58,15 +58,12 @@ prepare_system_and_mirrors() {
     ok "Conexión a Internet activa"
 
     step "Validando repositorios y optimizando velocidad de mirrors..."
-    if command -v cachyos-rate-mirrors &>/dev/null; then
-        sudo cachyos-rate-mirrors || warn "cachyos-rate-mirrors falló — usando lista de mirrors actual"
-        ok "Mirrors optimizados según latencia y velocidad"
-    elif command -v rate-mirrors &>/dev/null; then
-        sudo rate-mirrors arch | sudo tee /etc/pacman.d/mirrorlist >/dev/null || warn "rate-mirrors falló"
-        ok "Mirrors Arch optimizados"
-    else
-        info "Optimizador de mirrors no instalado — usando repositorios predeterminados del sistema"
+    if ! command -v cachyos-rate-mirrors &>/dev/null; then
+        step "Instalando cachyos-rate-mirrors..."
+        sudo pacman -S --noconfirm cachyos-rate-mirrors || warn "No se pudo instalar cachyos-rate-mirrors"
     fi
+    sudo cachyos-rate-mirrors \
+        || warn "cachyos-rate-mirrors falló — usando lista de mirrors actual"
 
     step "Ejecutando actualización completa del sistema antes de instalar..."
     # Desbloquear lock de pacman si quedó huérfano
