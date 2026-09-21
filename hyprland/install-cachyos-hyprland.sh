@@ -114,12 +114,14 @@ PKGS_FILES=(
 PKGS_FONTS=(
     noto-fonts noto-fonts-cjk noto-fonts-emoji
     ttf-ia-writer ttf-jetbrains-mono-nerd
+    ttf-font-awesome otf-font-awesome awesome-terminal-fonts
 )
 
 PKGS_THEMES=(
-    gnome-themes-extra kvantum-qt5 papirus-icon-theme fontconfig
-    catppuccin-gtk-theme-mocha catppuccin-cursors-mocha nwg-look
-    eww dart-sass
+    gnome-themes-extra kvantum-qt5 qt5ct papirus-icon-theme fontconfig
+    catppuccin-gtk-theme-mocha catppuccin-cursors-mocha capitaine-cursors nwg-look
+    cachyos-nord-gtk-theme-git kvantum-theme-nordic-git cachyos-wallpapers cachyos-alacritty-config
+    wlogout eww dart-sass
 )
 
 PKGS_CAPTURE=(

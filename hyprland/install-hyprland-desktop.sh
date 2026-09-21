@@ -340,17 +340,17 @@ PYEOF
         cat >> "$lua" << 'LUAEOF'
 
 -- Keybinds adicionales CachyOS
-hl.bind(mainMod, "R", hl.dsp.submap("resize"))
-hl.submap("resize", function()
-    hl.bind("", "right", hl.dsp.resizeactive("15 0"))
-    hl.bind("", "left", hl.dsp.resizeactive("-15 0"))
-    hl.bind("", "up", hl.dsp.resizeactive("0 -15"))
-    hl.bind("", "down", hl.dsp.resizeactive("0 15"))
-    hl.bind("", "escape", hl.dsp.submap_reset())
+hl.bind(mainMod .. " + R", hl.dsp.exec_raw("submap resize"))
+hl.define_submap("resize", function()
+    hl.bind("right", hl.dsp.exec_raw("resizeactive 15 0"))
+    hl.bind("left", hl.dsp.exec_raw("resizeactive -15 0"))
+    hl.bind("up", hl.dsp.exec_raw("resizeactive 0 -15"))
+    hl.bind("down", hl.dsp.exec_raw("resizeactive 0 15"))
+    hl.bind("escape", hl.dsp.exec_raw("submap reset"))
 end)
 
-hl.bind(mainMod .. " SHIFT", "M", hl.dsp.exec_cmd("uwsm app -- wlogout"))
-hl.bind(mainMod, "L", hl.dsp.exec_cmd("uwsm app -- hyprlock"))
+hl.bind(mainMod .. " + SHIFT + M", hl.dsp.exec_cmd("uwsm app -- wlogout"))
+hl.bind(mainMod .. " + L", hl.dsp.exec_cmd("uwsm app -- hyprlock"))
 LUAEOF
         ok "Keybinds de resize, wlogout y hyprlock inyectados en lua"
     fi
@@ -395,10 +395,23 @@ install_waybar() {
   "modules-left": ["custom/launcher", "hyprland/workspaces"],
   "modules-center": ["clock"],
   "modules-right": [
-    "custom/wlogout",
+    "tray",
+    "network",
     "bluetooth",
-    "pulseaudio"
+    "pulseaudio",
+    "cpu",
+    "battery",
+    "custom/wlogout"
   ],
+
+  "network": {
+    "format-wifi": "󰤨",
+    "format-ethernet": "󰈀",
+    "format-disconnected": "󰤭",
+    "tooltip-format": "{ifname} ({ipaddr})",
+    "on-click": "uwsm app -- alacritty -e nmtui",
+    "on-click-right": "uwsm app -- nm-connection-editor"
+  },
 
   "hyprland/workspaces": {
     "on-click": "activate",
@@ -449,11 +462,7 @@ install_waybar() {
   "width": 0,
   "modules-left": ["hyprland/window"],
   "modules-center": [],
-  "modules-right": [
-    "cpu",
-    "battery",
-    "tray"
-  ],
+  "modules-right": [],
   "hyprland/window": {
     "max-length": 50,
     "separate-outputs": true
@@ -1705,23 +1714,27 @@ if 'cliphist store' not in c and target in c:
     if [[ -f "$lua" ]] && grep -q "cliphist list" "$lua"; then
         ok "Keybinding Super+Ctrl+V (cliphist) ya existe"
     elif [[ -f "$lua" ]]; then
-        python3 -c "
-path = '$lua'
-with open(path) as f:
-    c = f.read()
-target = 'hl.bind(mainMod .. \" + CTRL + V\", hl.dsp.exec_cmd(\"rofi -modi'))'
-repl = 'hl.bind(mainMod .. \\\" + CTRL + V\\\", hl.dsp.exec_cmd(\\\"bash -c \\\\\\\"cliphist list | rofi -dmenu -p Portapapeles | cliphist decode | wl-copy\\\\\\\"\\\"))'
-if 'cliphist list' not in c and 'cliphist' not in c:
-    # Insertar antes del primer hl.bind (no dependiente de wiremix)
-    lines = c.split('\n')
+        python3 << 'PYEOF'
+import os
+lua_path = os.path.expanduser('~/.config/hypr/hyprland.lua')
+with open(lua_path) as f:
+    content = f.read()
+
+if 'cliphist list' not in content:
+    clip_bind = 'hl.bind(mainMod .. " + CTRL + V", hl.dsp.exec_cmd("bash -c \'cliphist list | rofi -dmenu -p Portapapeles | cliphist decode | wl-copy\'"))'
+    lines = content.split('\n')
+    inserted = False
     for i, line in enumerate(lines):
-        if 'hl.bind' in line and 'CTRL + V' not in line:
-            lines.insert(i, repl.replace('\\\\\\\"', '\\\\').replace('\\\\', '\\\\\\\\'))
+        if 'hl.bind' in line:
+            lines.insert(i, '-- Portapapeles cliphist\n' + clip_bind + '\n')
+            inserted = True
             break
-    with open(path, 'w') as f:
+    if not inserted:
+        lines.append('\n-- Portapapeles cliphist\n' + clip_bind)
+    with open(lua_path, 'w') as f:
         f.write('\n'.join(lines))
     print('OK')
-"
+PYEOF
         ok "Keybinding Super+Ctrl+V (cliphist) agregado"
     else
         warn "No se encontró $lua — agrega manualmente: Super+Ctrl+V → cliphist list | rofi -dmenu | cliphist decode | wl-copy"
