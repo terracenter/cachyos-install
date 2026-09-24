@@ -80,14 +80,14 @@ menu_base() {
     header "Fase 1: Instalación Base (Live ISO / BTRFS)"
     echo -e "${RED}${BOLD}⚠ ADVERTENCIA CRÍTICA: Esta opción FORMATEARÁ y BORRARÁ el disco seleccionado.${NC}\n"
 
-    read -p "PRIMERA CONFIRMACIÓN: ¿Estás SEGURO de formatear el disco? [escribe 'DESTRUIR']: " confirm1 < /dev/tty || confirm1=""
+    read -r -p "PRIMERA CONFIRMACIÓN: ¿Estás SEGURO de formatear el disco? [escribe 'DESTRUIR']: " confirm1 < /dev/tty || confirm1=""
     if [[ "$confirm1" != "DESTRUIR" ]]; then
         warn "Instalación base cancelada por seguridad. (No se escribió 'DESTRUIR')."
         return 0
     fi
 
     echo -e "\n${RED}${BOLD}⚠ SEGUNDA CONFIRMACIÓN FINAL:${NC}"
-    read -p "¿Confirmas por segunda vez que estás en un Live ISO y deseas CONTINUAR? [s/N]: " confirm2 < /dev/tty || confirm2=""
+    read -r -p "¿Confirmas por segunda vez que estás en un Live ISO y deseas CONTINUAR? [s/N]: " confirm2 < /dev/tty || confirm2=""
     if [[ ! "$confirm2" =~ ^[sS]$ ]]; then
         warn "Instalación base cancelada en la segunda confirmación."
         return 0
@@ -114,7 +114,7 @@ menu_hyprland() {
         echo "  2) Desinstalar Hyprland (Limpieza completa)"
         echo "  3) Volver al menú principal"
         echo ""
-        read -p "Opción [1-3]: " sub_choice < /dev/tty || sub_choice="3"
+        read -r -p "Opción [1-3]: " sub_choice < /dev/tty || sub_choice="3"
 
         case "$sub_choice" in
             1)
@@ -159,7 +159,7 @@ menu_qtile() {
         echo "  2) Desinstalar Qtile (Limpieza completa X11)"
         echo "  3) Volver al menú principal"
         echo ""
-        read -p "Opción [1-3]: " sub_choice < /dev/tty || sub_choice="3"
+        read -r -p "Opción [1-3]: " sub_choice < /dev/tty || sub_choice="3"
 
         case "$sub_choice" in
             1)
@@ -206,7 +206,7 @@ main() {
         echo "  6) Salir"
         echo ""
 
-        read -p "Selecciona una opción [1-6]: " main_choice < /dev/tty || main_choice="6"
+        read -r -p "Selecciona una opción [1-6]: " main_choice < /dev/tty || main_choice="6"
 
         case "$main_choice" in
             1) menu_base ;;

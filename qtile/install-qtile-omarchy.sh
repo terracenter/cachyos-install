@@ -17,7 +17,6 @@ source "$SCRIPT_DIR/../lib/common.sh"
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 BOLD='\033[1m'
 DIM='\033[2m'
@@ -160,15 +159,13 @@ PKGS_OFFICE_OFFICIAL=(libreoffice-fresh evince xournalpp pinta gnome-calculator)
 PKGS_OFFICE_AUR=(obsidian typora)
 PKGS_PRINT_OFFICIAL=(cups cups-browsed cups-filters cups-pdf system-config-printer)
 PKGS_SYNC_AUR=(dropbox megasync-bin)
-PKGS_BROWSERS_OFFICIAL=(firefox)
-PKGS_BROWSERS_AUR=(google-chrome brave-bin opera microsoft-edge-stable-bin)
 
 select_file_manager() {
     header "Seleccionar Gestor de Archivos"
     echo "  1) Thunar (Ligero y rápido — recomendado para entornos livianos)"
     echo "  2) Nautilus (Moderno y estético — nativo de GNOME)"
     echo ""
-    read -p "Opción [1-2] (Por defecto 1): " fm_choice < /dev/tty
+    read -r -p "Opción [1-2] (Por defecto 1): " fm_choice < /dev/tty
     if [[ "$fm_choice" == "2" ]]; then
         FILE_MANAGER="nautilus"
         PKGS_FILES=(
@@ -624,11 +621,15 @@ SWITCHER_EOF
     local clone_dir="/tmp/omarchy-themes-$$"
     if command -v git &>/dev/null; then
         rm -rf "$clone_dir"
-        git clone --depth=1 -b dev --filter=blob:none --sparse \
+        if git clone --depth=1 -b dev --filter=blob:none --sparse \
             https://github.com/basecamp/omarchy "$clone_dir" 2>/dev/null \
-            && git -C "$clone_dir" sparse-checkout set themes/ 2>/dev/null \
-            && ok "Repo Omarchy clonado en $clone_dir" \
-            || { warn "No se pudo clonar repo Omarchy — agrega wallpapers manualmente en $bg_dir"; rm -rf "$clone_dir"; clone_dir=""; }
+            && git -C "$clone_dir" sparse-checkout set themes/ 2>/dev/null; then
+            ok "Repo Omarchy clonado en $clone_dir"
+        else
+            warn "No se pudo clonar repo Omarchy — agrega wallpapers manualmente en $bg_dir"
+            rm -rf "$clone_dir"
+            clone_dir=""
+        fi
     fi
 
     if [[ -n "${clone_dir:-}" && -d "$clone_dir/themes" ]]; then
@@ -661,8 +662,15 @@ SWITCHER_EOF
 
             # Determinar primer wallpaper (orden alfabético, excluye omarchy.png)
             if [[ -d "$tema_dir/backgrounds" ]]; then
-                wall_file=$(ls "$tema_dir/backgrounds/" 2>/dev/null \
-                    | grep -v "^omarchy\.png$" | sort | head -1)
+                wall_file=""
+                for bg in "$tema_dir/backgrounds/"*; do
+                    [[ -f "$bg" ]] || continue
+                    bg_name=$(basename "$bg")
+                    [[ "$bg_name" == "omarchy.png" ]] && continue
+                    if [[ -z "$wall_file" ]] || [[ "$bg_name" < "$wall_file" ]]; then
+                        wall_file="$bg_name"
+                    fi
+                done
                 wall_path="${bg_dir}/omarchy-${tema_name}-${wall_file}"
             else
                 wall_path=""
@@ -1033,7 +1041,7 @@ WANEOF
   :focusable false
   (sysmon))
 YUCKEOF
-    ok "~/.config/eww/eww.yuck creado"
+    ok "$HOME/.config/eww/eww.yuck creado"
     ok "Eww configurado e instalado."
 }
 
@@ -1259,9 +1267,12 @@ configure_grub() {
             ok "catppuccin-${_flavor}: ya instalado"
         else
             if [[ "$_cat_cloned" -eq 0 ]]; then
-                git clone --depth 1 https://github.com/catppuccin/grub.git "$tmp/catppuccin" 2>/dev/null \
-                    && _cat_cloned=1 \
-                    || { warn "No se pudo clonar catppuccin/grub"; break; }
+                if git clone --depth 1 https://github.com/catppuccin/grub.git "$tmp/catppuccin" 2>/dev/null; then
+                    _cat_cloned=1
+                else
+                    warn "No se pudo clonar catppuccin/grub"
+                    break
+                fi
             fi
             sudo cp -r "$tmp/catppuccin/src/catppuccin-${_flavor}-grub-theme" "$themes_sys/"
             ok "catppuccin-${_flavor} instalado"
@@ -1306,13 +1317,22 @@ configure_grub() {
             ok "${_t}: ya instalado"
         else
             if [[ "$_vince_cloned" -eq 0 ]]; then
-                git clone --depth 1 https://github.com/vinceliuice/grub2-themes.git "$tmp/vince" 2>/dev/null \
-                    && _vince_cloned=1 \
-                    || { warn "No se pudo clonar vinceliuice/grub2-themes"; break; }
+                if git clone --depth 1 https://github.com/vinceliuice/grub2-themes.git "$tmp/vince" 2>/dev/null; then
+                    _vince_cloned=1
+                else
+                    warn "No se pudo clonar vinceliuice/grub2-themes"
+                    break
+                fi
             fi
             (cd "$tmp/vince" && sudo bash install.sh -t "$_t" -b -s 1080p 2>/dev/null) || true
-            [[ -d "/boot/grub/themes/${_t}" ]] && sudo cp -r "/boot/grub/themes/${_t}" "${themes_sys}/"
-            [[ -d "${themes_sys}/${_t}" ]] && ok "${_t} instalado" || warn "No se pudo instalar ${_t}"
+            if [[ -d "/boot/grub/themes/${_t}" ]]; then
+                sudo cp -r "/boot/grub/themes/${_t}" "${themes_sys}/"
+            fi
+            if [[ -d "${themes_sys}/${_t}" ]]; then
+                ok "${_t} instalado"
+            else
+                warn "No se pudo instalar ${_t}"
+            fi
         fi
     done
 

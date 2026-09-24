@@ -64,7 +64,6 @@ ensure_pacman_unlocked() {
 # ─── Variables globales ───────────────────────────────────────────────────────
 GPU_TYPE=""
 GPU_PKGS_OFFICIAL=()
-GPU_PKGS_AUR=()
 AUR_CMD=""
 
 INSTALL_BROWSERS=()
@@ -114,14 +113,12 @@ PKGS_FILES=(
 PKGS_FONTS=(
     noto-fonts noto-fonts-cjk noto-fonts-emoji
     ttf-ia-writer ttf-jetbrains-mono-nerd
-    ttf-font-awesome otf-font-awesome awesome-terminal-fonts
 )
 
 PKGS_THEMES=(
-    gnome-themes-extra kvantum-qt5 qt5ct papirus-icon-theme fontconfig
-    catppuccin-gtk-theme-mocha catppuccin-cursors-mocha capitaine-cursors nwg-look
-    cachyos-nord-gtk-theme-git kvantum-theme-nordic-git cachyos-wallpapers cachyos-alacritty-config
-    wlogout eww dart-sass
+    gnome-themes-extra kvantum-qt5 papirus-icon-theme fontconfig
+    catppuccin-gtk-theme-mocha catppuccin-cursors-mocha nwg-look
+    eww dart-sass
 )
 
 PKGS_CAPTURE=(
@@ -173,9 +170,6 @@ PKGS_OFFICE_AUR=(obsidian typora)
 PKGS_PRINT_OFFICIAL=(cups cups-browsed cups-filters cups-pdf system-config-printer)
 
 PKGS_SYNC_AUR=(dropbox megasync-bin)
-
-PKGS_BROWSERS_OFFICIAL=(firefox)
-PKGS_BROWSERS_AUR=(google-chrome brave-bin opera microsoft-edge-stable-bin)
 
 # ─── GPU drivers ─────────────────────────────────────────────────────────────
 
@@ -281,7 +275,7 @@ select_file_manager() {
     echo ""
     local fm_choice=""
     if [[ -e /dev/tty ]]; then
-        read -p "Opción [1-2] (Por defecto 1): " fm_choice < /dev/tty || fm_choice="1"
+        read -r -p "Opción [1-2] (Por defecto 1): " fm_choice < /dev/tty || fm_choice="1"
     else
         fm_choice="1"
     fi
@@ -460,9 +454,11 @@ install_aur() {
                 $AUR_CMD -S --needed --noconfirm --skipreview "$pkg" \
                     || { warn "$pkg no se pudo instalar — continuando"; failed_pkgs+=("$pkg"); }
             done
-            [[ ${#failed_pkgs[@]} -gt 0 ]] \
-                && warn "Paquetes AUR no instalados: ${failed_pkgs[*]}" \
-                || ok "Todos los paquetes AUR instalados en reintento individual"
+            if [[ ${#failed_pkgs[@]} -gt 0 ]]; then
+                warn "Paquetes AUR no instalados: ${failed_pkgs[*]}"
+            else
+                ok "Todos los paquetes AUR instalados en reintento individual"
+            fi
         else
             ok "Paquetes AUR instalados"
         fi
@@ -481,9 +477,11 @@ install_aur() {
         warn "Paquetes AUR críticos no instalados: ${failed_critical[*]}"
         warn "Reintentando instalación individual..."
         for pkg in "${failed_critical[@]}"; do
-            $AUR_CMD -S --needed --noconfirm --skipreview "$pkg" \
-                && ok "$pkg instalado en reintento" \
-                || warn "$pkg falló — la configuración que lo requiere emitirá advertencia"
+            if $AUR_CMD -S --needed --noconfirm --skipreview "$pkg"; then
+                ok "$pkg instalado en reintento"
+            else
+                warn "$pkg falló — la configuración que lo requiere emitirá advertencia"
+            fi
         done
     fi
 }
@@ -598,7 +596,6 @@ HYPR_DESKTOP_EOF
 install_sddm_bg_switcher() {
     local theme_dir="/usr/share/sddm/themes/sddm-astronaut-theme"
     local bg_dir="$theme_dir/Backgrounds"
-    local theme_conf="/etc/sddm.conf.d/sddm-astronaut-theme.conf"
 
     if [[ ! -d "$bg_dir" ]]; then
         warn "sddm-astronaut-theme no encontrado en $bg_dir — omitiendo bg-switcher"
@@ -684,9 +681,12 @@ configure_grub() {
             ok "catppuccin-${_flavor}: ya instalado"
         else
             if [[ "$_cat_cloned" -eq 0 ]]; then
-                git clone --depth 1 https://github.com/catppuccin/grub.git "$tmp/catppuccin" 2>/dev/null \
-                    && _cat_cloned=1 \
-                    || { warn "No se pudo clonar catppuccin/grub"; break; }
+                if git clone --depth 1 https://github.com/catppuccin/grub.git "$tmp/catppuccin" 2>/dev/null; then
+                    _cat_cloned=1
+                else
+                    warn "No se pudo clonar catppuccin/grub"
+                    break
+                fi
             fi
             sudo cp -r "$tmp/catppuccin/src/catppuccin-${_flavor}-grub-theme" "$themes_sys/"
             ok "catppuccin-${_flavor} instalado"
@@ -731,13 +731,20 @@ configure_grub() {
             ok "${_t}: ya instalado"
         else
             if [[ "$_vince_cloned" -eq 0 ]]; then
-                git clone --depth 1 https://github.com/vinceliuice/grub2-themes.git "$tmp/vince" 2>/dev/null \
-                    && _vince_cloned=1 \
-                    || { warn "No se pudo clonar vinceliuice/grub2-themes"; break; }
+                if git clone --depth 1 https://github.com/vinceliuice/grub2-themes.git "$tmp/vince" 2>/dev/null; then
+                    _vince_cloned=1
+                else
+                    warn "No se pudo clonar vinceliuice/grub2-themes"
+                    break
+                fi
             fi
             (cd "$tmp/vince" && sudo bash install.sh -t "$_t" -b -s 1080p 2>/dev/null) || true
             [[ -d "/boot/grub/themes/${_t}" ]] && sudo cp -r "/boot/grub/themes/${_t}" "${themes_sys}/"
-            [[ -d "${themes_sys}/${_t}" ]] && ok "${_t} instalado" || warn "No se pudo instalar ${_t}"
+            if [[ -d "${themes_sys}/${_t}" ]]; then
+                ok "${_t} instalado"
+            else
+                warn "No se pudo instalar ${_t}"
+            fi
         fi
     done
 

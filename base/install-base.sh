@@ -45,6 +45,7 @@ ask() {
     else
         printf "\n${CYAN}   %s: ${NC}" "$prompt"
     fi
+    # shellcheck disable=SC2229
     read -r "$var" < /dev/tty
     [[ -z "${!var}" && -n "$default" ]] && printf -v "$var" '%s' "$default"
 }
@@ -84,7 +85,7 @@ askpass() {
     while true; do
         printf "\n${CYAN}   %s: ${NC}" "$prompt"
         read -rs pass1 < /dev/tty; echo
-        printf "${CYAN}   Confirmar: ${NC}"
+        printf '%s   Confirmar: %s' "$CYAN" "$NC"
         read -rs pass2 < /dev/tty; echo
         [[ "$pass1" == "$pass2" ]] && break
         warn "No coinciden, intenta de nuevo."
@@ -179,7 +180,7 @@ suggest_swap() {
         else echo 8; fi
     else
         if   [[ $RAM_GB -le 2 ]];  then echo 4
-        elif [[ $RAM_GB -le 8 ]];  then echo $RAM_GB
+        elif [[ $RAM_GB -le 8 ]];  then echo "$RAM_GB"
         elif [[ $RAM_GB -le 64 ]]; then echo 16
         else echo 8; fi
     fi
@@ -234,7 +235,7 @@ ask_timezone() {
             printf "   %4d)  %s\n" $(( i + 1 )) "${zones[$i]}"
         done
         echo -e "\n   ${DIM}[número] seleccionar · [n] siguiente · [p] anterior · [b] buscar${NC}"
-        printf "${CYAN}   Opción: ${NC}"
+        printf '%s   Opción: %s' "$CYAN" "$NC"
         read -r _tz < /dev/tty
 
         if [[ "$_tz" =~ ^[0-9]+$ ]] && (( _tz >= 1 && _tz <= total )); then
@@ -242,11 +243,11 @@ ask_timezone() {
             ok "Zona horaria: $TIMEZONE"
             return
         elif [[ "$_tz" == "n" ]]; then
-            (( (page + 1) * per_page < total )) && (( page++ )) || true
+            if (( (page + 1) * per_page < total )); then (( page++ )) || true; fi
         elif [[ "$_tz" == "p" ]]; then
-            (( page > 0 )) && (( page-- )) || true
+            if (( page > 0 )); then (( page-- )) || true; fi
         elif [[ "$_tz" == "b" ]]; then
-            printf "   ${CYAN}Buscar (ej: Caracas, America, Madrid): ${NC}"
+            printf '%s   Buscar (ej: Caracas, America, Madrid): %s' "   $CYAN" "$NC"
             read -r _query < /dev/tty
             local results=()
             local _q="${_query,,}"
@@ -264,7 +265,7 @@ ask_timezone() {
                 for (( i = 0; i < ${#results[@]}; i++ )); do
                     printf "   %4d)  %s\n" $(( i + 1 )) "${results[$i]}"
                 done
-                printf "\n${CYAN}   Número: ${NC}"
+                printf '\n%s   Número: %s' "$CYAN" "$NC"
                 read -r _num < /dev/tty
                 if [[ "$_num" =~ ^[0-9]+$ ]] && (( _num >= 1 && _num <= ${#results[@]} )); then
                     TIMEZONE="${results[$(( _num - 1 ))]}"
@@ -300,7 +301,7 @@ ask_locale() {
     echo -e "   15)  ja_JP.UTF-8  — Japonés"
     echo -e "    0)  Otro         — entrada manual\n"
 
-    printf "${CYAN}   Opción [1]: ${NC}"
+    printf '%s   Opción [1]: %s' "$CYAN" "$NC"
     read -r _loc < /dev/tty
     _loc="${_loc:-1}"
 
@@ -345,7 +346,7 @@ ask_keyboard() {
     echo -e "   8)  ru              — Ruso"
     echo -e "   0)  Otro            — ingresar manualmente\n"
 
-    printf "${CYAN}   Opción [2]: ${NC}"
+    printf '%s   Opción [2]: %s' "$CYAN" "$NC"
     read -r _kb < /dev/tty
     _kb="${_kb:-2}"
 
@@ -471,7 +472,7 @@ ask_questions() {
     echo -e "   2) ZSH con plugins — zsh-syntax-highlighting + zsh-autosuggestions"
     echo -e "   3) Ninguno"
     while true; do
-        printf "\n${CYAN}   Selección [1-3]: ${NC}"
+        printf '\n%s   Selección [1-3]: %s' "$CYAN" "$NC"
         read -r _shell_resp < /dev/tty
         case "$_shell_resp" in
             1) SHELL_CHOICE="bash"; break ;;
@@ -998,11 +999,13 @@ USERSCRIPT
             content=$(cat "$bashrc")
             {
                 printf '%s\n' '# Fix TERM para sesiones SSH sin terminfo del emulador local'
+                # shellcheck disable=SC2016
                 printf '%s\n' 'if [[ -n "$SSH_CONNECTION" ]] && ! infocmp "$TERM" &>/dev/null 2>&1; then'
                 printf '%s\n' '  export TERM=xterm-256color'
                 printf '%s\n\n' 'fi'
                 printf '%s\n\n' '[[ $- == *i* ]] && source ~/.local/share/blesh/ble.sh --noattach 2>/dev/null'
                 printf '%s\n' "$content"
+                # shellcheck disable=SC2016
                 printf '%s\n' '[[ ${BLE_VERSION-} ]] && ble-attach'
             } > "${bashrc}.new"
             mv "${bashrc}.new" "$bashrc"
@@ -1084,7 +1087,7 @@ unmount_all() {
     step "Desmontando..."
     swapoff /mnt/swap/swapfile 2>/dev/null || true
     umount -R /mnt
-    $USE_LUKS && cryptsetup close cryptroot 2>/dev/null || true
+    if $USE_LUKS; then cryptsetup close cryptroot 2>/dev/null || true; fi
     ok "Desmontado correctamente"
 }
 
