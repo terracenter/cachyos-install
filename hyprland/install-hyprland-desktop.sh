@@ -244,7 +244,8 @@ init_hyprland_config() {
     if grep -q 'HOME/.local/bin' "$uwsm_env" 2>/dev/null; then
         ok "PATH de sesión (~/.local/bin) ya configurado en uwsm/env"
     else
-        printf '%s\n' '# Agrega ~/.local/bin al PATH de la sesión gráfica (sourced por uwsm)' \
+        # shellcheck disable=SC2016
+        printf '%s\n' '# Agrega ~/.local/bin al PATH de la sesión gráfica (sourced by uwsm)' \
                       'export PATH="$HOME/.local/bin:$PATH"' >> "$uwsm_env"
         ok "PATH de sesión agregado a $uwsm_env"
     fi
@@ -340,17 +341,17 @@ PYEOF
         cat >> "$lua" << 'LUAEOF'
 
 -- Keybinds adicionales CachyOS
-hl.bind(mainMod .. " + R", hl.dsp.exec_raw("submap resize"))
-hl.define_submap("resize", function()
-    hl.bind("right", hl.dsp.exec_raw("resizeactive 15 0"))
-    hl.bind("left", hl.dsp.exec_raw("resizeactive -15 0"))
-    hl.bind("up", hl.dsp.exec_raw("resizeactive 0 -15"))
-    hl.bind("down", hl.dsp.exec_raw("resizeactive 0 15"))
-    hl.bind("escape", hl.dsp.exec_raw("submap reset"))
+hl.bind(mainMod, "R", hl.dsp.submap("resize"))
+hl.submap("resize", function()
+    hl.bind("", "right", hl.dsp.resizeactive("15 0"))
+    hl.bind("", "left", hl.dsp.resizeactive("-15 0"))
+    hl.bind("", "up", hl.dsp.resizeactive("0 -15"))
+    hl.bind("", "down", hl.dsp.resizeactive("0 15"))
+    hl.bind("", "escape", hl.dsp.submap_reset())
 end)
 
-hl.bind(mainMod .. " + SHIFT + M", hl.dsp.exec_cmd("uwsm app -- wlogout"))
-hl.bind(mainMod .. " + L", hl.dsp.exec_cmd("uwsm app -- hyprlock"))
+hl.bind(mainMod .. " SHIFT", "M", hl.dsp.exec_cmd("uwsm app -- wlogout"))
+hl.bind(mainMod, "L", hl.dsp.exec_cmd("uwsm app -- hyprlock"))
 LUAEOF
         ok "Keybinds de resize, wlogout y hyprlock inyectados en lua"
     fi
@@ -395,23 +396,10 @@ install_waybar() {
   "modules-left": ["custom/launcher", "hyprland/workspaces"],
   "modules-center": ["clock"],
   "modules-right": [
-    "tray",
-    "network",
+    "custom/wlogout",
     "bluetooth",
-    "pulseaudio",
-    "cpu",
-    "battery",
-    "custom/wlogout"
+    "pulseaudio"
   ],
-
-  "network": {
-    "format-wifi": "󰤨",
-    "format-ethernet": "󰈀",
-    "format-disconnected": "󰤭",
-    "tooltip-format": "{ifname} ({ipaddr})",
-    "on-click": "uwsm app -- alacritty -e nmtui",
-    "on-click-right": "uwsm app -- nm-connection-editor"
-  },
 
   "hyprland/workspaces": {
     "on-click": "activate",
@@ -462,7 +450,11 @@ install_waybar() {
   "width": 0,
   "modules-left": ["hyprland/window"],
   "modules-center": [],
-  "modules-right": [],
+  "modules-right": [
+    "cpu",
+    "battery",
+    "tray"
+  ],
   "hyprland/window": {
     "max-length": 50,
     "separate-outputs": true
@@ -1382,7 +1374,7 @@ WANEOF
   :focusable false
   (sysmon))
 YUCKEOF
-    ok "~/.config/eww/eww.yuck creado"
+    ok "$HOME/.config/eww/eww.yuck creado"
 
     # ── eww.scss (Catppuccin Mocha) ───────────────────────────────────────────
     cat > ~/.config/eww/eww.scss << 'SCSSEOF'
@@ -1448,7 +1440,7 @@ $sky:      #89dceb;
   }
 }
 SCSSEOF
-    ok "~/.config/eww/eww.scss creado"
+    ok "$HOME/.config/eww/eww.scss creado"
 
     # ── Autostart en hyprland.lua ─────────────────────────────────────────────
     # Eliminar restos de conky si los hay
@@ -1714,27 +1706,23 @@ if 'cliphist store' not in c and target in c:
     if [[ -f "$lua" ]] && grep -q "cliphist list" "$lua"; then
         ok "Keybinding Super+Ctrl+V (cliphist) ya existe"
     elif [[ -f "$lua" ]]; then
-        python3 << 'PYEOF'
-import os
-lua_path = os.path.expanduser('~/.config/hypr/hyprland.lua')
-with open(lua_path) as f:
-    content = f.read()
-
-if 'cliphist list' not in content:
-    clip_bind = 'hl.bind(mainMod .. " + CTRL + V", hl.dsp.exec_cmd("bash -c \'cliphist list | rofi -dmenu -p Portapapeles | cliphist decode | wl-copy\'"))'
-    lines = content.split('\n')
-    inserted = False
+        python3 -c "
+path = '$lua'
+with open(path) as f:
+    c = f.read()
+target = 'hl.bind(mainMod .. \" + CTRL + V\", hl.dsp.exec_cmd(\"rofi -modi'))'
+repl = 'hl.bind(mainMod .. \\\" + CTRL + V\\\", hl.dsp.exec_cmd(\\\"bash -c \\\\\\\"cliphist list | rofi -dmenu -p Portapapeles | cliphist decode | wl-copy\\\\\\\"\\\"))'
+if 'cliphist list' not in c and 'cliphist' not in c:
+    # Insertar antes del primer hl.bind (no dependiente de wiremix)
+    lines = c.split('\n')
     for i, line in enumerate(lines):
-        if 'hl.bind' in line:
-            lines.insert(i, '-- Portapapeles cliphist\n' + clip_bind + '\n')
-            inserted = True
+        if 'hl.bind' in line and 'CTRL + V' not in line:
+            lines.insert(i, repl.replace('\\\\\\\"', '\\\\').replace('\\\\', '\\\\\\\\'))
             break
-    if not inserted:
-        lines.append('\n-- Portapapeles cliphist\n' + clip_bind)
-    with open(lua_path, 'w') as f:
+    with open(path, 'w') as f:
         f.write('\n'.join(lines))
     print('OK')
-PYEOF
+"
         ok "Keybinding Super+Ctrl+V (cliphist) agregado"
     else
         warn "No se encontró $lua — agrega manualmente: Super+Ctrl+V → cliphist list | rofi -dmenu | cliphist decode | wl-copy"
@@ -2458,11 +2446,15 @@ SWITCHER_EOF
         warn "git no disponible — instala git y re-ejecuta para bajar wallpapers"
     else
         rm -rf "$clone_dir"
-        git clone --depth=1 --filter=blob:none --sparse \
+        if git clone --depth=1 --filter=blob:none --sparse \
             https://github.com/basecamp/omarchy "$clone_dir" 2>/dev/null \
-            && git -C "$clone_dir" sparse-checkout set themes/ 2>/dev/null \
-            && ok "Repo Omarchy clonado en $clone_dir" \
-            || { warn "No se pudo clonar repo Omarchy — agrega wallpapers manualmente en $bg_dir"; rm -rf "$clone_dir"; clone_dir=""; }
+            && git -C "$clone_dir" sparse-checkout set themes/ 2>/dev/null; then
+            ok "Repo Omarchy clonado en $clone_dir"
+        else
+            warn "No se pudo clonar repo Omarchy — agrega wallpapers manualmente en $bg_dir"
+            rm -rf "$clone_dir"
+            clone_dir=""
+        fi
     fi
 
     if [[ -n "${clone_dir:-}" && -d "$clone_dir/themes" ]]; then
@@ -2494,8 +2486,15 @@ SWITCHER_EOF
 
             # Determinar primer wallpaper (orden alfabético, excluye omarchy.png)
             if [[ -d "$tema_dir/backgrounds" ]]; then
-                wall_file=$(ls "$tema_dir/backgrounds/" 2>/dev/null \
-                    | grep -v "^omarchy\.png$" | sort | head -1)
+                wall_file=""
+                for bg in "$tema_dir/backgrounds/"*; do
+                    [[ -f "$bg" ]] || continue
+                    bg_name=$(basename "$bg")
+                    [[ "$bg_name" == "omarchy.png" ]] && continue
+                    if [[ -z "$wall_file" ]] || [[ "$bg_name" < "$wall_file" ]]; then
+                        wall_file="$bg_name"
+                    fi
+                done
                 wall_path="${bg_dir}/omarchy-${tema_name}-${wall_file}"
             else
                 wall_path=""
@@ -2623,23 +2622,27 @@ PYEOF
 
     # ── PATH: asegurar ~/.local/bin disponible ────────────────────────────────
     if grep -q "^export PATH=.*local/bin" "$HOME/.zshrc" 2>/dev/null; then
-        ok "~/.local/bin ya en PATH en .zshrc"
+        ok "$HOME/.local/bin ya en PATH en .zshrc"
     elif grep -q "^# export PATH=.*local/bin" "$HOME/.zshrc" 2>/dev/null; then
+        # shellcheck disable=SC2016
         sed -i 's|^# export PATH=\$HOME/bin:\$HOME/.local/bin|export PATH=$HOME/bin:$HOME/.local/bin|' "$HOME/.zshrc"
-        ok "~/.local/bin añadido al PATH en .zshrc (línea descomentada)"
+        ok "$HOME/.local/bin añadido al PATH en .zshrc (línea descomentada)"
     else
+        # shellcheck disable=SC2016
         echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.zshrc"
-        ok "~/.local/bin añadido al PATH en .zshrc (línea añadida)"
+        ok "$HOME/.local/bin añadido al PATH en .zshrc (línea añadida)"
     fi
 
     # ── Aplicar tema nord por defecto ─────────────────────────────────────────
     # theme-apply genera los archivos CSS/config sin necesitar display;
     # si falla swaybg por falta de Wayland, los archivos de tema quedan listos igual.
     if [[ -f "$themes_dir/nord/colors.toml" && -f "$bin_dir/theme-apply" ]]; then
-        "$bin_dir/theme-apply" nord 2>/dev/null \
-            && ok "Tema nord aplicado — archivos de tema generados" \
-            || { echo "nord" > "$current_dir/theme"
-                 warn "theme-apply falló (¿sin Wayland?) — tema registrado, regenerar con: theme-apply nord"; }
+        if "$bin_dir/theme-apply" nord 2>/dev/null; then
+            ok "Tema nord aplicado — archivos de tema generados"
+        else
+            echo "nord" > "$current_dir/theme"
+            warn "theme-apply falló (¿sin Wayland?) — tema registrado, regenerar con: theme-apply nord"
+        fi
     fi
 }
 
