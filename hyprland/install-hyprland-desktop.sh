@@ -35,7 +35,7 @@ run_logged "$CACHY_INSTALL/install/basico/hotkeys.sh"
 run_logged "$CACHY_INSTALL/install/configuracion/updates-paru.sh"
 run_logged "$CACHY_INSTALL/install/configuracion/monitores.sh"
 run_logged "$CACHY_INSTALL/install/configuracion/teclado-mouse.sh"
-run_logged "$CACHY_INSTALL/install/configuracion/firewall-nftable.sh"
+# run_logged "$CACHY_INSTALL/install/configuracion/firewall-nftable.sh"
 
 # 3. Aplicaciones (Modulares)
 run_logged "$CACHY_INSTALL/install/apps/terminal-neovim.sh"
