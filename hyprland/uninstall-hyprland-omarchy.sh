@@ -48,7 +48,7 @@ done
 
 if [ ${#PKGS_TO_REMOVE[@]} -gt 0 ]; then
     info "Removiendo paquetes: ${PKGS_TO_REMOVE[*]}"
-    paru -Rns --noconfirm "${PKGS_TO_REMOVE[@]}" || true
+    sudo pacman -Rns --noconfirm "${PKGS_TO_REMOVE[@]}"
     ok "Paquetes de Hyprland desinstalados"
 else
     ok "No se encontraron paquetes de Hyprland pendientes de remover"
