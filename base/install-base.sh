@@ -1088,3 +1088,4 @@ install_rollback_helper
 take_snapshot
 unmount_all
 final_summary
+exit 0
