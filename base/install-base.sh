@@ -545,7 +545,7 @@ install_pacstrap() {
         networkmanager openssh sudo vim
         snapper snap-pac inotify-tools
         cachyos-keyring cachyos-mirrorlist
-        man-db less unzip rsync
+        man-db less unzip rsync paru
     )
     $USE_LUKS && pkgs+=(cryptsetup)
 
