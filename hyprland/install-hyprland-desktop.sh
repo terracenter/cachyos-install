@@ -5,7 +5,7 @@
 set -e
 
 export CACHY_INSTALL="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-export CACHY_LOG="/var/log/cachyos-hyprland-install.log"
+export CACHY_LOG="/tmp/cachyos-hyprland-install.log"
 
 run_logged() {
   local script_path="$1"
