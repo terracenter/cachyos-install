@@ -39,42 +39,32 @@ info()    { echo -e "   ${DIM}→  $1${NC}"; }
 die()     { echo -e "\n   ${RED}ERROR  $1${NC}\n" >&2; exit 1; }
 
 ask() {
-    local prompt="$1" var="$2" default="${3:-}"
-    if [[ -n "$default" ]]; then
-        printf "\n${CYAN}   %s [%s]: ${NC}" "$prompt" "$default"
+    local prompt="$1" var="$2" default="${3:-}" response
+    response=$(whiptail --title "Entrada Requerida" --inputbox "$prompt" 10 60 "$default" 3>&1 1>&2 2>&3)
+    if [[ $? -ne 0 ]]; then
+        printf -v "$var" '%s' "$default"
     else
-        printf "\n${CYAN}   %s: ${NC}" "$prompt"
+        printf -v "$var" '%s' "$response"
     fi
-    # shellcheck disable=SC2229
-    read -r "$var" < /dev/tty
-    [[ -z "${!var}" && -n "$default" ]] && printf -v "$var" '%s' "$default"
 }
 
 ask_number() {
     local prompt="$1" var="$2" default="${3:-}" response
     while true; do
-        if [[ -n "$default" ]]; then
-            printf "\n${CYAN}   %s [%s]: ${NC}" "$prompt" "$default"
-        else
-            printf "\n${CYAN}   %s: ${NC}" "$prompt"
+        response=$(whiptail --title "Número Requerido" --inputbox "$prompt" 10 60 "$default" 3>&1 1>&2 2>&3)
+        if [[ $? -ne 0 ]]; then
+            printf -v "$var" '%s' "$default"
+            break
         fi
-        read -r response < /dev/tty
-        # Si presiona Enter y hay default → aceptar directamente (sin validación)
-        if [[ -z "$response" ]]; then
-            if [[ -n "$default" ]]; then
-                printf -v "$var" '%s' "$default"
-                break
-            else
-                warn "Debes escribir un número"
-                continue
-            fi
+        if [[ -z "$response" && -n "$default" ]]; then
+            printf -v "$var" '%s' "$default"
+            break
         fi
-        # Si escribió algo → debe ser número positivo
         if [[ "$response" =~ ^[0-9]+$ ]] && (( response >= 1 )); then
             printf -v "$var" '%s' "$response"
             break
         else
-            warn "Entrada inválida — escribe un número válido (ej: 4, 8, 16, 32)"
+            whiptail --title "Error" --msgbox "Entrada inválida — escribe un número válido." 8 50
         fi
     done
 }
@@ -83,27 +73,21 @@ askpass() {
     local prompt="$1" var="$2"
     local pass1 pass2
     while true; do
-        printf "\n${CYAN}   %s: ${NC}" "$prompt"
-        read -rs pass1 < /dev/tty; echo
-        printf '%s   Confirmar: %s' "$CYAN" "$NC"
-        read -rs pass2 < /dev/tty; echo
+        pass1=$(whiptail --title "Contraseña" --passwordbox "$prompt" 10 60 3>&1 1>&2 2>&3)
+        [[ $? -ne 0 ]] && { pass1=""; break; }
+        pass2=$(whiptail --title "Confirmar Contraseña" --passwordbox "Confirma: $prompt" 10 60 3>&1 1>&2 2>&3)
         [[ "$pass1" == "$pass2" ]] && break
-        warn "No coinciden, intenta de nuevo."
+        whiptail --title "Error" --msgbox "Las contraseñas no coinciden. Intenta de nuevo." 8 60
     done
     printf -v "$var" '%s' "$pass1"
 }
 
 confirm() {
-    local response
-    while true; do
-        printf "\n${CYAN}   %s [s/N]: ${NC}" "$1"
-        read -r response < /dev/tty
-        case "$response" in
-            [sS]) return 0 ;;
-            [nN]|"") return 1 ;;
-            *) warn "Respuesta inválida — escribe 's' para Sí o 'N' para No" ;;
-        esac
-    done
+    if whiptail --title "Confirmación" --yesno "$1" 10 60; then
+        return 0
+    else
+        return 1
+    fi
 }
 
 # ─── Variables globales ───────────────────────────────────────────────────────
