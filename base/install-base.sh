@@ -373,20 +373,15 @@ ask_questions() {
     fi
 
     # ── Shell interactivo ─────────────────────────────────────────────────────
-    echo -e "\n   ${BOLD}Mejora del shell interactivo:${NC}"
-    echo -e "   1) Bash mejorado — ble.sh + Oh My Bash (syntax highlighting, autosuggestions)"
-    echo -e "   2) ZSH con plugins — zsh-syntax-highlighting + zsh-autosuggestions"
-    echo -e "   3) Ninguno"
-    while true; do
-        printf '\n%s   Selección [1-3]: %s' "$CYAN" "$NC"
-        read -r _shell_resp < /dev/tty
-        case "$_shell_resp" in
-            1) SHELL_CHOICE="bash"; break ;;
-            2) SHELL_CHOICE="zsh";  break ;;
-            3) SHELL_CHOICE="none"; break ;;
-            *) warn "Opción inválida '$_shell_resp' — introduce 1, 2 o 3" ;;
-        esac
-    done
+    SHELL_CHOICE=$(whiptail --title "Shell Interactivo" --menu "Selecciona la configuración del shell:" 15 70 3 \
+        "bash" "Bash mejorado (ble.sh + Oh My Bash)" \
+        "zsh" "ZSH con plugins (syntax-highlighting, autosuggestions)" \
+        "none" "Ninguno (Bash por defecto)" 3>&1 1>&2 2>&3)
+    
+    if [[ -z "$SHELL_CHOICE" ]]; then
+        SHELL_CHOICE="none"
+    fi
+    ok "Shell seleccionado: $SHELL_CHOICE"
 }
 
 # ─── 5. Resumen y confirmación ────────────────────────────────────────────────
