@@ -137,8 +137,19 @@ SWAP_OFFSET=0
 check_prereqs() {
     header "Verificando requisitos"
 
-    [[ $EUID -eq 0 ]]          || die "Ejecuta el script como root: sudo bash install-base.sh"
+    [[ $EUID -eq 0 ]] || die "Ejecuta el script como root: sudo bash install-base.sh"
     ok "Ejecutando como root"
+
+    # Bloqueo estricto anti-legacy BIOS
+    if [[ ! -d /sys/firmware/efi/efivars ]]; then
+        die "El sistema NO arrancó en modo UEFI. Reinicia y configura tu BIOS/Boot Menu en modo UEFI nativo."
+    fi
+    ok "Modo UEFI detectado"
+
+    # Arreglo de teclado para la sesión Live ISO (evita caracteres raros)
+    loadkeys la-latin1 2>/dev/null || loadkeys es 2>/dev/null || true
+    ok "Teclado en español cargado para la sesión Live"
+
 
     [[ -d /sys/firmware/efi ]] || die "No se detectó modo UEFI. Arranca el equipo en modo UEFI."
     ok "Modo UEFI"
@@ -811,8 +822,11 @@ locale-gen
 hwclock --systohc
 mkinitcpio -P
 
-grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=CachyOS --recheck \
-    || grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=CachyOS --removable
+echo "Instalando bootloader GRUB..."
+if ! grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=CachyOS --recheck; then
+    echo "Reintentando GRUB en modo removable..."
+    grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=CachyOS --removable || die "ERROR FATAL: grub-install falló por completo."
+fi
 
 grub-mkconfig -o /boot/grub/grub.cfg
 CHROOT
