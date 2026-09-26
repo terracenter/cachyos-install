@@ -713,10 +713,9 @@ hwclock --systohc
 mkinitcpio -P
 
 echo "Instalando bootloader GRUB..."
-if ! grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=CachyOS --recheck; then
-    echo "Reintentando GRUB en modo removable..."
-    grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=CachyOS --removable || die "ERROR FATAL: grub-install falló por completo."
-fi
+grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=CachyOS --recheck || die "ERROR FATAL: grub-install estandar fallo."
+echo "Instalando copia de respaldo GRUB en modo removable (fallback UEFI)..."
+grub-install --target=x86_64-efi --efi-directory=/boot/efi --removable || die "ERROR FATAL: grub-install removable fallo por completo."
 
 grub-mkconfig -o /boot/grub/grub.cfg
 CHROOT
