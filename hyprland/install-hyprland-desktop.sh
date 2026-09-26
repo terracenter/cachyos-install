@@ -37,7 +37,15 @@ run_logged "$CACHY_INSTALL/install/configuracion/monitores.sh"
 run_logged "$CACHY_INSTALL/install/configuracion/teclado-mouse.sh"
 run_logged "$CACHY_INSTALL/install/configuracion/firewall-nftable.sh"
 
-# 3. Rest
+# 3. Aplicaciones (Modulares)
+run_logged "$CACHY_INSTALL/install/apps/terminal-neovim.sh"
+run_logged "$CACHY_INSTALL/install/apps/shell-tools.sh"
+run_logged "$CACHY_INSTALL/install/apps/dev-tools.sh"
+run_logged "$CACHY_INSTALL/install/apps/vms-pdfs.sh"
+run_logged "$CACHY_INSTALL/install/apps/guis.sh"
+run_logged "$CACHY_INSTALL/install/apps/navegadores.sh"
+
+# 4. Rest
 run_logged "$CACHY_INSTALL/install/rest/seguridad.sh"
 
 echo "Instalación base completada con éxito." | tee -a "$CACHY_LOG"
