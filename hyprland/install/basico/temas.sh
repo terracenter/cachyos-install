@@ -148,7 +148,8 @@ DESKTOP_EOF
 ok "Entrada GRUB Theme Switcher disponible en rofi"
 
 # ─── 10e. Plymouth (boot splash) ─────────────────────────────────────────────
-step "Configurando Plymouth (boot splash)..."
+step "Instalando y configurando Plymouth (boot splash)..."
+sudo pacman -S --needed --noconfirm plymouth 2>/dev/null || warn "Plymouth ya instalado o fallo la instalación"
 if ! grep -q 'HOOKS.*plymouth' /etc/mkinitcpio.conf 2>/dev/null; then
     sudo sed -i 's/\(HOOKS=([^)]*udev\)/\1 plymouth/' /etc/mkinitcpio.conf
     ok "Hook 'plymouth' añadido a mkinitcpio.conf"
