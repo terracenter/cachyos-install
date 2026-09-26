@@ -5,7 +5,7 @@
 
 Scripts de instalación automatizada para **CachyOS** con BTRFS, snapshots Snapper y entornos gráficos Hyprland (Wayland) y Qtile (X11). 
 
-Desarrollados y validados en hardware real como complemento del manual técnico completo disponible en **[humanbyte.net](https://humanbyte.net/manuales/de-gentoo-a-cachyos/)**.
+Cuenta con una **Interfaz Gráfica Interactiva (TUI)** moderna basada en `whiptail` para la navegación por menús, selección de discos, configuración de zonas horarias, red y shells, ofreciendo una experiencia amigable y rápida.
 
 ---
 
