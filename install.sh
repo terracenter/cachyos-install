@@ -110,11 +110,12 @@ menu_base() {
 menu_hyprland() {
     while true; do
         header "Entorno Hyprland (Wayland)"
-        echo "  1) Instalar Hyprland (Wayland + Herramientas nativas)"
-        echo "  2) Desinstalar Hyprland (Limpieza completa)"
-        echo "  3) Volver al menú principal"
+        echo "  1) Instalar Hyprland Base (Escritorio, nftables y Configuración)"
+        echo "  2) Instalar Aplicaciones de Hyprland (Gaming, Navegadores, Dev Tools)"
+        echo "  3) Desinstalar Hyprland (Limpieza completa)"
+        echo "  4) Volver al menú principal"
         echo ""
-        read -r -p "Opción [1-3]: " sub_choice < /dev/tty || sub_choice="3"
+        read -r -p "Opción [1-4]: " sub_choice < /dev/tty || sub_choice="4"
 
         case "$sub_choice" in
             1)
@@ -123,18 +124,26 @@ menu_hyprland() {
                     return 0
                 fi
                 prepare_system_and_mirrors
-                step "Iniciando instalación de Hyprland (Wayland)..."
-                if bash "$SCRIPT_DIR/hyprland/install-cachyos-hyprland.sh"; then
-                    if SKIP_SYSTEM_UPDATE=1 bash "$SCRIPT_DIR/hyprland/install-hyprland-desktop.sh"; then
-                        ok "Escritorio Hyprland instalado y configurado con éxito"
-                    else
-                        warn "Fallo en la configuración de escritorio de Hyprland"
-                    fi
+                step "Iniciando instalación de Hyprland Base..."
+                if SKIP_SYSTEM_UPDATE=1 bash "$SCRIPT_DIR/hyprland/install-hyprland-desktop.sh"; then
+                    ok "Escritorio Hyprland Base instalado y configurado con éxito"
                 else
-                    warn "Instalación de Hyprland cancelada o no completada."
+                    warn "Instalación de Hyprland Base cancelada o no completada."
                 fi
                 ;;
             2)
+                if [[ $EUID -eq 0 ]]; then
+                    warn "La instalación de aplicaciones debe ejecutarse como usuario normal (no root)."
+                    return 0
+                fi
+                step "Instalando Suite de Aplicaciones y Gaming de Hyprland..."
+                if SKIP_SYSTEM_UPDATE=1 bash "$SCRIPT_DIR/hyprland/install-hyprland-apps.sh"; then
+                    ok "Aplicaciones y Gaming instalados con éxito"
+                else
+                    warn "Instalación de aplicaciones cancelada o no completada."
+                fi
+                ;;
+            3)
                 if [[ $EUID -eq 0 ]]; then
                     warn "La desinstalación debe ejecutarse como usuario normal (no root)."
                     return 0
@@ -201,12 +210,11 @@ main() {
         echo "  1) Instalación Base del Sistema (Particionado BTRFS / Formateo de Disco)"
         echo "  2) Entorno de Escritorio: Hyprland (Wayland)"
         echo "  3) Entorno de Escritorio: Qtile (X11)"
-        echo "  4) Suite de Gaming (Steam, GameMode, MangoHud)"
-        echo "  5) Suite de Aplicaciones (Desarrollo, QEMU, Ofimática, Impresión, Sync)"
-        echo "  6) Salir"
+        echo "  4) Suite de Aplicaciones Genéricas (Desarrollo, QEMU, Ofimática, Impresión, Sync)"
+        echo "  5) Salir"
         echo ""
 
-        read -r -p "Selecciona una opción [1-6]: " main_choice < /dev/tty || main_choice="6"
+        read -r -p "Selecciona una opción [1-5]: " main_choice < /dev/tty || main_choice="5"
 
         case "$main_choice" in
             1) menu_base ;;
@@ -214,21 +222,9 @@ main() {
             3) menu_qtile ;;
             4)
                 if [[ $EUID -eq 0 ]]; then
-                    warn "La instalación de gaming debe ejecutarse como usuario normal."
-                else
-                    step "Instalando herramientas de Gaming..."
-                    if SKIP_SYSTEM_UPDATE=1 bash "$SCRIPT_DIR/gaming/install-gaming.sh"; then
-                        ok "Suite de Gaming instalada exitosamente"
-                    else
-                        warn "Instalación de gaming cancelada o no completada."
-                    fi
-                fi
-                ;;
-            5)
-                if [[ $EUID -eq 0 ]]; then
                     warn "La instalación de aplicaciones debe ejecutarse como usuario normal."
                 else
-                    step "Iniciando Suite de Aplicaciones..."
+                    step "Iniciando Suite de Aplicaciones Genéricas..."
                     if bash "$SCRIPT_DIR/apps/install-apps.sh"; then
                         ok "Aplicaciones instaladas exitosamente"
                     else
@@ -236,7 +232,7 @@ main() {
                     fi
                 fi
                 ;;
-            6|*)
+            5|*)
                 echo -e "\n${GREEN}Operación finalizada.${NC}"
                 exit 0
                 ;;
