@@ -23,6 +23,8 @@ run_logged() {
 
 echo "Iniciando instalación base de Hyprland..." | tee -a "$CACHY_LOG"
 
+source "$CACHY_INSTALL/install/basico/helpers.sh"
+
 # 1. Básicos
 run_logged "$CACHY_INSTALL/install/basico/navegacion.sh"
 run_logged "$CACHY_INSTALL/install/basico/top-bar.sh"
