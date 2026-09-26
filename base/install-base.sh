@@ -1,3 +1,4 @@
+export NCURSES_NO_UTF8_ACS=1
 #!/bin/bash
 # ┌─────────────────────────────────────────────────────────────────────────────┐
 # │ install-base.sh                                                              │
@@ -211,141 +212,62 @@ validate_disk_clean() {
 ask_timezone() {
     local zones
     mapfile -t zones < <(timedatectl list-timezones 2>/dev/null)
-    [[ ${#zones[@]} -eq 0 ]] && {
-        ask "Zona horaria (ej: America/Caracas)" TIMEZONE "America/Caracas"
-        [[ -f "/usr/share/zoneinfo/$TIMEZONE" ]] || die "Zona horaria inválida: $TIMEZONE"
-        return
-    }
-
-    local total=${#zones[@]}
-    local per_page=25
-    local page=0
-
-    while true; do
-        local start=$(( page * per_page ))
-        local end=$(( start + per_page < total ? start + per_page : total ))
-
-        echo -e "\n   ${BOLD}Zona horaria${NC}  ${DIM}($(( start + 1 ))–${end} de ${total})${NC}\n"
-        for (( i = start; i < end; i++ )); do
-            printf "   %4d)  %s\n" $(( i + 1 )) "${zones[$i]}"
+    if [[ ${#zones[@]} -gt 0 ]]; then
+        local tz_opts=()
+        for z in "${zones[@]}"; do
+            tz_opts+=("$z" "")
         done
-        echo -e "\n   ${DIM}[número] seleccionar · [n] siguiente · [p] anterior · [b] buscar${NC}"
-        printf '%s   Opción: %s' "$CYAN" "$NC"
-        read -r _tz < /dev/tty
-
-        if [[ "$_tz" =~ ^[0-9]+$ ]] && (( _tz >= 1 && _tz <= total )); then
-            TIMEZONE="${zones[$(( _tz - 1 ))]}"
-            ok "Zona horaria: $TIMEZONE"
-            return
-        elif [[ "$_tz" == "n" ]]; then
-            if (( (page + 1) * per_page < total )); then (( page++ )) || true; fi
-        elif [[ "$_tz" == "p" ]]; then
-            if (( page > 0 )); then (( page-- )) || true; fi
-        elif [[ "$_tz" == "b" ]]; then
-            printf '%s   Buscar (ej: Caracas, America, Madrid): %s' "   $CYAN" "$NC"
-            read -r _query < /dev/tty
-            local results=()
-            local _q="${_query,,}"
-            for z in "${zones[@]}"; do
-                [[ "${z,,}" == *"$_q"* ]] && results+=("$z")
-            done
-            if [[ ${#results[@]} -eq 0 ]]; then
-                warn "Sin resultados para '$_query'"
-            elif [[ ${#results[@]} -eq 1 ]]; then
-                TIMEZONE="${results[0]}"
-                ok "Zona horaria: $TIMEZONE"
-                return
-            else
-                echo -e "\n   ${BOLD}Resultados para '$_query':${NC}\n"
-                for (( i = 0; i < ${#results[@]}; i++ )); do
-                    printf "   %4d)  %s\n" $(( i + 1 )) "${results[$i]}"
-                done
-                printf '\n%s   Número: %s' "$CYAN" "$NC"
-                read -r _num < /dev/tty
-                if [[ "$_num" =~ ^[0-9]+$ ]] && (( _num >= 1 && _num <= ${#results[@]} )); then
-                    TIMEZONE="${results[$(( _num - 1 ))]}"
-                    ok "Zona horaria: $TIMEZONE"
-                    return
-                else
-                    warn "Entrada inválida — regresando al menú"
-                fi
-            fi
-        else
-            warn "Entrada inválida"
-        fi
-    done
+        TIMEZONE=$(whiptail --title "Zona Horaria" --menu "Selecciona tu zona horaria:" 20 70 12 "${tz_opts[@]}" 3>&1 1>&2 2>&3)
+        [[ -z "$TIMEZONE" ]] && TIMEZONE="America/Caracas"
+    else
+        ask "Zona horaria (ej: America/Caracas)" TIMEZONE "America/Caracas"
+    fi
 }
+
 
 # ─── Selección de locale ──────────────────────────────────────────────────────
 ask_locale() {
-    echo -e "\n   ${BOLD}Locale del sistema:${NC}\n"
-    echo -e "    1)  es_VE.UTF-8  — Español Venezuela  ${GREEN}[recomendado]${NC}"
-    echo -e "    2)  es_ES.UTF-8  — Español España"
-    echo -e "    3)  es_MX.UTF-8  — Español México"
-    echo -e "    4)  es_AR.UTF-8  — Español Argentina"
-    echo -e "    5)  es_CO.UTF-8  — Español Colombia"
-    echo -e "    6)  es_CL.UTF-8  — Español Chile"
-    echo -e "    7)  en_US.UTF-8  — Inglés EE.UU."
-    echo -e "    8)  en_GB.UTF-8  — Inglés Reino Unido"
-    echo -e "    9)  fr_FR.UTF-8  — Francés Francia"
-    echo -e "   10)  de_DE.UTF-8  — Alemán Alemania"
-    echo -e "   11)  pt_BR.UTF-8  — Portugués Brasil"
-    echo -e "   12)  pt_PT.UTF-8  — Portugués Portugal"
-    echo -e "   13)  it_IT.UTF-8  — Italiano Italia"
-    echo -e "   14)  ru_RU.UTF-8  — Ruso"
-    echo -e "   15)  ja_JP.UTF-8  — Japonés"
-    echo -e "    0)  Otro         — entrada manual\n"
-
-    printf '%s   Opción [1]: %s' "$CYAN" "$NC"
-    read -r _loc < /dev/tty
-    _loc="${_loc:-1}"
-
-    case "$_loc" in
-        1)  LOCALE="es_VE.UTF-8" ;;
-        2)  LOCALE="es_ES.UTF-8" ;;
-        3)  LOCALE="es_MX.UTF-8" ;;
-        4)  LOCALE="es_AR.UTF-8" ;;
-        5)  LOCALE="es_CO.UTF-8" ;;
-        6)  LOCALE="es_CL.UTF-8" ;;
-        7)  LOCALE="en_US.UTF-8" ;;
-        8)  LOCALE="en_GB.UTF-8" ;;
-        9)  LOCALE="fr_FR.UTF-8" ;;
-        10) LOCALE="de_DE.UTF-8" ;;
-        11) LOCALE="pt_BR.UTF-8" ;;
-        12) LOCALE="pt_PT.UTF-8" ;;
-        13) LOCALE="it_IT.UTF-8" ;;
-        14) LOCALE="ru_RU.UTF-8" ;;
-        15) LOCALE="ja_JP.UTF-8" ;;
-        0)
-            ask "Locale (ej: es_VE.UTF-8)" LOCALE "es_VE.UTF-8"
-            [[ -n "$LOCALE" ]] || die "Locale no puede estar vacío."
-            ;;
-        *)  warn "Opción inválida, usando es_VE.UTF-8"
-            LOCALE="es_VE.UTF-8" ;;
+    local loc
+    loc=$(whiptail --title "Locale del Sistema" --menu "Selecciona el idioma del sistema:" 20 70 12 \
+        "1" "es_VE.UTF-8 (Español Venezuela - Recomendado)" \
+        "2" "es_ES.UTF-8 (Español España)" \
+        "3" "es_MX.UTF-8 (Español México)" \
+        "4" "es_AR.UTF-8 (Español Argentina)" \
+        "5" "es_CO.UTF-8 (Español Colombia)" \
+        "6" "es_CL.UTF-8 (Español Chile)" \
+        "7" "en_US.UTF-8 (Inglés EE.UU.)" \
+        "8" "en_GB.UTF-8 (Inglés Reino Unido)" \
+        "9" "Otro (entrada manual)" 3>&1 1>&2 2>&3)
+    
+    case "$loc" in
+        1) LOCALE="es_VE.UTF-8" ;;
+        2) LOCALE="es_ES.UTF-8" ;;
+        3) LOCALE="es_MX.UTF-8" ;;
+        4) LOCALE="es_AR.UTF-8" ;;
+        5) LOCALE="es_CO.UTF-8" ;;
+        6) LOCALE="es_CL.UTF-8" ;;
+        7) LOCALE="en_US.UTF-8" ;;
+        8) LOCALE="en_GB.UTF-8" ;;
+        9) ask "Locale manual (ej: es_PE.UTF-8)" LOCALE "es_VE.UTF-8" ;;
+        *) LOCALE="es_VE.UTF-8" ;;
     esac
-
-    ok "Locale: $LOCALE"
 }
+
 
 # ─── Selección de teclado ────────────────────────────────────────────────────
 ask_keyboard() {
-    echo -e "\n   ${BOLD}Distribución de teclado:${NC}"
-    echo -e "   ${DIM}Elige un número o escribe 0 para entrada manual.${NC}\n"
-    echo -e "   1)  us              — Inglés estándar (sin acentos)"
-    echo -e "   2)  us / altgr-intl — Inglés + AltGr para á é í ó ú ñ ¿ ¡  ${GREEN}[recomendado para español en teclado US]${NC}"
-    echo -e "   3)  es              — Español España"
-    echo -e "   4)  latam           — Latinoamérica"
-    echo -e "   5)  fr              — Francés"
-    echo -e "   6)  de              — Alemán"
-    echo -e "   7)  pt              — Portugués"
-    echo -e "   8)  ru              — Ruso"
-    echo -e "   0)  Otro            — ingresar manualmente\n"
-
-    printf '%s   Opción [2]: %s' "$CYAN" "$NC"
-    read -r _kb < /dev/tty
-    _kb="${_kb:-2}"
-
-    case "$_kb" in
+    local kb
+    kb=$(whiptail --title "Distribución de Teclado" --menu "Selecciona el mapa de teclado:" 20 80 12 \
+        "1" "us (Inglés estándar, sin acentos)" \
+        "2" "us / altgr-intl (Inglés + AltGr para español - Recomendado)" \
+        "3" "es (Español España)" \
+        "4" "latam (Latinoamérica)" \
+        "5" "fr (Francés)" \
+        "6" "de (Alemán)" \
+        "7" "pt (Portugués)" \
+        "8" "Otro (entrada manual)" 3>&1 1>&2 2>&3)
+    
+    case "$kb" in
         1) KEYMAP="us";         XKB_LAYOUT="us";    XKB_VARIANT="" ;;
         2) KEYMAP="us";         XKB_LAYOUT="us";    XKB_VARIANT="altgr-intl" ;;
         3) KEYMAP="es";         XKB_LAYOUT="es";    XKB_VARIANT="" ;;
@@ -353,20 +275,15 @@ ask_keyboard() {
         5) KEYMAP="fr";         XKB_LAYOUT="fr";    XKB_VARIANT="" ;;
         6) KEYMAP="de";         XKB_LAYOUT="de";    XKB_VARIANT="" ;;
         7) KEYMAP="pt-latin1";  XKB_LAYOUT="pt";    XKB_VARIANT="" ;;
-        8) KEYMAP="ru";         XKB_LAYOUT="ru";    XKB_VARIANT="" ;;
-        0)
-            ask "vconsole keymap (ej: us, es, fr)" KEYMAP "us"
-            ask "XKB layout     (ej: us, es, latam)" XKB_LAYOUT "$KEYMAP"
-            ask "XKB variant    (ej: altgr-intl, intl — dejar vacío si no aplica)" XKB_VARIANT ""
+        8) 
+            ask "vconsole keymap (ej: us, es)" KEYMAP "us"
+            ask "XKB layout (ej: us, latam)" XKB_LAYOUT "$KEYMAP"
+            ask "XKB variant (ej: altgr-intl, vacío si no aplica)" XKB_VARIANT ""
             ;;
-        *) warn "Opción inválida, usando us/altgr-intl"
-           KEYMAP="us"; XKB_LAYOUT="us"; XKB_VARIANT="altgr-intl" ;;
+        *) KEYMAP="us"; XKB_LAYOUT="us"; XKB_VARIANT="altgr-intl" ;;
     esac
-
-    local desc="$XKB_LAYOUT"
-    [[ -n "$XKB_VARIANT" ]] && desc="$XKB_LAYOUT / $XKB_VARIANT"
-    ok "Teclado: $desc  (vconsole: $KEYMAP)"
 }
+
 
 # ─── 4. Preguntas al usuario ──────────────────────────────────────────────────
 ask_questions() {
@@ -379,23 +296,17 @@ ask_questions() {
         disk_list+=("$line")
     done < <(lsblk -dpno NAME,SIZE,MODEL | grep -Ev "loop|sr|zram")
 
-    local i=1
+    local disk_opts=()
     for entry in "${disk_list[@]}"; do
-        printf "      %s) %s\n" "$i" "$(echo "$entry" | awk '{printf "%-16s %-8s %s", $1, $2, $3}')"
-        (( i++ ))
+        local dname=$(echo "$entry" | awk '{print $1}')
+        local ddesc=$(echo "$entry" | awk '{print $2 " " substr($0, index($0,$3))}')
+        disk_opts+=("$dname" "$ddesc")
     done
-    echo ""
 
-    local selection
-    while true; do
-        printf "   Selecciona disco [1-%d]: " "${#disk_list[@]}"
-        read -r selection < /dev/tty
-        if [[ "$selection" =~ ^[0-9]+$ ]] && (( selection >= 1 && selection <= ${#disk_list[@]} )); then
-            TARGET_DISK=$(echo "${disk_list[$((selection-1))]}" | awk '{print $1}')
-            break
-        fi
-        echo -e "   ${RED}Opción inválida — ingresa un número entre 1 y ${#disk_list[@]}${NC}"
-    done
+    TARGET_DISK=$(whiptail --title "Selección de Disco" --menu "Elige el disco de instalación (¡SE BORRARÁ TODO!):" 15 70 6 "${disk_opts[@]}" 3>&1 1>&2 2>&3)
+    if [[ -z "$TARGET_DISK" ]]; then
+        die "Selección de disco cancelada."
+    fi
     ok "Disco seleccionado: $TARGET_DISK"
     [[ -b "$TARGET_DISK" ]] || die "Disco no encontrado: $TARGET_DISK"
 
