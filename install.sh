@@ -96,12 +96,6 @@ prepare_system_and_mirrors() {
 }
 
 menu_base() {
-    if [[ $EUID -ne 0 ]]; then
-        whiptail --title "Se requieren privilegios" \
-            --msgbox "La instalación base debe iniciarse como root o mediante sudo." 8 70
-        return 0
-    fi
-
     if ! whiptail --title "Fase 1: Instalación Base" --defaultno \
         --yesno "⚠ ADVERTENCIA CRÍTICA: esta opción FORMATEARÁ y BORRARÁ el disco seleccionado.\n\n¿Estás ABSOLUTAMENTE SEGURO de continuar?" 11 70; then
         warn "Instalación base cancelada por seguridad."
@@ -115,8 +109,17 @@ menu_base() {
     fi
 
     require_script "$SCRIPT_DIR/base/install-base.sh"
+
+    step "Solicitando privilegios administrativos para la instalación base..."
+    if ! sudo -v; then
+        whiptail --title "Autenticación cancelada" \
+            --msgbox "No se obtuvieron privilegios administrativos. No se realizó ningún cambio." 9 70
+        return 0
+    fi
+
     step "Iniciando instalación base..."
-    if bash "$SCRIPT_DIR/base/install-base.sh"; then
+    if sudo --preserve-env=TERM,LANG,LC_ALL,NCURSES_NO_UTF8_ACS \
+        bash "$SCRIPT_DIR/base/install-base.sh"; then
         whiptail --title "Éxito" \
             --msgbox "Instalación base completada. Reinicia el sistema." 8 60
     else
