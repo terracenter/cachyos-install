@@ -78,24 +78,19 @@ prepare_system_and_mirrors() {
     ok "Sistema y base de paquetes 100% actualizados"
 }
 menu_base() {
-    if ! whiptail --title "Fase 1: Instalación Base" --yesno "⚠ ADVERTENCIA CRÍTICA: Esta opción FORMATEARÁ y BORRARÁ el disco seleccionado.\n\n¿Estás seguro de continuar?" 10 60; then
+    if ! whiptail --title "Fase 1: Instalación Base" --yesno "⚠ ADVERTENCIA CRÍTICA: Esta opción FORMATEARÁ y BORRARÁ el disco seleccionado.\n\n¿Estás ABSOLUTAMENTE SEGURO de continuar?" 10 60; then
         warn "Instalación base cancelada por seguridad."
         return 0
     fi
 
-    confirm1=$(whiptail --title "Confirmación de Destrucción" --inputbox "Escribe la palabra 'DESTRUIR' en mayúsculas para formatear el disco:" 10 60 3>&1 1>&2 2>&3)
-    if [[ "$confirm1" != "DESTRUIR" ]]; then
-        whiptail --title "Cancelado" --msgbox "La palabra clave no coincide. Operación abortada por seguridad." 8 50
-        return 0
-    fi
-
-    if [[ $EUID -ne 0 ]]; then
-        whiptail --title "Error de Privilegios" --msgbox "La instalación base requiere ejecutarse como root (sudo ./install.sh)." 8 60
+    if ! whiptail --title "Confirmación Final" --defaultno --yesno "¿Reconfirmas que deseas continuar? Se perderán todos los datos del disco." 10 60; then
+        whiptail --title "Cancelado" --msgbox "Operación abortada por seguridad." 8 50
         return 0
     fi
 
     step "Iniciando Instalación Base..."
-    if bash "$SCRIPT_DIR/base/install-base.sh"; then
+    # Ejecutamos con sudo directamente para que pregunte la clave en vez de abortar
+    if sudo bash "$SCRIPT_DIR/base/install-base.sh"; then
         whiptail --title "Éxito" --msgbox "Instalación base completada exitosamente. Reinicia el sistema." 8 60
     else
         whiptail --title "Error" --msgbox "Instalación base cancelada o no completada." 8 50
