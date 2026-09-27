@@ -1,13 +1,15 @@
+#!/usr/bin/env bash
+
 export NCURSES_NO_UTF8_ACS=1
-#!/bin/bash
+
 # ┌─────────────────────────────────────────────────────────────────────────────┐
 # │ install.sh                                                                  │
-# │ Punto de entrada ÚNICO con Menús Estructurados e Inteligentes              │
+# │ Punto de entrada único con menús estructurados e inteligentes              │
 # └─────────────────────────────────────────────────────────────────────────────┘
 
-set -uo pipefail
+set -Eeuo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 LOG_FILE="$SCRIPT_DIR/install.log"
 
 RED='\033[0;31m'
@@ -19,201 +21,215 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 _on_error() {
-    echo -e "\n${RED}${BOLD}✗  Fallo inesperado — línea $1: $2${NC}" >&2
-    echo -e "   ${YELLOW}Log de instalación: $LOG_FILE${NC}" >&2
-    echo "$(date '+%Y-%m-%d %H:%M:%S') FALLO línea $1: $2" >> "$LOG_FILE"
-}
-trap '_on_error $LINENO "$BASH_COMMAND"' ERR
+    local exit_code=$?
+    local line_no="${1:-desconocida}"
+    local command="${2:-desconocido}"
 
-header() {
-    echo -e "\n${CYAN}${BOLD}=== $1 ===${NC}\n"
-}
+    printf '\n%b✗ Fallo inesperado, línea %s: %s%b\n' \
+        "${RED}${BOLD}" "$line_no" "$command" "$NC" >&2
+    printf '   %bLog de instalación: %s%b\n' "$YELLOW" "$LOG_FILE" "$NC" >&2
+    printf '%s FALLO código=%s línea=%s comando=%q\n' \
+        "$(date '+%Y-%m-%d %H:%M:%S')" "$exit_code" "$line_no" "$command" \
+        >> "$LOG_FILE"
 
-step() {
-    echo -e "${BLUE}▶${NC} $1"
+    return "$exit_code"
 }
+trap '_on_error "$LINENO" "$BASH_COMMAND"' ERR
 
-ok() {
-    echo -e "${GREEN}✓${NC} $1"
-}
+header() { printf '\n%b=== %s ===%b\n\n' "${CYAN}${BOLD}" "$1" "$NC"; }
+step()   { printf '%b▶%b %s\n' "$BLUE" "$NC" "$1"; }
+ok()     { printf '%b✓%b %s\n' "$GREEN" "$NC" "$1"; }
+warn()   { printf '%b⚠%b %s\n' "$YELLOW" "$NC" "$1"; }
+info()   { printf '%bℹ%b %s\n' "$CYAN" "$NC" "$1"; }
+die()    { printf '\n   %bERROR%b  %s\n\n' "$RED" "$NC" "$1" >&2; exit 1; }
 
-warn() {
-    echo -e "${YELLOW}⚠${NC} $1"
-}
-
-info() {
-    echo -e "${CYAN}ℹ${NC} $1"
-}
-
-die() {
-    echo -e "\n   ${RED}ERROR${NC}  $1\n" >&2
-    exit 1
+require_command() {
+    command -v "$1" >/dev/null 2>&1 || die "No se encontró el comando requerido: $1"
 }
 
-# ─── Validación de Conexión, Mirrors y Actualización de Sistema ─────────────
+require_script() {
+    [[ -f "$1" ]] || die "No existe el script requerido: $1"
+    [[ -r "$1" ]] || die "No se puede leer el script requerido: $1"
+}
+
+install_whiptail_if_needed() {
+    command -v whiptail >/dev/null 2>&1 && return 0
+
+    command -v pacman >/dev/null 2>&1 || \
+        die "whiptail no está instalado y pacman no está disponible."
+
+    echo "Instalando whiptail (paquete libnewt)..."
+    sudo pacman -S --needed --noconfirm libnewt || \
+        die "No se pudo instalar libnewt. Actualiza el sistema e inténtalo nuevamente."
+
+    command -v whiptail >/dev/null 2>&1 || \
+        die "libnewt se instaló, pero whiptail continúa sin estar disponible."
+}
+
 prepare_system_and_mirrors() {
     step "Verificando conectividad a internet..."
-    if ! ping -c 1 -W 3 archlinux.org &>/dev/null; then
+    if ! ping -c 1 -W 3 archlinux.org >/dev/null 2>&1; then
         die "No hay conexión a Internet. Verifica la red antes de continuar."
     fi
     ok "Conexión a Internet activa"
 
-    step "Validando repositorios y optimizando velocidad de mirrors..."
-    if ! command -v cachyos-rate-mirrors &>/dev/null; then
+    step "Validando repositorios y optimizando mirrors..."
+    if ! command -v cachyos-rate-mirrors >/dev/null 2>&1; then
         step "Instalando cachyos-rate-mirrors..."
-        sudo pacman -S --noconfirm cachyos-rate-mirrors || warn "No se pudo instalar cachyos-rate-mirrors"
+        sudo pacman -S --needed --noconfirm cachyos-rate-mirrors || \
+            warn "No se pudo instalar cachyos-rate-mirrors"
     fi
-    sudo cachyos-rate-mirrors \
-        || warn "cachyos-rate-mirrors falló — usando lista de mirrors actual"
 
-    step "Ejecutando actualización completa del sistema antes de instalar..."
-    # Desbloquear lock de pacman si quedó huérfano
-    local lock="/var/lib/pacman/db.lck"
-    if [[ -f "$lock" ]]; then
-        if ! pgrep -x pacman &>/dev/null; then
-            sudo rm -f "$lock"
-        fi
+    if command -v cachyos-rate-mirrors >/dev/null 2>&1; then
+        sudo cachyos-rate-mirrors || \
+            warn "cachyos-rate-mirrors falló; se usará la lista actual"
     fi
-    sudo pacman -Syu --noconfirm || die "Falló la actualización preliminar del sistema."
-    ok "Sistema y base de paquetes 100% actualizados"
+
+    if [[ -e /var/lib/pacman/db.lck ]]; then
+        die "Existe /var/lib/pacman/db.lck. Verifica que no haya otro gestor de paquetes activo. No se eliminará automáticamente."
+    fi
+
+    step "Ejecutando actualización completa del sistema..."
+    sudo pacman -Syu --noconfirm || \
+        die "Falló la actualización preliminar del sistema."
+    ok "Sistema y base de paquetes actualizados"
 }
+
 menu_base() {
-    if ! whiptail --title "Fase 1: Instalación Base" --yesno "⚠ ADVERTENCIA CRÍTICA: Esta opción FORMATEARÁ y BORRARÁ el disco seleccionado.\n\n¿Estás ABSOLUTAMENTE SEGURO de continuar?" 10 60; then
+    if [[ $EUID -ne 0 ]]; then
+        whiptail --title "Se requieren privilegios" \
+            --msgbox "La instalación base debe iniciarse como root o mediante sudo." 8 70
+        return 0
+    fi
+
+    if ! whiptail --title "Fase 1: Instalación Base" --defaultno \
+        --yesno "⚠ ADVERTENCIA CRÍTICA: esta opción FORMATEARÁ y BORRARÁ el disco seleccionado.\n\n¿Estás ABSOLUTAMENTE SEGURO de continuar?" 11 70; then
         warn "Instalación base cancelada por seguridad."
         return 0
     fi
 
-    if ! whiptail --title "Confirmación Final" --defaultno --yesno "¿Reconfirmas que deseas continuar? Se perderán todos los datos del disco." 10 60; then
+    if ! whiptail --title "Confirmación final" --defaultno \
+        --yesno "¿Reconfirmas que deseas continuar? Se perderán todos los datos del disco seleccionado." 10 70; then
         whiptail --title "Cancelado" --msgbox "Operación abortada por seguridad." 8 50
         return 0
     fi
 
-    step "Iniciando Instalación Base..."
-    # Ejecutamos con sudo directamente para que pregunte la clave en vez de abortar
-    if sudo bash "$SCRIPT_DIR/base/install-base.sh"; then
-        whiptail --title "Éxito" --msgbox "Instalación base completada exitosamente. Reinicia el sistema." 8 60
+    require_script "$SCRIPT_DIR/base/install-base.sh"
+    step "Iniciando instalación base..."
+    if bash "$SCRIPT_DIR/base/install-base.sh"; then
+        whiptail --title "Éxito" \
+            --msgbox "Instalación base completada. Reinicia el sistema." 8 60
     else
-        whiptail --title "Error" --msgbox "Instalación base cancelada o no completada." 8 50
+        whiptail --title "Error" \
+            --msgbox "Instalación base cancelada o no completada. Revisa $LOG_FILE." 9 70
     fi
 }
 
-# ─── SUBMENÚ 2: HYPRLAND (WAYLAND) ────────────────────────────────────────────
 menu_hyprland() {
     while true; do
-        sub_choice=$(whiptail --title "Entorno Hyprland (Wayland)" --menu "Selecciona una opción:" 14 75 4 \
+        local sub_choice
+        sub_choice=$(whiptail --title "Entorno Hyprland (Wayland)" \
+            --menu "Selecciona una opción:" 14 75 4 \
             "1" "Instalar Hyprland Base (Escritorio, nftables, Config)" \
             "2" "Instalar Apps de Hyprland (Gaming, Navegadores, Dev)" \
             "3" "Desinstalar Hyprland (Limpieza completa)" \
-            "4" "Volver al menú principal" 3>&1 1>&2 2>&3)
+            "4" "Volver al menú principal" 3>&1 1>&2 2>&3) || return 0
 
-        if [[ -z "$sub_choice" || "$sub_choice" == "4" ]]; then
-            return 0
+        [[ "$sub_choice" == "4" ]] && return 0
+
+        if [[ $EUID -eq 0 ]]; then
+            whiptail --title "Error" \
+                --msgbox "Esta operación debe ejecutarse como usuario normal, no como root." 8 70
+            continue
         fi
 
         case "$sub_choice" in
             1)
-                if [[ $EUID -eq 0 ]]; then
-                    whiptail --title "Error" --msgbox "La instalación de escritorio debe ejecutarse como usuario normal (no root)." 8 70
-                    return 0
-                fi
+                require_script "$SCRIPT_DIR/hyprland/install-hyprland-desktop.sh"
                 prepare_system_and_mirrors
                 step "Iniciando instalación de Hyprland Base..."
                 if SKIP_SYSTEM_UPDATE=1 bash "$SCRIPT_DIR/hyprland/install-hyprland-desktop.sh"; then
-                    whiptail --title "Éxito" --msgbox "Escritorio Hyprland Base instalado y configurado con éxito" 8 60
+                    whiptail --title "Éxito" --msgbox "Hyprland Base instalado correctamente." 8 60
                 else
-                    whiptail --title "Error" --msgbox "Instalación de Hyprland Base cancelada o no completada." 8 60
+                    whiptail --title "Error" --msgbox "La instalación de Hyprland Base no se completó." 8 60
                 fi
                 ;;
             2)
-                if [[ $EUID -eq 0 ]]; then
-                    whiptail --title "Error" --msgbox "La instalación de aplicaciones debe ejecutarse como usuario normal (no root)." 8 70
-                    return 0
-                fi
-                step "Instalando Suite de Aplicaciones y Gaming de Hyprland..."
+                require_script "$SCRIPT_DIR/hyprland/install-hyprland-apps.sh"
+                step "Instalando aplicaciones y gaming de Hyprland..."
                 if SKIP_SYSTEM_UPDATE=1 bash "$SCRIPT_DIR/hyprland/install-hyprland-apps.sh"; then
-                    whiptail --title "Éxito" --msgbox "Aplicaciones y Gaming instalados con éxito" 8 50
+                    whiptail --title "Éxito" --msgbox "Aplicaciones y gaming instalados correctamente." 8 60
                 else
-                    whiptail --title "Error" --msgbox "Instalación de aplicaciones cancelada o no completada." 8 60
+                    whiptail --title "Error" --msgbox "La instalación de aplicaciones no se completó." 8 60
                 fi
                 ;;
             3)
-                if [[ $EUID -eq 0 ]]; then
-                    whiptail --title "Error" --msgbox "La desinstalación debe ejecutarse como usuario normal (no root)." 8 70
-                    return 0
-                fi
+                require_script "$SCRIPT_DIR/hyprland/uninstall-hyprland-omarchy.sh"
                 step "Desinstalando Hyprland..."
                 if bash "$SCRIPT_DIR/hyprland/uninstall-hyprland-omarchy.sh"; then
-                    whiptail --title "Éxito" --msgbox "Hyprland desinstalado exitosamente" 8 50
+                    whiptail --title "Éxito" --msgbox "Hyprland desinstalado correctamente." 8 55
                 else
-                    whiptail --title "Error" --msgbox "Desinstalación de Hyprland cancelada o no completada." 8 60
+                    whiptail --title "Error" --msgbox "La desinstalación de Hyprland no se completó." 8 60
                 fi
                 ;;
         esac
     done
 }
 
-# ─── SUBMENÚ 3: QTILE (X11) ───────────────────────────────────────────────────
 menu_qtile() {
     while true; do
-        sub_choice=$(whiptail --title "Entorno Qtile (X11)" --menu "Selecciona una opción:" 13 70 3 \
+        local sub_choice
+        sub_choice=$(whiptail --title "Entorno Qtile (X11)" \
+            --menu "Selecciona una opción:" 13 70 3 \
             "1" "Instalar Qtile (X11 + Modesetting Intel DRI3)" \
             "2" "Desinstalar Qtile (Limpieza completa X11)" \
-            "3" "Volver al menú principal" 3>&1 1>&2 2>&3)
+            "3" "Volver al menú principal" 3>&1 1>&2 2>&3) || return 0
 
-        if [[ -z "$sub_choice" || "$sub_choice" == "3" ]]; then
-            return 0
+        [[ "$sub_choice" == "3" ]] && return 0
+
+        if [[ $EUID -eq 0 ]]; then
+            whiptail --title "Error" \
+                --msgbox "Esta operación debe ejecutarse como usuario normal, no como root." 8 70
+            continue
         fi
 
         case "$sub_choice" in
             1)
-                if [[ $EUID -eq 0 ]]; then
-                    whiptail --title "Error" --msgbox "La instalación debe ejecutarse como usuario normal (no root)." 8 70
-                    return 0
-                fi
+                require_script "$SCRIPT_DIR/qtile/install-qtile-omarchy.sh"
                 prepare_system_and_mirrors
-                step "Iniciando instalación de Qtile (X11)..."
+                step "Iniciando instalación de Qtile..."
                 if bash "$SCRIPT_DIR/qtile/install-qtile-omarchy.sh"; then
-                    whiptail --title "Éxito" --msgbox "Escritorio Qtile (X11) instalado y configurado con éxito" 8 60
+                    whiptail --title "Éxito" --msgbox "Qtile instalado correctamente." 8 55
                 else
-                    whiptail --title "Error" --msgbox "Instalación de Qtile cancelada o no completada." 8 60
+                    whiptail --title "Error" --msgbox "La instalación de Qtile no se completó." 8 60
                 fi
                 ;;
             2)
-                if [[ $EUID -eq 0 ]]; then
-                    whiptail --title "Error" --msgbox "La desinstalación debe ejecutarse como usuario normal (no root)." 8 70
-                    return 0
-                fi
+                require_script "$SCRIPT_DIR/qtile/uninstall-qtile-omarchy.sh"
                 step "Desinstalando Qtile y paquetes X11..."
                 if bash "$SCRIPT_DIR/qtile/uninstall-qtile-omarchy.sh"; then
-                    whiptail --title "Éxito" --msgbox "Qtile y paquetes X11 removidos con éxito" 8 60
+                    whiptail --title "Éxito" --msgbox "Qtile y los paquetes X11 fueron eliminados." 8 60
                 else
-                    whiptail --title "Error" --msgbox "Desinstalación de Qtile cancelada o no completada." 8 60
+                    whiptail --title "Error" --msgbox "La desinstalación de Qtile no se completó." 8 60
                 fi
                 ;;
         esac
     done
 }
 
-# ─── MENÚ PRINCIPAL ───────────────────────────────────────────────────────────
 main() {
-    # Verificar whiptail
-    if ! command -v whiptail &>/dev/null; then
-        echo "Instalando whiptail (newt) para la interfaz gráfica..."
-        sudo pacman -Sy --noconfirm libnewt &>/dev/null || true
-    fi
+    require_command sudo
+    install_whiptail_if_needed
 
     while true; do
-        main_choice=$(whiptail --title "CachyOS Installation Suite" --menu "Punto de Entrada Único — Menú Interactivo" 16 80 5 \
+        local main_choice
+        main_choice=$(whiptail --title "CachyOS Installation Suite" \
+            --menu "Punto de entrada único, menú interactivo" 16 80 5 \
             "1" "Instalación Base del Sistema (BTRFS / Formateo)" \
             "2" "Entorno de Escritorio: Hyprland (Wayland)" \
             "3" "Entorno de Escritorio: Qtile (X11)" \
             "4" "Suite de Aplicaciones Genéricas (QEMU, Ofimática)" \
-            "5" "Salir" 3>&1 1>&2 2>&3)
-
-        if [[ -z "$main_choice" || "$main_choice" == "5" ]]; then
-            echo -e "\n${GREEN}Operación finalizada.${NC}"
-            exit 0
-        fi
+            "5" "Salir" 3>&1 1>&2 2>&3) || main_choice="5"
 
         case "$main_choice" in
             1) menu_base ;;
@@ -221,18 +237,24 @@ main() {
             3) menu_qtile ;;
             4)
                 if [[ $EUID -eq 0 ]]; then
-                    whiptail --title "Error" --msgbox "La instalación de aplicaciones debe ejecutarse como usuario normal." 8 70
-                else
-                    step "Iniciando Suite de Aplicaciones Genéricas..."
-                    if bash "$SCRIPT_DIR/apps/install-apps.sh"; then
-                        whiptail --title "Éxito" --msgbox "Aplicaciones instaladas exitosamente" 8 50
-                    else
-                        whiptail --title "Error" --msgbox "Instalación de aplicaciones cancelada o no completada." 8 60
-                    fi
+                    whiptail --title "Error" \
+                        --msgbox "La instalación de aplicaciones debe ejecutarse como usuario normal." 8 70
+                    continue
                 fi
+                require_script "$SCRIPT_DIR/apps/install-apps.sh"
+                step "Iniciando suite de aplicaciones genéricas..."
+                if bash "$SCRIPT_DIR/apps/install-apps.sh"; then
+                    whiptail --title "Éxito" --msgbox "Aplicaciones instaladas correctamente." 8 55
+                else
+                    whiptail --title "Error" --msgbox "La instalación de aplicaciones no se completó." 8 60
+                fi
+                ;;
+            5)
+                printf '\n%bOperación finalizada.%b\n' "$GREEN" "$NC"
+                exit 0
                 ;;
         esac
     done
 }
 
-main
+main "$@"
