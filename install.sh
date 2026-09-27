@@ -118,14 +118,41 @@ menu_base() {
     fi
 
     step "Iniciando instalación base..."
-    if sudo --preserve-env=TERM,LANG,LC_ALL,NCURSES_NO_UTF8_ACS \
-        bash "$SCRIPT_DIR/base/install-base.sh"; then
-        whiptail --title "Éxito" \
-            --msgbox "Instalación base completada. Reinicia el sistema." 8 60
-    else
-        whiptail --title "Error" \
-            --msgbox "Instalación base cancelada o no completada. Revisa $LOG_FILE." 9 70
-    fi
+
+{
+    printf '\n'
+    printf '============================================================\n'
+    printf 'Inicio de instalación base: %s\n' \
+        "$(date '+%Y-%m-%d %H:%M:%S')"
+    printf 'Usuario solicitante: %s\n' "$USER"
+    printf 'Directorio del proyecto: %s\n' "$SCRIPT_DIR"
+    printf '============================================================\n'
+} >> "$LOG_FILE"
+
+if sudo --preserve-env=TERM,LANG,LC_ALL,NCURSES_NO_UTF8_ACS \
+    bash "$SCRIPT_DIR/base/install-base.sh" \
+    > >(tee -a "$LOG_FILE") 2>&1; then
+
+    printf '%s Instalación base finalizada correctamente.\n' \
+        "$(date '+%Y-%m-%d %H:%M:%S')" >> "$LOG_FILE"
+
+    whiptail --title "Éxito" \
+        --msgbox "Instalación base completada. Reinicia el sistema." 8 60
+else
+    base_exit_code=$?
+
+    printf '%s Instalación base finalizada con código de error: %s\n' \
+        "$(date '+%Y-%m-%d %H:%M:%S')" \
+        "$base_exit_code" >> "$LOG_FILE"
+
+    whiptail --title "Error" \
+        --msgbox "La instalación base no se completó.
+
+Código de salida: $base_exit_code
+
+Registro:
+$LOG_FILE" 12 70
+fi
 }
 
 menu_hyprland() {
