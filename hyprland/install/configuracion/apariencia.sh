@@ -53,7 +53,7 @@ cat > "$bin_dir/confirm-close-window" <<'SCRIPT'
 #!/usr/bin/env bash
 set -Eeuo pipefail
 answer=$(printf '%s\n' 'No' 'Si' | rofi -dmenu -i -p 'Cerrar la ventana activa?') || exit 0
-[[ $answer == 'Si' ]] && hyprctl dispatch killactive
+[[ $answer == 'Si' ]] && hyprctl dispatch 'hl.dsp.window.close()'
 SCRIPT
 chmod 755 "$bin_dir/confirm-close-window"
 
