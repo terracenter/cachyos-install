@@ -44,6 +44,7 @@ packages=(
     jq
     socat
     libnotify
+    fortune-mod
     ttf-jetbrains-mono-nerd
     noto-fonts
     noto-fonts-emoji

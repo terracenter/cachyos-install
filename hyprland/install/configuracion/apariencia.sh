@@ -206,48 +206,122 @@ cat > "$bin_dir/lockscreen-settings" <<'SCRIPT'
 set -Eeuo pipefail
 config_dir="$HOME/.config/hypr/lockscreen"
 message_file="$config_dir/message"
+private_signature="$HOME/.local/share/hyprlock/company-signature.png"
 mkdir -p "$config_dir"
+
+apply_config() {
+    "$HOME/.local/bin/render-lockscreen"
+    notify-send 'Hyprlock' 'Configuracion actualizada'
+}
+
 edit_text() {
     local action line
     while true; do
-        action=$(printf '%s\n' 'Agregar linea' 'Borrar ultima linea' 'Vaciar firma' 'Volver' | rofi -dmenu -i -p 'Editar firma') || return 0
+        action=$(printf '%s\n' 'Agregar linea' 'Borrar ultima linea' 'Vaciar firma' 'Volver' | rofi -dmenu -i -p 'Editar firma de texto') || return 0
         case "$action" in
-            'Agregar linea') line=$(printf '' | rofi -dmenu -p 'Nueva linea') || continue; [[ -n $line ]] && printf '%s\n' "$line" >> "$message_file" ;;
+            'Agregar linea')
+                line=$(printf '' | rofi -dmenu -p 'Nueva linea') || continue
+                [[ -n $line ]] && printf '%s\n' "$line" >> "$message_file"
+                ;;
             'Borrar ultima linea') [[ -f $message_file ]] && sed -i '$d' "$message_file" ;;
             'Vaciar firma') : > "$message_file" ;;
             Volver) return 0 ;;
         esac
     done
 }
+
+choose_position() {
+    local position
+    position=$(printf '%s\n' 'left' 'center' 'right' | rofi -dmenu -i -p 'Posicion de la firma') || return 0
+    [[ -n $position ]] && printf '%s\n' "$position" > "$config_dir/position"
+    apply_config
+}
+
+choose_image_size() {
+    local size_choice image_size
+    size_choice=$(printf '%s\n' 'Pequeña (240)' 'Mediana (320)' 'Grande (420)' 'Personalizada' 'Volver' | rofi -dmenu -i -p 'Tamaño de la firma') || return 0
+    case "$size_choice" in
+        'Pequeña (240)') image_size=240 ;;
+        'Mediana (320)') image_size=320 ;;
+        'Grande (420)') image_size=420 ;;
+        Personalizada)
+            image_size=$(printf '' | rofi -dmenu -p 'Tamaño entre 160 y 800') || return 0
+            [[ $image_size =~ ^[0-9]+$ ]] || { notify-send 'Hyprlock' 'Tamaño inválido'; return 0; }
+            (( image_size >= 160 && image_size <= 800 )) || { notify-send 'Hyprlock' 'Usa un valor entre 160 y 800'; return 0; }
+            ;;
+        *) return 0 ;;
+    esac
+    printf '%s\n' "$image_size" > "$config_dir/image-size"
+    apply_config
+}
+
+graphic_menu() {
+    local choice
+    while true; do
+        choice=$(printf '%s\n' 'Activar firma grafica' 'Firma grafica + Fortune' 'Cambiar tamaño' 'Cambiar posicion' 'Vista previa' 'Volver' | rofi -dmenu -i -p 'Firma grafica') || return 0
+        case "$choice" in
+            'Activar firma grafica')
+                [[ -f $private_signature ]] || { notify-send 'Hyprlock' 'No se encontro la firma privada'; continue; }
+                printf 'image\n' > "$config_dir/mode"; apply_config
+                ;;
+            'Firma grafica + Fortune')
+                [[ -f $private_signature ]] || { notify-send 'Hyprlock' 'No se encontro la firma privada'; continue; }
+                printf 'image-fortune\n' > "$config_dir/mode"; apply_config
+                ;;
+            'Cambiar tamaño') choose_image_size ;;
+            'Cambiar posicion') choose_position ;;
+            'Vista previa') apply_config; hyprlock ;;
+            Volver) return 0 ;;
+        esac
+    done
+}
+
+text_menu() {
+    local choice
+    while true; do
+        choice=$(printf '%s\n' 'Activar firma de texto' 'Firma de texto + Fortune' 'Editar texto' 'Cambiar posicion' 'Vista previa' 'Volver' | rofi -dmenu -i -p 'Firma de texto') || return 0
+        case "$choice" in
+            'Activar firma de texto') printf 'text\n' > "$config_dir/mode"; apply_config ;;
+            'Firma de texto + Fortune') printf 'text-fortune\n' > "$config_dir/mode"; apply_config ;;
+            'Editar texto') edit_text; apply_config ;;
+            'Cambiar posicion') choose_position ;;
+            'Vista previa') apply_config; hyprlock ;;
+            Volver) return 0 ;;
+        esac
+    done
+}
+
+fortune_menu() {
+    local choice
+    while true; do
+        choice=$(printf '%s\n' 'Activar Fortune solamente' 'Combinar con firma grafica' 'Combinar con firma de texto' 'Vista previa' 'Volver' | rofi -dmenu -i -p 'Fortune') || return 0
+        case "$choice" in
+            'Activar Fortune solamente') printf 'fortune\n' > "$config_dir/mode"; apply_config ;;
+            'Combinar con firma grafica')
+                [[ -f $private_signature ]] || { notify-send 'Hyprlock' 'No se encontro la firma privada'; continue; }
+                printf 'image-fortune\n' > "$config_dir/mode"; apply_config
+                ;;
+            'Combinar con firma de texto') printf 'text-fortune\n' > "$config_dir/mode"; apply_config ;;
+            'Vista previa') apply_config; hyprlock ;;
+            Volver) return 0 ;;
+        esac
+    done
+}
+
 while true; do
     mode=$(cat "$config_dir/mode" 2>/dev/null || printf 'text')
     position=$(cat "$config_dir/position" 2>/dev/null || printf 'right')
     image_size=$(cat "$config_dir/image-size" 2>/dev/null || printf '320')
     prompt="Bloqueo [$mode | $position | ${image_size}px]"
-    choice=$(printf '%s\n' 'Firma grafica + Fortune' 'Firma grafica solamente' 'Firma de texto + Fortune' 'Firma de texto solamente' 'Fortune solamente' 'Editar texto' 'Cambiar posicion' 'Cambiar tamaño de imagen' 'Ocultar todo' 'Vista previa' 'Salir' | rofi -dmenu -i -p "$prompt") || exit 0
+    choice=$(printf '%s\n' 'Configurar firma grafica' 'Configurar firma de texto' 'Configurar Fortune' 'Ocultar todo' 'Vista previa' 'Salir' | rofi -dmenu -i -p "$prompt") || exit 0
     case "$choice" in
-        'Firma grafica + Fortune') [[ -f "$HOME/.local/share/hyprlock/company-signature.png" ]] || { notify-send 'Hyprlock' 'No se encontro la firma privada'; continue; }; printf 'image-fortune\n' > "$config_dir/mode" ;;
-        'Firma grafica solamente') [[ -f "$HOME/.local/share/hyprlock/company-signature.png" ]] || { notify-send 'Hyprlock' 'No se encontro la firma privada'; continue; }; printf 'image\n' > "$config_dir/mode" ;;
-        'Firma de texto + Fortune') printf 'text-fortune\n' > "$config_dir/mode" ;;
-        'Firma de texto solamente') printf 'text\n' > "$config_dir/mode" ;;
-        'Fortune solamente') printf 'fortune\n' > "$config_dir/mode" ;;
-        'Editar texto') edit_text ;;
-        'Cambiar posicion') position=$(printf '%s\n' 'left' 'center' 'right' | rofi -dmenu -i -p 'Posicion de la firma') || continue; [[ -n $position ]] && printf '%s\n' "$position" > "$config_dir/position" ;;
-        'Cambiar tamaño de imagen')
-            size_choice=$(printf '%s\n' 'Pequeña (240)' 'Mediana (320)' 'Grande (420)' 'Personalizada' | rofi -dmenu -i -p 'Tamaño de la firma') || continue
-            case "$size_choice" in
-                'Pequeña (240)') image_size=240 ;; 'Mediana (320)') image_size=320 ;; 'Grande (420)') image_size=420 ;;
-                Personalizada) image_size=$(printf '' | rofi -dmenu -p 'Tamaño entre 160 y 800') || continue; [[ $image_size =~ ^[0-9]+$ ]] || { notify-send 'Hyprlock' 'Tamaño inválido'; continue; }; (( image_size >= 160 && image_size <= 800 )) || { notify-send 'Hyprlock' 'Usa un valor entre 160 y 800'; continue; } ;;
-                *) continue ;;
-            esac
-            printf '%s\n' "$image_size" > "$config_dir/image-size" ;;
-        'Ocultar todo') printf 'hidden\n' > "$config_dir/mode" ;;
-        'Vista previa') "$HOME/.local/bin/render-lockscreen"; hyprlock ;;
+        'Configurar firma grafica') graphic_menu ;;
+        'Configurar firma de texto') text_menu ;;
+        'Configurar Fortune') fortune_menu ;;
+        'Ocultar todo') printf 'hidden\n' > "$config_dir/mode"; apply_config ;;
+        'Vista previa') apply_config; hyprlock ;;
         Salir) exit 0 ;;
-        *) continue ;;
     esac
-    "$HOME/.local/bin/render-lockscreen"
-    notify-send 'Hyprlock' 'Configuracion actualizada'
 done
 SCRIPT
 chmod 755 "$bin_dir/lockscreen-settings"
