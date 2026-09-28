@@ -73,6 +73,7 @@ cat > "$waybar_dir/config.jsonc" <<'JSON'
 JSON
 
 cat > "$waybar_dir/style.css" <<'CSS'
+@import "../omarchy/current/waybar-colors.css";
 * {
     font-family: "JetBrainsMono Nerd Font";
     font-size: 12px;

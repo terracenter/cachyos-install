@@ -36,6 +36,7 @@ main() {
     run_module "$BASIC_DIR/navegacion.sh"
     run_module "$BASIC_DIR/top-bar.sh"
     run_module "$BASIC_DIR/hotkeys.sh"
+    run_module "$CONFIG_DIR/apariencia.sh"
     run_module "$CONFIG_DIR/monitores.sh"
     run_module "$CONFIG_DIR/teclado-mouse.sh"
     run_module "$CONFIG_DIR/audio.sh"

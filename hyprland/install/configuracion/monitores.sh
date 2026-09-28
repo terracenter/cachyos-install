@@ -2,11 +2,17 @@
 set -Eeuo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 source "$SCRIPT_DIR/../basico/helpers.sh"
-show_script_version "Monitores y espacios de trabajo" "${BASH_SOURCE[0]}"
+show_script_version "Monitores Lua y espacios de trabajo" "${BASH_SOURCE[0]}"
 [[ $EUID -ne 0 ]] || die "Ejecuta este modulo como usuario normal."
-step "Instalando deteccion dinamica de monitores"
-mkdir -p "$HOME/.local/bin" "$HOME/.config/hypr/conf.d"
-cat > "$HOME/.local/bin/hypr-monitor-workspaces" <<'EOF_SCRIPT'
+
+step "Configurando monitores dinamicos"
+mkdir -p "$HOME/.local/bin" "$HOME/.config/hypr/modules"
+
+cat > "$HOME/.config/hypr/modules/monitors.lua" <<'LUA'
+hl.monitor({ output = "", mode = "preferred", position = "auto", scale = "auto" })
+LUA
+
+cat > "$HOME/.local/bin/hypr-monitor-workspaces" <<'SCRIPT'
 #!/usr/bin/env bash
 set -u
 configure() {
@@ -28,10 +34,6 @@ socket="$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/.socket2.sock"
 while IFS= read -r event; do
     case "$event" in monitoradded\>*|monitorremoved\>*) sleep 1; configure ;; esac
 done < <(socat -U - UNIX-CONNECT:"$socket")
-EOF_SCRIPT
+SCRIPT
 chmod 755 "$HOME/.local/bin/hypr-monitor-workspaces"
-cat > "$HOME/.config/hypr/conf.d/monitores.conf" <<'EOF_CONF'
-monitor = , preferred, auto, 1
-exec-once = ~/.local/bin/hypr-monitor-workspaces --watch
-EOF_CONF
-ok "Cada monitor recibira cinco espacios de trabajo"
+ok "Cinco espacios de trabajo por monitor configurados"

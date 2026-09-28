@@ -1,109 +1,108 @@
 #!/usr/bin/env bash
-
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 # shellcheck source=helpers.sh
 source "$SCRIPT_DIR/helpers.sh"
 
-show_script_version "Configuracion base de Hyprland" "${BASH_SOURCE[0]}"
+show_script_version "Configuracion Lua de Hyprland" "${BASH_SOURCE[0]}"
+[[ $EUID -ne 0 ]] || die "Ejecuta este modulo como usuario normal."
 
-[[ $EUID -ne 0 ]] || die "Ejecuta este modulo como usuario normal, no como root."
-
-step "Creando configuracion base y atajos de Hyprland"
-
+step "Creando configuracion modular Lua de Hyprland"
 config_dir="$HOME/.config/hypr"
-config_file="$config_dir/hyprland.conf"
-backup_file="${config_file}.bak.$(date +%Y%m%d_%H%M%S)"
-
-mkdir -p "$config_dir/conf.d"
+modules_dir="$config_dir/modules"
+config_file="$config_dir/hyprland.lua"
+mkdir -p "$modules_dir"
 
 if [[ -f "$config_file" ]]; then
-    cp -a "$config_file" "$backup_file"
-    info "Respaldo creado: $backup_file"
+    cp -a "$config_file" "${config_file}.bak.$(date +%Y%m%d_%H%M%S)"
 fi
 
-cat > "$config_file" <<'HYPRCONF'
-# CachyOS Hyprland base
+cat > "$config_file" <<'LUA'
+-- CachyOS Hyprland 0.56+
+require("modules/monitors")
+require("modules/input")
+require("modules/appearance")
+require("modules/autostart")
+require("modules/keybindings")
+LUA
 
-monitor = , preferred, auto, 1
+cat > "$modules_dir/appearance.lua" <<'LUA'
+hl.env("XCURSOR_SIZE", "24")
+hl.env("HYPRCURSOR_SIZE", "24")
 
-$mainMod = SUPER
-$terminal = alacritty
-$fileManager = nautilus
-$menu = rofi -show drun
+hl.config({
+    general = {
+        gaps_in = 5,
+        gaps_out = 10,
+        border_size = 2,
+        layout = "dwindle",
+        col = {
+            active_border = "rgba(81a1c1ee)",
+            inactive_border = "rgba(4c566aaa)",
+        },
+    },
+    decoration = {
+        rounding = 10,
+        blur = { enabled = true, size = 3, passes = 1 },
+    },
+    animations = { enabled = true },
+    misc = {
+        force_default_wallpaper = -1,
+        disable_hyprland_logo = true,
+    },
+})
+LUA
 
-exec-once = uwsm app -- waybar
-exec-once = uwsm app -- swaync
-exec-once = uwsm app -- nm-applet --indicator
-exec-once = uwsm app -- hypridle
-exec-once = uwsm app -- hyprpaper
-exec-once = uwsm app -- /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1
-exec-once = wl-paste --type text --watch cliphist store
-exec-once = wl-paste --type image --watch cliphist store
-exec-once = dbus-update-activation-environment --systemd --all
+cat > "$modules_dir/autostart.lua" <<'LUA'
+hl.on("hyprland.start", function()
+    hl.exec_cmd("uwsm app -- waybar")
+    hl.exec_cmd("uwsm app -- swaync")
+    hl.exec_cmd("uwsm app -- nm-applet --indicator")
+    hl.exec_cmd("uwsm app -- hypridle")
+    hl.exec_cmd("uwsm app -- hyprpaper")
+    hl.exec_cmd("uwsm app -- /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1")
+    hl.exec_cmd("wl-paste --type text --watch cliphist store")
+    hl.exec_cmd("wl-paste --type image --watch cliphist store")
+    hl.exec_cmd("dbus-update-activation-environment --systemd --all")
+    hl.exec_cmd("~/.local/bin/hypr-monitor-workspaces --watch")
+end)
+LUA
 
-general {
-    gaps_in = 5
-    gaps_out = 10
-    border_size = 2
-    layout = dwindle
-    col.active_border = rgba(89b4faff)
-    col.inactive_border = rgba(585b70aa)
-}
+cat > "$modules_dir/keybindings.lua" <<'LUA'
+local mainMod = "SUPER"
+local terminal = "alacritty"
+local fileManager = "nautilus"
+local menu = "rofi -show drun"
 
-decoration {
-    rounding = 10
+hl.bind(mainMod .. " + Q", hl.dsp.exec_cmd(terminal))
+hl.bind(mainMod .. " + E", hl.dsp.exec_cmd(fileManager))
+hl.bind(mainMod .. " + SPACE", hl.dsp.exec_cmd(menu))
+hl.bind(mainMod .. " + SHIFT + W", hl.dsp.window.close())
+hl.bind(mainMod .. " + F", hl.dsp.window.fullscreen())
+hl.bind(mainMod .. " + T", hl.dsp.window.float({ action = "toggle" }))
+hl.bind(mainMod .. " + M", hl.dsp.exit())
+hl.bind(mainMod .. " + CTRL + L", hl.dsp.exec_cmd("hyprlock"))
 
-    blur {
-        enabled = true
-        size = 3
-        passes = 1
-    }
-}
+hl.bind(mainMod .. " + left", hl.dsp.focus({ direction = "left" }))
+hl.bind(mainMod .. " + right", hl.dsp.focus({ direction = "right" }))
+hl.bind(mainMod .. " + up", hl.dsp.focus({ direction = "up" }))
+hl.bind(mainMod .. " + down", hl.dsp.focus({ direction = "down" }))
 
-animations {
-    enabled = true
-}
+for i = 1, 10 do
+    local key = i % 10
+    hl.bind(mainMod .. " + " .. key, hl.dsp.focus({ workspace = i }))
+    hl.bind(mainMod .. " + SHIFT + " .. key, hl.dsp.window.move({ workspace = i }))
+end
 
-misc {
-    disable_hyprland_logo = true
-    disable_splash_rendering = true
-}
+hl.bind(mainMod .. " + mouse:272", hl.dsp.window.drag(), { mouse = true })
+hl.bind(mainMod .. " + mouse:273", hl.dsp.window.resize(), { mouse = true })
 
-bind = $mainMod, Q, exec, $terminal
-bind = $mainMod, E, exec, $fileManager
-bind = $mainMod, SPACE, exec, $menu
-bind = $mainMod SHIFT, W, killactive
-bind = $mainMod, F, fullscreen
-bind = $mainMod, T, togglefloating
-bind = $mainMod, M, exit
-bind = $mainMod CTRL, L, exec, hyprlock
+hl.bind("XF86AudioRaiseVolume", hl.dsp.exec_cmd("wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+"), { locked = true, repeating = true })
+hl.bind("XF86AudioLowerVolume", hl.dsp.exec_cmd("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"), { locked = true, repeating = true })
+hl.bind("XF86AudioMute", hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"), { locked = true })
+hl.bind("XF86MonBrightnessUp", hl.dsp.exec_cmd("brightnessctl set +5%"), { locked = true, repeating = true })
+hl.bind("XF86MonBrightnessDown", hl.dsp.exec_cmd("brightnessctl set 5%-"), { locked = true, repeating = true })
+LUA
 
-bind = $mainMod, left, movefocus, l
-bind = $mainMod, right, movefocus, r
-bind = $mainMod, up, movefocus, u
-bind = $mainMod, down, movefocus, d
-
-bind = $mainMod, 1, workspace, 1
-bind = $mainMod, 2, workspace, 2
-bind = $mainMod, 3, workspace, 3
-bind = $mainMod, 4, workspace, 4
-bind = $mainMod, 5, workspace, 5
-bind = $mainMod SHIFT, 1, movetoworkspace, 1
-bind = $mainMod SHIFT, 2, movetoworkspace, 2
-bind = $mainMod SHIFT, 3, movetoworkspace, 3
-bind = $mainMod SHIFT, 4, movetoworkspace, 4
-bind = $mainMod SHIFT, 5, movetoworkspace, 5
-
-bindel = , XF86AudioRaiseVolume, exec, wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+
-bindel = , XF86AudioLowerVolume, exec, wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-
-bindl = , XF86AudioMute, exec, wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle
-bindel = , XF86MonBrightnessUp, exec, brightnessctl set +5%
-bindel = , XF86MonBrightnessDown, exec, brightnessctl set 5%-
-
-bindm = $mainMod, mouse:272, movewindow
-bindm = $mainMod, mouse:273, resizewindow
-HYPRCONF
-
-ok "Configuracion creada en $config_file"
+ok "Configuracion Lua creada en $config_file"
