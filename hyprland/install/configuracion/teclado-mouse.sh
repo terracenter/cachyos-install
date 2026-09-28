@@ -15,7 +15,7 @@ layout=$(whiptail --title "Distribucion del teclado" --menu "Selecciona tu tecla
     "es" "Espanol" 3>&1 1>&2 2>&3) || layout="latam"
 
 case "$layout" in
-    us-intl) kb_layout="us"; kb_variant="altgr-intl" ;;
+    us-intl) kb_layout="us"; kb_variant="intl" ;;
     *) kb_layout="$layout"; kb_variant="" ;;
 esac
 
