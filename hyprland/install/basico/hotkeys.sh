@@ -32,6 +32,9 @@ hl.config({
     },
     decoration = { rounding = 10, blur = { enabled = true, size = 3, passes = 1 } },
     animations = { enabled = true },
+    dwindle = {
+        preserve_split = true,
+    },
     misc = { force_default_wallpaper = -1, disable_hyprland_logo = true },
 })
 LUA
