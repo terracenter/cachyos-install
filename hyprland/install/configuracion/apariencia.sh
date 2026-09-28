@@ -14,7 +14,10 @@ themes_dir="$HOME/.config/omarchy/themes"
 current_dir="$HOME/.config/omarchy/current"
 templates_dir="$HOME/.local/share/omarchy-local/themed"
 
-mkdir -p "$themes_dir" "$current_dir" "$templates_dir" "$HOME/.local/bin"
+backgrounds_dir="$HOME/.local/share/backgrounds"
+
+mkdir -p "$themes_dir" "$current_dir" "$templates_dir" \
+    "$HOME/.local/bin" "$backgrounds_dir"
 find "$source_dir" -mindepth 1 -maxdepth 1 -type d \
     ! -name bin ! -name templates -exec cp -a {} "$themes_dir/" \;
 cp -a "$source_dir/templates/." "$templates_dir/"
@@ -22,6 +25,9 @@ find "$themes_dir" -type f -name colors.toml -exec sed -i "s|/home/usuario|$HOME
 
 install -Dm755 "$source_dir/bin/theme-apply.sh" "$HOME/.local/bin/theme-apply"
 install -Dm755 "$source_dir/bin/theme-switcher.sh" "$HOME/.local/bin/theme-switcher"
+
+install -Dm644 "$source_dir/nord/wallpaper.jpg" \
+    "$backgrounds_dir/omarchy-nord-0-black-moon.jpg"
 
 "$HOME/.local/bin/theme-apply" nord
 ok "Tema nord aplicado"
