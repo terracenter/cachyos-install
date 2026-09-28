@@ -1,20 +1,29 @@
-#!/bin/bash
-step "Configurando Navegación, Rofi y Explorador de Archivos..."
+#!/usr/bin/env bash
 
-# 1. Instalar dependencias base (Nautilus y Rofi)
-info "Instalando Rofi y Nautilus (con sus extensiones)..."
-sudo pacman -S --needed --noconfirm \
-    rofi-wayland \
-    nautilus \
-    nautilus-python \
-    gnome-disk-utility \
-    dosfstools \
-    exfatprogs \
-    gvfs-mtp \
-    gvfs-nfs \
-    gvfs-smb \
-    > /dev/null 2>&1 || warn "Algunas dependencias de navegación ya estaban instaladas o fallaron."
-ok "Rofi y Nautilus instalados correctamente"
+set -Eeuo pipefail
 
-# 2. Descargar Dotfiles de Omarchy para Rofi
-info "Clonando configuraciones de Rofi desde Omarchy..."
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+# shellcheck source=helpers.sh
+source "$SCRIPT_DIR/helpers.sh"
+
+show_script_version "Navegacion del escritorio" "${BASH_SOURCE[0]}"
+
+[[ $EUID -ne 0 ]] || die "Ejecuta este modulo como usuario normal, no como root."
+
+step "Configurando Rofi y Nautilus"
+
+mkdir -p "$HOME/.config/rofi"
+
+cat > "$HOME/.config/rofi/config.rasi" <<'ROFI'
+configuration {
+    modi: "drun,run,window";
+    show-icons: true;
+    icon-theme: "Papirus-Dark";
+    drun-display-format: "{name}";
+    font: "JetBrainsMono Nerd Font 12";
+}
+ROFI
+
+xdg-mime default org.gnome.Nautilus.desktop inode/directory application/x-gnome-saved-search || true
+
+ok "Rofi y Nautilus configurados"
