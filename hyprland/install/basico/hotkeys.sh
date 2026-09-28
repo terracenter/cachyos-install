@@ -2,9 +2,7 @@
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
-# shellcheck source=helpers.sh
 source "$SCRIPT_DIR/helpers.sh"
-
 show_script_version "Configuracion Lua de Hyprland" "${BASH_SOURCE[0]}"
 [[ $EUID -ne 0 ]] || die "Ejecuta este modulo como usuario normal."
 
@@ -13,10 +11,7 @@ config_dir="$HOME/.config/hypr"
 modules_dir="$config_dir/modules"
 config_file="$config_dir/hyprland.lua"
 mkdir -p "$modules_dir"
-
-if [[ -f "$config_file" ]]; then
-    cp -a "$config_file" "${config_file}.bak.$(date +%Y%m%d_%H%M%S)"
-fi
+[[ -f "$config_file" ]] && cp -a "$config_file" "${config_file}.bak.$(date +%Y%m%d_%H%M%S)"
 
 cat > "$config_file" <<'LUA'
 -- CachyOS Hyprland 0.56+
@@ -30,27 +25,14 @@ LUA
 cat > "$modules_dir/appearance.lua" <<'LUA'
 hl.env("XCURSOR_SIZE", "24")
 hl.env("HYPRCURSOR_SIZE", "24")
-
 hl.config({
     general = {
-        gaps_in = 5,
-        gaps_out = 10,
-        border_size = 2,
-        layout = "dwindle",
-        col = {
-            active_border = "rgba(81a1c1ee)",
-            inactive_border = "rgba(4c566aaa)",
-        },
+        gaps_in = 5, gaps_out = 10, border_size = 2, layout = "dwindle",
+        col = { active_border = "rgba(81a1c1ee)", inactive_border = "rgba(4c566aaa)" },
     },
-    decoration = {
-        rounding = 10,
-        blur = { enabled = true, size = 3, passes = 1 },
-    },
+    decoration = { rounding = 10, blur = { enabled = true, size = 3, passes = 1 } },
     animations = { enabled = true },
-    misc = {
-        force_default_wallpaper = -1,
-        disable_hyprland_logo = true,
-    },
+    misc = { force_default_wallpaper = -1, disable_hyprland_logo = true },
 })
 LUA
 
@@ -60,12 +42,12 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("uwsm app -- swaync")
     hl.exec_cmd("uwsm app -- nm-applet --indicator")
     hl.exec_cmd("uwsm app -- hypridle")
-    hl.exec_cmd("uwsm app -- hyprpaper")
     hl.exec_cmd("uwsm app -- /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1")
     hl.exec_cmd("wl-paste --type text --watch cliphist store")
     hl.exec_cmd("wl-paste --type image --watch cliphist store")
     hl.exec_cmd("dbus-update-activation-environment --systemd --all")
     hl.exec_cmd("~/.local/bin/hypr-monitor-workspaces --watch")
+    hl.exec_cmd("~/.local/bin/theme-apply")
 end)
 LUA
 
@@ -75,34 +57,30 @@ local terminal = "alacritty"
 local fileManager = "nautilus"
 local menu = "rofi -show drun"
 
-hl.bind(mainMod .. " + Q", hl.dsp.exec_cmd(terminal))
+hl.bind(mainMod .. " + RETURN", hl.dsp.exec_cmd(terminal))
 hl.bind(mainMod .. " + E", hl.dsp.exec_cmd(fileManager))
 hl.bind(mainMod .. " + SPACE", hl.dsp.exec_cmd(menu))
-hl.bind(mainMod .. " + SHIFT + W", hl.dsp.window.close())
+hl.bind(mainMod .. " + W", hl.dsp.exec_cmd("~/.local/bin/confirm-close-window"))
+hl.bind(mainMod .. " + L", hl.dsp.exec_cmd("hyprlock"))
+hl.bind(mainMod .. " + M", hl.dsp.exec_cmd("~/.local/bin/power-menu"))
 hl.bind(mainMod .. " + F", hl.dsp.window.fullscreen())
 hl.bind(mainMod .. " + T", hl.dsp.window.float({ action = "toggle" }))
-hl.bind(mainMod .. " + M", hl.dsp.exit())
-hl.bind(mainMod .. " + CTRL + L", hl.dsp.exec_cmd("hyprlock"))
 
 hl.bind(mainMod .. " + left", hl.dsp.focus({ direction = "left" }))
 hl.bind(mainMod .. " + right", hl.dsp.focus({ direction = "right" }))
 hl.bind(mainMod .. " + up", hl.dsp.focus({ direction = "up" }))
 hl.bind(mainMod .. " + down", hl.dsp.focus({ direction = "down" }))
-
 for i = 1, 10 do
     local key = i % 10
     hl.bind(mainMod .. " + " .. key, hl.dsp.focus({ workspace = i }))
     hl.bind(mainMod .. " + SHIFT + " .. key, hl.dsp.window.move({ workspace = i }))
 end
-
 hl.bind(mainMod .. " + mouse:272", hl.dsp.window.drag(), { mouse = true })
 hl.bind(mainMod .. " + mouse:273", hl.dsp.window.resize(), { mouse = true })
-
 hl.bind("XF86AudioRaiseVolume", hl.dsp.exec_cmd("wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+"), { locked = true, repeating = true })
 hl.bind("XF86AudioLowerVolume", hl.dsp.exec_cmd("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"), { locked = true, repeating = true })
 hl.bind("XF86AudioMute", hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"), { locked = true })
 hl.bind("XF86MonBrightnessUp", hl.dsp.exec_cmd("brightnessctl set +5%"), { locked = true, repeating = true })
 hl.bind("XF86MonBrightnessDown", hl.dsp.exec_cmd("brightnessctl set 5%-"), { locked = true, repeating = true })
 LUA
-
 ok "Configuracion Lua creada en $config_file"
