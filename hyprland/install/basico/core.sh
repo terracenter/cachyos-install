@@ -41,6 +41,9 @@ packages=(
     pavucontrol
     brightnessctl
     playerctl
+    jq
+    socat
+    libnotify
     ttf-jetbrains-mono-nerd
     noto-fonts
     noto-fonts-emoji

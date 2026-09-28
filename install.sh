@@ -130,8 +130,8 @@ menu_base() {
 } >> "$LOG_FILE"
 
 if sudo --preserve-env=TERM,LANG,LC_ALL,NCURSES_NO_UTF8_ACS \
-    bash "$SCRIPT_DIR/base/install-base.sh" \
-    > >(tee -a "$LOG_FILE") 2>&1; then
+    bash "$SCRIPT_DIR/base/install-base.sh" 2>&1 |
+    tee -a "$LOG_FILE"; then
 
     printf '%s Instalación base finalizada correctamente.\n' \
         "$(date '+%Y-%m-%d %H:%M:%S')" >> "$LOG_FILE"
