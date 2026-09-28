@@ -7,8 +7,8 @@ show_script_version "Configuracion de audio" "${BASH_SOURCE[0]}"
 [[ $EUID -ne 0 ]] || die "Ejecuta este modulo como usuario normal."
 step "Instalando herramientas de audio de Hyprland"
 sudo pacman -S --needed --noconfirm pipewire pipewire-audio pipewire-pulse wireplumber pavucontrol jq libnotify swayosd
-install -Dm755 "$HYPRLAND_DIR/configs/hypr-audio-setup" "$HOME/.local/bin/hypr-audio-setup"
-install -Dm755 "$HYPRLAND_DIR/configs/hypr-audio-volume" "$HOME/.local/bin/hypr-audio-volume"
+install -Dm755 "$HYPRLAND_DIR/configs/hypr-audio-setup.sh" "$HOME/.local/bin/hypr-audio-setup"
+install -Dm755 "$HYPRLAND_DIR/configs/hypr-audio-volume.sh" "$HOME/.local/bin/hypr-audio-volume"
 mkdir -p "$HOME/.local/share/applications"
 cat > "$HOME/.local/share/applications/hypr-audio-setup.desktop" <<EOF_DESKTOP
 [Desktop Entry]

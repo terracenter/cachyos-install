@@ -18,7 +18,7 @@ rofi_run() {
     local mesg="$2"
     local lines="$3"
     shift 3
-    local input="$@"
+    local input="$*"
     local cmd=(rofi -dmenu -p "$prompt" -mesg "$mesg" -i -theme-str "window {width: 700px;} listview {lines: $lines;}")
     [[ -f "$THEME" ]] && cmd+=(-theme "$THEME")
     echo "$input" | "${cmd[@]}" 2>/dev/null
@@ -109,18 +109,21 @@ EOF
 
 restore_pref() {
     [[ -f "$PREF_FILE" ]] || return 0
+    # shellcheck disable=SC1090
     source "$PREF_FILE"
     [[ -n "$default_sink" ]] && pactl set-default-sink "$default_sink" 2>/dev/null
     [[ -n "$default_source" ]] && pactl set-default-source "$default_source" 2>/dev/null
 }
 
 select_default_sink() {
-    local current=$(default_sink_name)
+    local current
+    current=$(default_sink_name)
     local options=""
     declare -A sink_map
 
     while IFS=$'\t' read -r id name state; do
-        local desc=$(describe_sink "$name")
+        local desc
+        desc=$(describe_sink "$name")
         local marker="  "
         [[ "$name" == "$current" ]] && marker="● "
         local line="${marker}${desc}  [${state}]"
@@ -130,7 +133,8 @@ select_default_sink() {
 
     [[ -z "$options" ]] && { notify-send "Audio" "No hay sinks disponibles" --urgency=critical; return 1; }
 
-    local choice=$(rofi_run "🔊 Salida de Audio" "Elige el sink por defecto. ● = activo" 8 "$options")
+    local choice
+    choice=$(rofi_run "🔊 Salida de Audio" "Elige el sink por defecto. ● = activo" 8 "$options")
     [[ -z "$choice" ]] && return 0
 
     local selected="${sink_map[$choice]}"
@@ -147,12 +151,14 @@ select_default_sink() {
 }
 
 select_default_source() {
-    local current=$(default_source_name)
+    local current
+    current=$(default_source_name)
     local options=""
     declare -A src_map
 
     while IFS=$'\t' read -r id name state; do
-        local desc=$(describe_source "$name")
+        local desc
+        desc=$(describe_source "$name")
         local marker="  "
         [[ "$name" == "$current" ]] && marker="● "
         local line="${marker}${desc}  [${state}]"
@@ -162,7 +168,8 @@ select_default_source() {
 
     [[ -z "$options" ]] && { notify-send "Audio" "No hay micrófonos disponibles" --urgency=critical; return 1; }
 
-    local choice=$(rofi_run "🎤 Entrada de Audio" "Elige el micrófono por defecto. ● = activo" 8 "$options")
+    local choice
+    choice=$(rofi_run "🎤 Entrada de Audio" "Elige el micrófono por defecto. ● = activo" 8 "$options")
     [[ -z "$choice" ]] && return 0
 
     local selected="${src_map[$choice]}"
@@ -184,12 +191,14 @@ routing_per_app() {
     declare -A sink_for_input
 
     while IFS=$'\t' read -r input_id app_name binary; do
-        local sink_id=$(pactl list sink-inputs short 2>/dev/null | awk -v i="$input_id" '$1==i{print $2}')
+        local sink_id
+        sink_id=$(pactl list sink-inputs short 2>/dev/null | awk -v i="$input_id" '$1==i{print $2}')
         local sink_name=""
         [[ -n "$sink_id" ]] && sink_name=$(pactl list sinks short 2>/dev/null | awk -v i="$sink_id" '$1==i{print $2}')
         sink_for_input["$input_id"]="$sink_name"
 
-        local sink_desc=$(describe_sink "$sink_name")
+        local sink_desc
+        sink_desc=$(describe_sink "$sink_name")
         local line="${app_name}  →  ${sink_desc}"
         options+="$line"$'\n'
         app_map["$line"]="$input_id"
@@ -197,7 +206,8 @@ routing_per_app() {
 
     [[ -z "$options" ]] && { notify-send "🔀 Ruteo por App" "No hay apps con audio configurado" --urgency=low; return 0; }
 
-    local choice=$(rofi_run "🔀 Ruteo por App" "Elige la app a re-rutear. apps pausadas también aparecen" 10 "$options")
+    local choice
+    choice=$(rofi_run "🔀 Ruteo por App" "Elige la app a re-rutear. apps pausadas también aparecen" 10 "$options")
     [[ -z "$choice" ]] && return 0
 
     local input_id="${app_map[$choice]}"
@@ -208,7 +218,8 @@ routing_per_app() {
     declare -A sink_map2
 
     while IFS=$'\t' read -r id name state; do
-        local desc=$(describe_sink "$name")
+        local desc
+        desc=$(describe_sink "$name")
         local marker="  "
         [[ "$name" == "$current_sink_name" ]] && marker="● "
         local line="${marker}${desc}"
@@ -216,7 +227,8 @@ routing_per_app() {
         sink_map2["$line"]="$name"
     done < <(list_sinks)
 
-    local sink_choice=$(rofi_run "🔀 Destino" "Mover app a:" 8 "$sink_options")
+    local sink_choice
+    sink_choice=$(rofi_run "🔀 Destino" "Mover app a:" 8 "$sink_options")
     [[ -z "$sink_choice" ]] && return 0
 
     local target_sink="${sink_map2[$sink_choice]}"
@@ -231,7 +243,8 @@ main() {
 2  🎤 Entrada (micrófono)
 3  🔀 Ruteo por app"
 
-    local choice=$(rofi_run "🔊 Audio — Hyprland" "Selecciona:" 3 "$options")
+    local choice
+    choice=$(rofi_run "🔊 Audio — Hyprland" "Selecciona:" 3 "$options")
     [[ -z "$choice" ]] && exit 0
 
     case "$choice" in
