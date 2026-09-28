@@ -10,7 +10,8 @@ step "Creando configuracion modular Lua de Hyprland"
 config_dir="$HOME/.config/hypr"
 modules_dir="$config_dir/modules"
 config_file="$config_dir/hyprland.lua"
-mkdir -p "$modules_dir"
+bin_dir="$HOME/.local/bin"
+mkdir -p "$modules_dir" "$bin_dir"
 [[ -f "$config_file" ]] && cp -a "$config_file" "${config_file}.bak.$(date +%Y%m%d_%H%M%S)"
 
 cat > "$config_file" <<'LUA'
@@ -67,7 +68,7 @@ hl.bind(mainMod .. " + W", hl.dsp.exec_cmd("~/.local/bin/confirm-close-window"))
 hl.bind(mainMod .. " + L", hl.dsp.exec_cmd("hyprlock"))
 hl.bind(mainMod .. " + M", hl.dsp.exec_cmd("~/.local/bin/power-menu"))
 hl.bind(mainMod .. " + F", hl.dsp.window.fullscreen())
-hl.bind(mainMod .. " + T", hl.dsp.window.float({ action = "toggle" }))
+hl.bind(mainMod .. " + T", hl.dsp.exec_cmd("~/.local/bin/toggle-window-float"))
 
 hl.bind(mainMod .. " + left", hl.dsp.focus({ direction = "left" }))
 hl.bind(mainMod .. " + right", hl.dsp.focus({ direction = "right" }))
@@ -95,4 +96,25 @@ hl.bind("XF86AudioMute", hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SINK@ to
 hl.bind("XF86MonBrightnessUp", hl.dsp.exec_cmd("brightnessctl set +5%"), { locked = true, repeating = true })
 hl.bind("XF86MonBrightnessDown", hl.dsp.exec_cmd("brightnessctl set 5%-"), { locked = true, repeating = true })
 LUA
+cat > "$bin_dir/toggle-window-float" <<'SCRIPT'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+active_window=$(hyprctl activewindow -j)
+window_address=$(jq -r '.address // empty' <<< "$active_window")
+floating=$(jq -r '.floating // false' <<< "$active_window")
+
+[[ -n "$window_address" ]] || exit 0
+
+if [[ "$floating" == "true" ]]; then
+    hyprctl dispatch 'hl.dsp.window.float({ action = "disable" })' >/dev/null
+else
+    hyprctl dispatch 'hl.dsp.window.float({ action = "enable" })' >/dev/null
+    sleep 0.15
+    hyprctl dispatch 'hl.dsp.window.resize({ x = 1100, y = 700, relative = false })' >/dev/null
+    sleep 0.15
+    hyprctl dispatch 'hl.dsp.window.center({})' >/dev/null
+fi
+SCRIPT
+chmod 755 "$bin_dir/toggle-window-float"
 ok "Configuracion Lua creada en $config_file"
