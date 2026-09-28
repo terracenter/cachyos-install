@@ -70,6 +70,15 @@ hl.bind(mainMod .. " + left", hl.dsp.focus({ direction = "left" }))
 hl.bind(mainMod .. " + right", hl.dsp.focus({ direction = "right" }))
 hl.bind(mainMod .. " + up", hl.dsp.focus({ direction = "up" }))
 hl.bind(mainMod .. " + down", hl.dsp.focus({ direction = "down" }))
+
+-- Reorganizar ventanas al estilo Omarchy
+hl.bind(mainMod .. " + SHIFT + left", hl.dsp.window.swap({ direction = "left" }))
+hl.bind(mainMod .. " + SHIFT + right", hl.dsp.window.swap({ direction = "right" }))
+hl.bind(mainMod .. " + SHIFT + up", hl.dsp.window.swap({ direction = "up" }))
+hl.bind(mainMod .. " + SHIFT + down", hl.dsp.window.swap({ direction = "down" }))
+
+-- Alternar orientación de la próxima división Dwindle
+hl.bind(mainMod .. " + J", hl.dsp.layout("togglesplit"))
 for i = 1, 10 do
     local key = i % 10
     hl.bind(mainMod .. " + " .. key, hl.dsp.focus({ workspace = i }))
