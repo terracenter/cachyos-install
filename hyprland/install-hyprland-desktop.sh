@@ -4,6 +4,7 @@ set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 BASIC_DIR="$SCRIPT_DIR/install/basico"
+CONFIG_DIR="$SCRIPT_DIR/install/configuracion"
 LOG_FILE="$SCRIPT_DIR/install-hyprland-desktop.log"
 
 # shellcheck source=install/basico/helpers.sh
@@ -35,6 +36,9 @@ main() {
     run_module "$BASIC_DIR/navegacion.sh"
     run_module "$BASIC_DIR/top-bar.sh"
     run_module "$BASIC_DIR/hotkeys.sh"
+    run_module "$CONFIG_DIR/monitores.sh"
+    run_module "$CONFIG_DIR/teclado-mouse.sh"
+    run_module "$CONFIG_DIR/audio.sh"
 
     header "Hyprland base instalado"
     info "La instalacion de aplicaciones opcionales se realiza por separado."

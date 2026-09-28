@@ -16,7 +16,7 @@ config_dir="$HOME/.config/hypr"
 config_file="$config_dir/hyprland.conf"
 backup_file="${config_file}.bak.$(date +%Y%m%d_%H%M%S)"
 
-mkdir -p "$config_dir"
+mkdir -p "$config_dir/conf.d"
 
 if [[ -f "$config_file" ]]; then
     cp -a "$config_file" "$backup_file"
@@ -42,17 +42,6 @@ exec-once = uwsm app -- /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-
 exec-once = wl-paste --type text --watch cliphist store
 exec-once = wl-paste --type image --watch cliphist store
 exec-once = dbus-update-activation-environment --systemd --all
-
-input {
-    kb_layout = us,latam
-    kb_options = grp:win_space_toggle
-    follow_mouse = 1
-
-    touchpad {
-        natural_scroll = true
-        tap-to-click = true
-    }
-}
 
 general {
     gaps_in = 5
