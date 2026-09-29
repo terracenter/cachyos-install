@@ -32,6 +32,7 @@ packages=(
     alacritty
     nautilus
     swaync
+    swaybg
     hyprpaper
     hypridle
     hyprlock
