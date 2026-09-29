@@ -1,252 +1,284 @@
-← [Cap. 13 — Configuración Waybar](Capítulo-13-Configuracion-Waybar.md) · [Índice](..) · [Cap. 15 — Gestión de paquetes](Capítulo-15-Gestion-Paquetes.md) →
+# Capítulo 14: Uso de Hyprland
 
----
+[← Cap. 13: Configuración de Waybar](Capítulo-13-Configuracion-Waybar.md) · [Índice](./_index.md) · [Cap. 15: Gestión de paquetes →](Capítulo-15-Gestion-Paquetes.md)
 
 ## Introducción
 
-Este capítulo documenta las combinaciones de teclas configuradas en `~/.config/hypr/hyprland.lua` para la instalación CachyOS + Hyprland descrita en los capítulos anteriores.
+Esta referencia describe los atajos implementados y validados por el proyecto. La tecla modificadora principal es **Super**, normalmente identificada con el logotipo de Windows.
 
-La tecla modificadora principal es **Super** (tecla Windows). Los bindings siguen el esquema de Omarchy.
+Los atajos se generan desde:
 
----
+```text
+hyprland/install/basico/hotkeys.sh
+```
+
+La configuración instalada se encuentra en:
+
+```text
+~/.config/hypr/modules/keybindings.lua
+```
+
+Después de cambiar el archivo generado:
+
+```bash
+hyprctl reload
+hyprctl configerrors
+```
 
 ## Aplicaciones
 
-| Combinación | Acción |
+| Atajo | Acción |
 |---|---|
-| `Super + Q` | Abrir terminal (`alacritty`) |
-| `Super + E` | Abrir gestor de archivos (`nautilus`) |
-| `Super + Space` | Abrir lanzador de apps (`rofi`) |
-| `Super + Ctrl + A` | Mezclador de audio (`wiremix` en terminal) |
-| `Super + Ctrl + V` | Historial de portapapeles (`cliphist` + `rofi`) |
-| `Super + Ctrl + B` | Bluetooth (`blueman-manager`) |
-| `Super + Ctrl + W` | WiFi (`nmtui` en terminal) |
-| `Super + Ctrl + T` | Monitor de actividad (`btop` en terminal) |
-| `Super + Ctrl + P` | Pomodoro (`pomodoro` + rofi) |
-| `Super + Shift + T` | Selector de tema Omarchy (`theme-switcher` + rofi) |
-| `Super + Ctrl + R` | Grabación de pantalla (`gsr-ui` — GPU Screen Recorder) |
-| `Super + /` | Referencia de combinaciones de teclas (`show-keys` + rofi) |
+| `Super + Enter` | Abrir Alacritty |
+| `Super + E` | Abrir Nautilus |
+| `Super + Space` | Abrir Rofi |
 
-> El ícono `󰣇` de waybar también abre rofi con clic izquierdo, y `alacritty` con clic derecho.
+El selector de temas está disponible mediante:
 
-> [!NOTE]
-> **`Super + /` — Referencia de combinaciones de teclas (`show-keys`)**
-> Ejecuta el script `~/.local/bin/show-keys`, que abre un panel rofi de solo lectura (flag `--no-custom`) con la lista completa de combinaciones de teclas organizada por categoría: aplicaciones, ventanas, foco, workspaces, sesión, notificaciones y capturas. El panel ocupa el 55 % del ancho de pantalla y usa el tema catppuccin-mocha si está disponible. Es de consulta rápida: no ejecuta nada, solo muestra.
+```bash
+theme-switcher
+```
 
----
+Si se añade un atajo para esta función, debe documentarse únicamente después de implementarlo y validarlo.
 
 ## Gestión de ventanas
 
-| Combinación | Acción |
+| Atajo | Acción |
 |---|---|
-| `Super + Shift + W` | Cerrar ventana activa |
-| `Super + T` | Alternar modo flotante / tiling |
-| `Super + F` | Pantalla completa |
-| `Super + Alt + F` | Maximizar (fullscreen en modo tiling) |
-| `Super + P` | Alternar modo pseudo-tile |
-| `Super + J` | Alternar dirección del split (horizontal ↔ vertical) |
-| `Super + G` | Agrupar / desagrupar ventanas |
-| `Super + Shift + Space` | Mostrar / ocultar waybar |
-| `Super + Shift + ←` | Mover ventana a la mitad izquierda de la pantalla |
-| `Super + Shift + →` | Mover ventana a la mitad derecha de la pantalla |
-| `Super + Shift + ↑` | Mover ventana a la mitad superior de la pantalla |
-| `Super + Shift + ↓` | Mover ventana a la mitad inferior de la pantalla |
-| `Super + Shift + Y` | Ciclar tamaño de ventana (50% alto ↔ 50% ancho ↔ 100% maximizado ↔ mosaico) |
+| `Super + W` | Solicitar confirmación y cerrar la ventana activa |
+| `Super + T` | Alternar entre mosaico y ventana flotante centrada |
+| `Super + F` | Alternar pantalla completa |
+| `Super + J` | Alternar la orientación del nodo Dwindle |
+| `Super + clic izquierdo` | Arrastrar una ventana |
+| `Super + clic derecho` | Redimensionar una ventana |
 
-### Mover y redimensionar con el ratón
+### Cierre seguro
 
-| Combinación | Acción |
-|---|---|
-| `Super + Clic izquierdo` + arrastrar | Mover ventana |
-| `Super + Clic derecho` + arrastrar | Redimensionar ventana |
+`Super + W` abre un diálogo de Rofi con las opciones **No** y **Sí**. La acción usa el dispatcher Lua:
 
----
+```lua
+hl.dsp.window.close()
+```
 
-## Foco entre ventanas
+Esto evita el uso de la sintaxis histórica `killactive`, incompatible con la configuración Lua actual.
 
-| Combinación | Acción |
+### Mosaico y flotante
+
+`Super + T` ejecuta el helper:
+
+```text
+~/.local/bin/toggle-window-float
+```
+
+Comportamiento:
+
+```text
+Ventana en mosaico
+→ activa modo flotante
+→ establece un tamaño de 1100 × 700
+→ centra la ventana
+
+Ventana flotante
+→ vuelve al mosaico
+```
+
+El tamaño se establece con `relative = false` para evitar un crecimiento acumulativo.
+
+### Orientación Dwindle
+
+`Super + J` cambia la orientación horizontal o vertical del nodo Dwindle. El proyecto habilita:
+
+```lua
+preserve_split = true
+```
+
+Sin esa opción, Hyprland puede recalcular la división y ocultar visualmente el efecto.
+
+## Foco e intercambio de ventanas
+
+| Atajo | Acción |
 |---|---|
 | `Super + ←` | Enfocar ventana a la izquierda |
 | `Super + →` | Enfocar ventana a la derecha |
-| `Super + ↑` | Enfocar ventana arriba |
-| `Super + ↓` | Enfocar ventana abajo |
-| `Alt + Tab` | Siguiente ventana |
-| `Alt + Shift + Tab` | Ventana anterior |
+| `Super + ↑` | Enfocar ventana superior |
+| `Super + ↓` | Enfocar ventana inferior |
+| `Super + Shift + ←` | Intercambiar con la ventana de la izquierda |
+| `Super + Shift + →` | Intercambiar con la ventana de la derecha |
+| `Super + Shift + ↑` | Intercambiar con la ventana superior |
+| `Super + Shift + ↓` | Intercambiar con la ventana inferior |
 
-### Navegación dentro de grupos
+Las combinaciones con `Shift` reorganizan el árbol Dwindle. No representan mitades fijas de la pantalla.
 
-| Combinación | Acción |
+## Espacios de trabajo
+
+| Atajo | Acción |
 |---|---|
-| `Super + Alt + Tab` | Siguiente ventana en el grupo activo |
-| `Super + Alt + Shift + Tab` | Ventana anterior en el grupo activo |
+| `Super + 1` a `Super + 9` | Ir al espacio 1 a 9 |
+| `Super + 0` | Ir al espacio 10 |
+| `Super + Shift + 1` a `Super + Shift + 9` | Mover la ventana al espacio 1 a 9 |
+| `Super + Shift + 0` | Mover la ventana al espacio 10 |
 
----
+El instalador asigna cinco espacios de trabajo por monitor. La asignación se actualiza cuando cambia la lista de monitores.
 
-## Workspaces
+## Bloqueo y sesión
 
-### Cambiar de workspace
-
-| Combinación | Acción |
+| Atajo | Acción |
 |---|---|
-| `Super + 1` … `Super + 9` | Ir al workspace 1–9 |
-| `Super + 0` | Ir al workspace 10 |
-| `Super + Tab` | Ir al workspace siguiente |
-| `Super + Shift + Tab` | Ir al workspace anterior |
-| `Super + Ctrl + Tab` | Volver al workspace usado anteriormente |
-| `Super + Scroll ↓` | Ir al workspace siguiente |
-| `Super + Scroll ↑` | Ir al workspace anterior |
+| `Super + L` | Bloquear con Hyprlock |
+| `Super + M` | Abrir menú de energía y sesión |
 
-### Mover ventana a otro workspace
+### Menú de energía
 
-| Combinación | Acción |
-|---|---|
-| `Super + Shift + 1` … `Super + Shift + 9` | Mover ventana al workspace 1–9 |
-| `Super + Shift + 0` | Mover ventana al workspace 10 |
+El menú contiene:
 
-### Workspace especial (scratchpad)
+- Bloquear.
+- Cerrar sesión.
+- Suspender.
+- Hibernar.
+- Reiniciar.
+- Apagar.
+- Cancelar.
 
-| Combinación | Acción |
-|---|---|
-| `Super + S` | Mostrar/ocultar workspace especial (`magic`) |
-| `Super + Shift + S` | Mover ventana al workspace especial |
+Las acciones que interrumpen el trabajo piden confirmación.
 
-> El workspace especial es un scratchpad: las ventanas ahí quedan ocultas y se recuperan con `Super + S`.
+En equipos de producción, evita cerrar sesión o reiniciar salvo que sea imprescindible. Para aplicar cambios de Hyprland usa primero:
 
----
+```bash
+hyprctl reload
+```
 
-## Sesión
+## Pantalla de bloqueo
 
-| Combinación | Acción |
-|---|---|
-| `Super + Ctrl + L` | Bloquear pantalla (`hyprlock`) |
-| `Super + Ctrl + L` | Bloquear pantalla (`hyprlock`) |
-| `Super + M` | Menú visual de sesión — presenta opciones de apagar, reiniciar, suspender, salir y bloquear (`hypr-exit`) |
-| `Super + Space` → «Pantalla y energía» | Ajustar tiempos de bloqueo, suspensión e hibernación (`idle-settings`) |
+El bloqueo muestra hora, fecha y un campo de contraseña. La firma es configurable desde:
 
-> [!NOTE]
-> `Super + M` ejecuta el script `~/.local/bin/hypr-exit`, que abre un menú Rofi con el tema activo para elegir entre:
-> - **Cancelar**: No hace nada y vuelve al escritorio (por defecto).
-> - **Bloquear**: Bloquea la pantalla inmediatamente usando `hyprlock`.
-> - **Suspender**: Coloca la laptop/desktop en estado de suspensión (`systemctl suspend`).
-> - **Salir**: Finaliza de forma segura la sesión gráfica (`uwsm stop` o `hyprctl dispatch exit`).
-> - **Reiniciar**: Reinicia el equipo (`systemctl reboot`).
-> - **Apagar**: Apaga el sistema de forma limpia (`systemctl poweroff`).
+```bash
+~/.local/bin/lockscreen-settings
+```
 
-> [!NOTE]
-> **«Pantalla y energía»** (`idle-settings`) se abre desde el lanzador rofi (`Super + Space`) y permite fijar, en menús consecutivos, los tiempos de inactividad para **bloquear la pantalla**, **suspender** e **hibernar** el equipo. El menú de hibernación solo aparece si el sistema la soporta. Los cambios se aplican en caliente, sin reiniciar la sesión. Ver detalle en el [Capítulo 12](Capítulo-12-Instalacion-Hyprland.md).
+Modos disponibles:
 
----
+- Firma gráfica privada.
+- Firma gráfica más Fortune.
+- Firma de texto.
+- Firma de texto más Fortune.
+- Fortune solamente.
+- Ocultar contenido adicional.
 
-## Notificaciones
+La firma gráfica privada se busca en:
 
-| Combinación | Acción |
-|---|---|
-| `Super + ,` | Descartar última notificación |
-| `Super + Shift + ,` | Descartar todas las notificaciones |
+```text
+~/.local/share/hyprlock/company-signature.png
+```
 
-> Las notificaciones las gestiona `mako`. El historial y las notificaciones activas se ven en waybar.
-
----
+No se almacena en Git.
 
 ## Teclas multimedia
 
-Estas teclas funcionan incluso con la pantalla bloqueada (`locked = true`).
-
 | Tecla | Acción |
 |---|---|
-| `Vol +` | Subir volumen (OSD visible via swayosd) |
-| `Vol -` | Bajar volumen (OSD visible via swayosd) |
-| `Mute` | Silenciar/activar audio |
-| `Mic Mute` | Silenciar/activar micrófono |
-| `Brillo +` | Aumentar brillo de pantalla |
-| `Brillo -` | Reducir brillo de pantalla |
-| `Media siguiente` | Siguiente pista (`playerctl`) |
-| `Media anterior` | Pista anterior (`playerctl`) |
-| `Play/Pause` | Reproducir o pausar (`playerctl`) |
+| Subir volumen | Aumentar 5 % con límite de 100 % |
+| Bajar volumen | Reducir 5 % |
+| Silenciar | Alternar silencio del dispositivo de salida |
+| Subir brillo | Aumentar 5 % |
+| Bajar brillo | Reducir 5 % |
 
----
+Estas teclas usan `wpctl` y `brightnessctl`. Algunas se mantienen activas con la pantalla bloqueada mediante `locked = true`.
 
-## Capturas de pantalla
+## Temas
 
-Las herramientas instaladas son **grim** (captura), **slurp** (selección) y **satty** (anotaciones).
+Abre el selector:
 
-| Combinación | Acción |
-|---|---|
-| `Print` | Captura de área seleccionada → abre en satty para anotar → guarda en `~/Pictures/` |
-| `Super + Print` | Captura de pantalla completa → abre en satty → guarda en `~/Pictures/` |
-| `Super + Shift + Print` | Captura de ventana activa → abre en satty → guarda en `~/Pictures/` |
-| `Ctrl + Print` | Captura de área → copia directamente al portapapeles |
+```bash
+theme-switcher
+```
 
----
+El selector muestra únicamente temas cuya paleta tiene todos los colores obligatorios. Al elegir uno:
 
-## Grabación de pantalla
+- se actualizan colores;
+- se actualiza el fondo;
+- se guarda el tema activo;
+- se recarga Hyprland;
+- Waybar recarga su CSS automáticamente.
 
-La herramienta instalada es **GPU Screen Recorder** — overlay estilo ShadowPlay con codificación por GPU (VAAPI).
+Comprueba el estado:
 
-| Combinación | Acción |
-|---|---|
-| `Super + Ctrl + R` | Abre el overlay de GPU Screen Recorder |
-| `Alt + Z` | Muestra/oculta el overlay (combinación nativa del programa) |
+```bash
+cat ~/.config/omarchy/current/theme
+pgrep -af swaybg
+pgrep -af waybar
+```
 
-El overlay permite seleccionar fuente de video, fuente de audio y activar el replay buffer. Los videos se guardan en `~/Videos/`.
-
----
+Debe existir una instancia de `swaybg` y una de Waybar.
 
 ## Referencia rápida
 
-```
-── Aplicaciones ─────────────────────────────────────────
-Super  +  Q              →  Terminal (alacritty)
-Super  +  E              →  Archivos (nautilus)
-Super  +  Space          →  Lanzador (rofi)
-Super  +  Ctrl + A       →  Audio (wiremix)
-Super  +  Ctrl + V       →  Portapapeles (cliphist)
-Super  +  Ctrl + B       →  Bluetooth (blueman)
-Super  +  Ctrl + W       →  WiFi (nmtui)
-Super  +  Ctrl + T       →  Monitor (btop)
-Super  +  Ctrl + P       →  Pomodoro
-Super  +  Ctrl + R       →  Grabación (GPU Screen Recorder)
-Super  +  Shift + T      →  Selector de tema
-Super  +  /              →  Referencia de combinaciones de teclas
-── Ventanas ─────────────────────────────────────────────
-Super  +  Shift + W      →  Cerrar ventana
-Super  +  T              →  Flotante / tiling
-Super  +  F              →  Pantalla completa
-Super  +  Alt + F        →  Maximizar
-Super  +  P              →  Pseudo-tile
-Super  +  J              →  Cambiar split
-Super  +  G              →  Agrupar ventanas
-Super  +  Shift + Space  →  Mostrar/ocultar waybar
-Super  +  Shift + ←↑↓→  →  Mitad de pantalla (izq/der/arriba/abajo)
-Super  +  Shift + Y      →  Ciclar tamaño (50% alto/ancho/100%/mosaico)
-── Foco y ciclo ─────────────────────────────────────────
-Super  +  ←↑↓→          →  Enfocar ventana
-Alt    +  Tab            →  Siguiente ventana
-Alt    +  Shift + Tab    →  Ventana anterior
-Super  +  Alt + Tab      →  Siguiente en grupo
-Super  +  Alt + Shift + Tab  →  Anterior en grupo
-── Workspaces ───────────────────────────────────────────
-Super  +  1-9 / 0        →  Ir a workspace
-Super  +  Shift + 1-9/0  →  Mover ventana a workspace
-Super  +  Tab            →  Workspace siguiente
-Super  +  Shift + Tab    →  Workspace anterior
-Super  +  Ctrl + Tab     →  Workspace anterior (historial)
-── Scratchpad ───────────────────────────────────────────
-Super  +  S              →  Mostrar/ocultar scratchpad
-Super  +  Shift + S      →  Enviar ventana al scratchpad
-── Sesión ───────────────────────────────────────────────
-Super  +  Ctrl + L       →  Bloquear pantalla
-Super  +  M              →  Salir de Hyprland
-── Notificaciones ───────────────────────────────────────
-Super  +  ,              →  Descartar notificación
-Super  +  Shift + ,      →  Descartar todas
-── Capturas de pantalla ─────────────────────────────────
-Print                        →  Área seleccionada → archivo
-Super  +  Print              →  Pantalla completa → archivo
-Super  +  Shift + Print      →  Ventana activa → archivo
-Ctrl   +  Print              →  Área → portapapeles
+```text
+Aplicaciones
+  Super + Enter              Terminal
+  Super + E                  Archivos
+  Super + Space              Rofi
+
+Ventanas
+  Super + W                  Cerrar con confirmación
+  Super + T                  Flotante centrado / mosaico
+  Super + F                  Pantalla completa
+  Super + J                  Alternar división Dwindle
+  Super + Flechas            Cambiar foco
+  Super + Shift + Flechas    Intercambiar ventanas
+  Super + clic izquierdo     Mover
+  Super + clic derecho       Redimensionar
+
+Espacios de trabajo
+  Super + 1...0              Cambiar de espacio
+  Super + Shift + 1...0      Mover ventana a espacio
+
+Sesión
+  Super + L                  Bloquear
+  Super + M                  Menú de energía
 ```
 
----
+## Diagnóstico
 
-← [Cap. 13 — Configuración Waybar](Capítulo-13-Configuracion-Waybar.md) · [Índice](..) · [Cap. 15 — Gestión de paquetes](Capítulo-15-Gestion-Paquetes.md) →
+### Un atajo no responde
+
+```bash
+grep -n 'hl.bind' ~/.config/hypr/modules/keybindings.lua
+hyprctl configerrors
+```
+
+### La combinación llega a la aplicación
+
+Si una terminal imprime caracteres al pulsar una combinación, normalmente el atajo no fue cargado. Regenera el módulo y recarga:
+
+```bash
+cd ~/cachyos-install
+bash hyprland/install/basico/hotkeys.sh
+hyprctl reload
+hyprctl configerrors
+```
+
+### `Super + J` no muestra cambios
+
+Comprueba:
+
+```bash
+hyprctl getoption dwindle:preserve_split
+```
+
+Debe indicar que la opción está activada.
+
+### `Super + T` aumenta demasiado la ventana
+
+Comprueba que el helper use:
+
+```lua
+relative = false
+```
+
+No uses un incremento relativo para establecer el tamaño absoluto.
+
+## Referencias
+
+- Hyprland Wiki, dispatchers: <https://wiki.hypr.land/0.56.0/Configuring/Dispatchers/>
+- Hyprland Wiki, Dwindle: <https://wiki.hypr.land/0.56.0/Configuring/Layouts/Dwindle-Layout/>
+- Omarchy Manual, hotkeys: <https://learn.omacom.io/2/the-omarchy-manual/53/hotkeys>
