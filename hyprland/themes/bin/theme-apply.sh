@@ -13,7 +13,8 @@ mkdir -p "$CURRENT_DIR" "$HOME/.config/hypr/modules" "$HOME/.config/mako"
 value() { grep -m1 -E "^${1}[[:space:]]*=" "$COLORS_FILE" | sed 's/.*=[[:space:]]*"\(.*\)"/\1/'; }
 optional() { value "$1" 2>/dev/null || true; }
 
-wallpaper=$(value wallpaper)
+default_wallpaper=$(value wallpaper)
+wallpaper=$(cat "$CURRENT_DIR/wallpaper" 2>/dev/null || printf '%s' "$default_wallpaper")
 accent=$(value accent); foreground=$(value foreground); background=$(value background)
 selection_foreground=$(value selection_foreground); selection_background=$(value selection_background)
 color0=$(value color0); color1=$(value color1); color2=$(value color2); color3=$(value color3)
@@ -38,19 +39,10 @@ sed -e "s|{{ foreground }}|$foreground|g" -e "s|{{ background }}|$background|g" 
 cat > "$HOME/.config/hypr/modules/appearance.lua" <<LUA
 hl.config({
     general = {
-        gaps_in = 5,
-        gaps_out = 10,
-        border_size = 2,
-        layout = "dwindle",
-        col = {
-            active_border = "rgba(${accent_strip}ee)",
-            inactive_border = "rgba(${color0_strip}aa)",
-        },
+        gaps_in = 5, gaps_out = 10, border_size = 2, layout = "dwindle",
+        col = { active_border = "rgba(${accent_strip}ee)", inactive_border = "rgba(${color0_strip}aa)" },
     },
-    decoration = {
-        rounding = 10,
-        blur = { enabled = true, size = 3, passes = 1 },
-    },
+    decoration = { rounding = 10, blur = { enabled = true, size = 3, passes = 1 } },
     animations = { enabled = true },
     misc = { force_default_wallpaper = -1, disable_hyprland_logo = true },
 })
@@ -80,8 +72,10 @@ printf '%s\n' "$THEME" > "$CURRENT_DIR/theme"
 if [[ -n ${WAYLAND_DISPLAY:-} ]]; then
     hyprctl reload >/dev/null 2>&1 || true
     if [[ -f $wallpaper ]]; then
-        pkill swaybg 2>/dev/null || true
+        pkill -x swaybg 2>/dev/null || true
         nohup swaybg -i "$wallpaper" -m fill >/dev/null 2>&1 &
+    else
+        notify-send 'Tema' "No se encontró el fondo: $wallpaper"
     fi
 fi
 printf "Tema '%s' aplicado.\n" "$THEME"
