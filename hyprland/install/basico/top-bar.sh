@@ -9,7 +9,7 @@ waybar_dir="$HOME/.config/waybar"
 mkdir -p "$waybar_dir"
 cat > "$waybar_dir/config.jsonc" <<'JSON'
 {
-    "layer": "top", "position": "top", "height": 32, "spacing": 8,
+    "layer": "top", "reload_style_on_change": true, "position": "top", "height": 32, "spacing": 8,
     "modules-left": ["custom/launcher", "hyprland/workspaces"],
     "modules-center": ["clock"],
     "modules-right": ["network", "pulseaudio", "cpu", "memory", "battery", "tray", "custom/power"],

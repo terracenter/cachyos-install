@@ -79,8 +79,6 @@ printf '%s\n' "$THEME" > "$CURRENT_DIR/theme"
 
 if [[ -n ${WAYLAND_DISPLAY:-} ]]; then
     hyprctl reload >/dev/null 2>&1 || true
-    pkill waybar 2>/dev/null || true
-    nohup waybar >/dev/null 2>&1 &
     if [[ -f $wallpaper ]]; then
         pkill swaybg 2>/dev/null || true
         nohup swaybg -i "$wallpaper" -m fill >/dev/null 2>&1 &
