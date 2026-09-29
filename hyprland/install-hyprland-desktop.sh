@@ -1,51 +1,50 @@
-#!/bin/bash
-# Instalador Base Minimalista de Hyprland para CachyOS
-# Inspirado en la arquitectura modular de Omarchy
+#!/usr/bin/env bash
 
-set -e
+set -Eeuo pipefail
 
-export CACHY_INSTALL="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-export CACHY_LOG="/tmp/cachyos-hyprland-install.log"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+BASIC_DIR="$SCRIPT_DIR/install/basico"
+CONFIG_DIR="$SCRIPT_DIR/install/configuracion"
+LOG_FILE="$SCRIPT_DIR/install-hyprland-desktop.log"
 
-run_logged() {
-  local script_path="$1"
-  if [[ ! -f "$script_path" ]]; then
-    echo "ERROR: Módulo no encontrado: $script_path" | tee -a "$CACHY_LOG"
-    exit 1
-  fi
-  echo "==> Ejecutando módulo: $(basename "$script_path")" | tee -a "$CACHY_LOG"
-  source "$script_path" 2>&1 | tee -a "$CACHY_LOG"
-  if (( PIPESTATUS[0] != 0 )); then
-    echo "ERROR: Falló la ejecución del módulo $(basename "$script_path")" | tee -a "$CACHY_LOG"
-    exit 1
-  fi
+# shellcheck source=install/basico/helpers.sh
+source "$BASIC_DIR/helpers.sh"
+
+show_script_version "Instalador Hyprland Base" "${BASH_SOURCE[0]}"
+
+[[ $EUID -ne 0 ]] || die "Ejecuta este instalador como usuario normal, no como root."
+
+run_module() {
+    local module="$1"
+
+    [[ -f "$module" ]] || die "Modulo no encontrado: $module"
+
+    step "Ejecutando $(basename "$module")"
+    if bash "$module" > >(tee -a "$LOG_FILE") 2>&1; then
+        ok "Modulo completado: $(basename "$module")"
+    else
+        local exit_code=$?
+        die "Fallo $(basename "$module") con codigo $exit_code. Log: $LOG_FILE"
+    fi
 }
 
-echo "Iniciando instalación base de Hyprland..." | tee -a "$CACHY_LOG"
+main() {
+    : > "$LOG_FILE"
+    header "Instalacion base de Hyprland"
 
-source "$CACHY_INSTALL/install/basico/helpers.sh"
+    run_module "$BASIC_DIR/core.sh"
+    run_module "$BASIC_DIR/navegacion.sh"
+    run_module "$BASIC_DIR/top-bar.sh"
+    run_module "$BASIC_DIR/hotkeys.sh"
+    run_module "$CONFIG_DIR/apariencia.sh"
+    run_module "$CONFIG_DIR/monitores.sh"
+    run_module "$CONFIG_DIR/teclado-mouse.sh"
+    run_module "$CONFIG_DIR/audio.sh"
+    run_module "$CONFIG_DIR/sddm.sh"
 
-# 1. Básicos
-run_logged "$CACHY_INSTALL/install/basico/navegacion.sh"
-run_logged "$CACHY_INSTALL/install/basico/top-bar.sh"
-run_logged "$CACHY_INSTALL/install/basico/temas.sh"
-run_logged "$CACHY_INSTALL/install/basico/hotkeys.sh"
+    header "Hyprland base instalado"
+    info "La instalacion de aplicaciones opcionales se realiza por separado."
+    info "Reinicia el equipo y selecciona la sesion Hyprland en el inicio de sesion."
+}
 
-# 2. Configuración
-run_logged "$CACHY_INSTALL/install/configuracion/updates-paru.sh"
-run_logged "$CACHY_INSTALL/install/configuracion/monitores.sh"
-run_logged "$CACHY_INSTALL/install/configuracion/teclado-mouse.sh"
-# run_logged "$CACHY_INSTALL/install/configuracion/firewall-nftable.sh"
-
-# 3. Aplicaciones (Modulares)
-run_logged "$CACHY_INSTALL/install/apps/terminal-neovim.sh"
-run_logged "$CACHY_INSTALL/install/apps/shell-tools.sh"
-run_logged "$CACHY_INSTALL/install/apps/dev-tools.sh"
-run_logged "$CACHY_INSTALL/install/apps/vms-pdfs.sh"
-run_logged "$CACHY_INSTALL/install/apps/guis.sh"
-run_logged "$CACHY_INSTALL/install/apps/navegadores.sh"
-
-# 4. Rest
-run_logged "$CACHY_INSTALL/install/rest/seguridad.sh"
-
-echo "Instalación base completada con éxito." | tee -a "$CACHY_LOG"
+main "$@"

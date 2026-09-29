@@ -1,125 +1,120 @@
-#!/bin/bash
-step "Instalando Entorno Core de Hyprland y configuración Omarchy..."
+#!/usr/bin/env bash
+set -Eeuo pipefail
 
-# 1. Instalar dependencias core del entorno
-info "Instalando paquetes base del entorno gráfico y portales..."
-sudo pacman -S --needed --noconfirm \
-    hyprland \
-    xdg-desktop-portal-hyprland \
-    qt5-wayland \
-    qt6-wayland \
-    polkit-kde-agent \
-    cliphist \
-    wl-clipboard \
-    swaync \
-    hyprpaper \
-    hyprpicker \
-    hypridle \
-    hyprlock \
-    uwsm \
-    > /dev/null 2>&1 || warn "Algunas dependencias core ya estaban instaladas o fallaron."
-ok "Dependencias de Hyprland instaladas"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+source "$SCRIPT_DIR/helpers.sh"
+show_script_version "Configuracion Lua de Hyprland" "${BASH_SOURCE[0]}"
+[[ $EUID -ne 0 ]] || die "Ejecuta este modulo como usuario normal."
 
-# 2. Clonar y copiar dotfiles reales de Omarchy (default/hypr/ es la ruta correcta)
-info "Aplicando configuración Hyprland desde Omarchy..."
-tmp=$(mktemp -d)
-if git clone --depth 1 https://github.com/basecamp/omarchy.git "$tmp" > /dev/null 2>&1; then
-    # Configuración core de Hyprland (Generada nativa para evitar el fallo de Lua de Omarchy)
-    mkdir -p "$HOME/.config/hypr"
-    cat > "$HOME/.config/hypr/hyprland.conf" << 'HYPREOF'
-# Configuración base de Hyprland estilo Omarchy
+step "Creando configuracion modular Lua de Hyprland"
+config_dir="$HOME/.config/hypr"
+modules_dir="$config_dir/modules"
+config_file="$config_dir/hyprland.lua"
+bin_dir="$HOME/.local/bin"
+mkdir -p "$modules_dir" "$bin_dir"
+[[ -f "$config_file" ]] && cp -a "$config_file" "${config_file}.bak.$(date +%Y%m%d_%H%M%S)"
 
-# Autostart
-exec-once = waybar
-exec-once = swaync
-exec-once = wl-paste --type text --watch cliphist store
-exec-once = wl-paste --type image --watch cliphist store
-exec-once = hyprpaper
-exec-once = hypridle
+cat > "$config_file" <<'LUA'
+-- CachyOS Hyprland 0.56+
+require("modules/monitors")
+require("modules/input")
+require("modules/appearance")
+require("modules/autostart")
+require("modules/keybindings")
+LUA
 
-# Monitores
-monitor=,preferred,auto,auto
+cat > "$modules_dir/appearance.lua" <<'LUA'
+hl.env("XCURSOR_SIZE", "24")
+hl.env("HYPRCURSOR_SIZE", "24")
+hl.config({
+    general = {
+        gaps_in = 5, gaps_out = 10, border_size = 2, layout = "dwindle",
+        col = { active_border = "rgba(81a1c1ee)", inactive_border = "rgba(4c566aaa)" },
+    },
+    decoration = { rounding = 10, blur = { enabled = true, size = 3, passes = 1 } },
+    animations = { enabled = true },
+    dwindle = {
+        preserve_split = true,
+    },
+    misc = { force_default_wallpaper = -1, disable_hyprland_logo = true },
+})
+LUA
 
-# Variables de entorno
-env = XCURSOR_SIZE,24
+cat > "$modules_dir/autostart.lua" <<'LUA'
+hl.on("hyprland.start", function()
+    hl.exec_cmd("uwsm app -- waybar")
+    hl.exec_cmd("uwsm app -- swaync")
+    hl.exec_cmd("uwsm app -- nm-applet --indicator")
+    hl.exec_cmd("uwsm app -- hypridle")
+    hl.exec_cmd("uwsm app -- /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1")
+    hl.exec_cmd("wl-paste --type text --watch cliphist store")
+    hl.exec_cmd("wl-paste --type image --watch cliphist store")
+    hl.exec_cmd("dbus-update-activation-environment --systemd --all")
+    hl.exec_cmd("~/.local/bin/hypr-monitor-workspaces --watch")
+    hl.exec_cmd("~/.local/bin/theme-apply")
+end)
+LUA
 
-# Input
-input {
-    kb_layout = us,es
-    kb_options = grp:win_space_toggle
-    follow_mouse = 1
-    touchpad {
-        natural_scroll = true
-    }
-}
+cat > "$modules_dir/keybindings.lua" <<'LUA'
+local mainMod = "SUPER"
+local terminal = "alacritty"
+local fileManager = "nautilus"
+local menu = "rofi -show drun"
 
-# General y Decoración
-general {
-    gaps_in = 5
-    gaps_out = 10
-    border_size = 2
-    col.active_border = rgba(33ccffee) rgba(00ff99ee) 45deg
-    col.inactive_border = rgba(595959aa)
-    layout = dwindle
-}
-decoration {
-    rounding = 10
-    blur {
-        enabled = true
-        size = 3
-        passes = 1
-    }
-    drop_shadow = yes
-    shadow_range = 4
-}
+hl.bind(mainMod .. " + RETURN", hl.dsp.exec_cmd(terminal))
+hl.bind(mainMod .. " + E", hl.dsp.exec_cmd(fileManager))
+hl.bind(mainMod .. " + SPACE", hl.dsp.exec_cmd(menu))
+hl.bind(mainMod .. " + W", hl.dsp.exec_cmd("~/.local/bin/confirm-close-window"))
+hl.bind(mainMod .. " + L", hl.dsp.exec_cmd("hyprlock"))
+hl.bind(mainMod .. " + M", hl.dsp.exec_cmd("~/.local/bin/power-menu"))
+hl.bind(mainMod .. " + F", hl.dsp.window.fullscreen())
+hl.bind(mainMod .. " + T", hl.dsp.exec_cmd("~/.local/bin/toggle-window-float"))
 
-# Atajos Principales
-$mainMod = SUPER
-bind = $mainMod, Return, exec, alacritty
-bind = $mainMod, Q, killactive, 
-bind = $mainMod, M, exit, 
-bind = $mainMod, E, exec, nautilus
-bind = $mainMod, V, togglefloating, 
-bind = $mainMod, Space, exec, rofi -show drun
-bind = $mainMod SHIFT, B, exec, ~/.local/bin/sddm-bg-switcher
-bind = $mainMod, F, fullscreen,
+hl.bind(mainMod .. " + left", hl.dsp.focus({ direction = "left" }))
+hl.bind(mainMod .. " + right", hl.dsp.focus({ direction = "right" }))
+hl.bind(mainMod .. " + up", hl.dsp.focus({ direction = "up" }))
+hl.bind(mainMod .. " + down", hl.dsp.focus({ direction = "down" }))
 
-# Foco y Workspaces
-bind = $mainMod, left, movefocus, l
-bind = $mainMod, right, movefocus, r
-bind = $mainMod, up, movefocus, u
-bind = $mainMod, down, movefocus, d
-bind = $mainMod, 1, workspace, 1
-bind = $mainMod, 2, workspace, 2
-bind = $mainMod, 3, workspace, 3
-bind = $mainMod, 4, workspace, 4
-bind = $mainMod SHIFT, 1, movetoworkspace, 1
-bind = $mainMod SHIFT, 2, movetoworkspace, 2
-bind = $mainMod SHIFT, 3, movetoworkspace, 3
-bind = $mainMod SHIFT, 4, movetoworkspace, 4
+-- Reorganizar ventanas al estilo Omarchy
+hl.bind(mainMod .. " + SHIFT + left", hl.dsp.window.swap({ direction = "left" }))
+hl.bind(mainMod .. " + SHIFT + right", hl.dsp.window.swap({ direction = "right" }))
+hl.bind(mainMod .. " + SHIFT + up", hl.dsp.window.swap({ direction = "up" }))
+hl.bind(mainMod .. " + SHIFT + down", hl.dsp.window.swap({ direction = "down" }))
 
-# Multimedia
-bind = , XF86AudioRaiseVolume, exec, wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+
-bind = , XF86AudioLowerVolume, exec, wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-
-bind = , XF86AudioMute, exec, wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle
-HYPREOF
-    ok "Configuración de Hyprland (Nativa Vainilla) aplicada en ~/.config/hypr"
+-- Alternar orientación de la próxima división Dwindle
+hl.bind(mainMod .. " + J", hl.dsp.layout("togglesplit"))
+for i = 1, 10 do
+    local key = i % 10
+    hl.bind(mainMod .. " + " .. key, hl.dsp.focus({ workspace = i }))
+    hl.bind(mainMod .. " + SHIFT + " .. key, hl.dsp.window.move({ workspace = i }))
+end
+hl.bind(mainMod .. " + mouse:272", hl.dsp.window.drag(), { mouse = true })
+hl.bind(mainMod .. " + mouse:273", hl.dsp.window.resize(), { mouse = true })
+hl.bind("XF86AudioRaiseVolume", hl.dsp.exec_cmd("wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+"), { locked = true, repeating = true })
+hl.bind("XF86AudioLowerVolume", hl.dsp.exec_cmd("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"), { locked = true, repeating = true })
+hl.bind("XF86AudioMute", hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"), { locked = true })
+hl.bind("XF86MonBrightnessUp", hl.dsp.exec_cmd("brightnessctl set +5%"), { locked = true, repeating = true })
+hl.bind("XF86MonBrightnessDown", hl.dsp.exec_cmd("brightnessctl set 5%-"), { locked = true, repeating = true })
+LUA
+cat > "$bin_dir/toggle-window-float" <<'SCRIPT'
+#!/usr/bin/env bash
+set -Eeuo pipefail
 
-    # Alacritty (terminal por defecto de Omarchy)
-    if [[ -d "$tmp/default/alacritty" ]]; then
-        mkdir -p "$HOME/.config/alacritty"
-        cp -r "$tmp/default/alacritty/." "$HOME/.config/alacritty/"
-        ok "Configuración de Alacritty (Omarchy) aplicada"
-    fi
+active_window=$(hyprctl activewindow -j)
+window_address=$(jq -r '.address // empty' <<< "$active_window")
+floating=$(jq -r '.floating // false' <<< "$active_window")
 
-    # Waybar (barra superior)
-    if [[ -d "$tmp/default/waybar" ]]; then
-        mkdir -p "$HOME/.config/waybar"
-        cp -r "$tmp/default/waybar/." "$HOME/.config/waybar/"
-        find "$HOME/.config/waybar" -type f -exec chmod +x {} \; 2>/dev/null || true
-        ok "Configuración de Waybar (Omarchy) aplicada"
-    fi
+[[ -n "$window_address" ]] || exit 0
+
+if [[ "$floating" == "true" ]]; then
+    hyprctl dispatch 'hl.dsp.window.float({ action = "disable" })' >/dev/null
 else
-    warn "No se pudo clonar Omarchy. Hyprland arrancará sin configuración — configura ~/.config/hypr/ manualmente."
+    hyprctl dispatch 'hl.dsp.window.float({ action = "enable" })' >/dev/null
+    sleep 0.15
+    hyprctl dispatch 'hl.dsp.window.resize({ x = 1100, y = 700, relative = false })' >/dev/null
+    sleep 0.15
+    hyprctl dispatch 'hl.dsp.window.center({})' >/dev/null
 fi
-rm -rf "$tmp"
+SCRIPT
+chmod 755 "$bin_dir/toggle-window-float"
+ok "Configuracion Lua creada en $config_file"

@@ -4,7 +4,7 @@ foreground = "{{ foreground }}"
 
 [colors.cursor]
 text   = "{{ background }}"
-cursor = "{{ cursor }}"
+cursor = "{{ foreground }}"
 
 [colors.selection]
 text       = "{{ selection_foreground }}"
