@@ -562,7 +562,7 @@ install_pacstrap() {
 # ─── 14. fstab ────────────────────────────────────────────────────────────────
 generate_fstab() {
     step "Generando /etc/fstab..."
-    genfstab -U /mnt >> /mnt/etc/fstab \
+    genfstab -U /mnt > /mnt/etc/fstab \
         || die "genfstab falló"
     ok "fstab generado"
 }
@@ -576,11 +576,14 @@ configure_cachyos_repos() {
     cp /etc/pacman.conf /mnt/etc/pacman.conf \
         || die "No se pudo copiar /etc/pacman.conf al sistema instalado"
 
-    # Copiar todas las mirrorlists de CachyOS disponibles en el live USB
-    for ml in cachyos-mirrorlist cachyos-v3-mirrorlist cachyos-znver4-mirrorlist; do
-        [[ -f "/etc/pacman.d/$ml" ]] \
-            && cp "/etc/pacman.d/$ml" "/mnt/etc/pacman.d/$ml"
-    done
+    # Copiar todas las mirrorlists de CachyOS disponibles en el Live USB.
+    # Incluye automáticamente variantes actuales como v3, v4 y znver4.
+    local mirrorlist
+    while IFS= read -r -d '' mirrorlist; do
+        cp "$mirrorlist" /mnt/etc/pacman.d/
+    done < <(
+        find /etc/pacman.d -maxdepth 1 -type f             -name 'cachyos*-mirrorlist' -print0
+    )
 
     ok "Repos CachyOS configurados en el sistema instalado"
 }
