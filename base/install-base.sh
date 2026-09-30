@@ -1,5 +1,5 @@
+#!/usr/bin/env bash
 export NCURSES_NO_UTF8_ACS=1
-#!/bin/bash
 # ┌─────────────────────────────────────────────────────────────────────────────┐
 # │ install-base.sh                                                              │
 # │ Instalación del sistema base CachyOS desde Live USB                         │
@@ -20,6 +20,8 @@ RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
 BLUE='\033[0;34m'; CYAN='\033[0;36m'; BOLD='\033[1m'; DIM='\033[2m'; NC='\033[0m'
 
 # ─── Trap de error inesperado ─────────────────────────────────────────────────
+# Invocada indirectamente por el trap ERR.
+# shellcheck disable=SC2329
 _on_error() {
     echo -e "\n${RED}${BOLD}ERROR  Fallo inesperado — línea $1: $2${NC}" >&2
     echo -e "   ${YELLOW}Log: $LOG_FILE${NC}" >&2
@@ -41,8 +43,7 @@ die()     { echo -e "\n   ${RED}ERROR  $1${NC}\n" >&2; exit 1; }
 
 ask() {
     local prompt="$1" var="$2" default="${3:-}" response
-    response=$(whiptail --title "Entrada Requerida" --inputbox "$prompt" 10 60 "$default" 3>&1 1>&2 2>&3)
-    if [[ $? -ne 0 ]]; then
+    if ! response=$(whiptail --title "Entrada Requerida"         --inputbox "$prompt" 10 60 "$default" 3>&1 1>&2 2>&3); then
         printf -v "$var" '%s' "$default"
     else
         printf -v "$var" '%s' "$response"
@@ -52,8 +53,7 @@ ask() {
 ask_number() {
     local prompt="$1" var="$2" default="${3:-}" response
     while true; do
-        response=$(whiptail --title "Número Requerido" --inputbox "$prompt" 10 60 "$default" 3>&1 1>&2 2>&3)
-        if [[ $? -ne 0 ]]; then
+        if ! response=$(whiptail --title "Número Requerido"             --inputbox "$prompt" 10 60 "$default" 3>&1 1>&2 2>&3); then
             printf -v "$var" '%s' "$default"
             break
         fi
@@ -74,8 +74,10 @@ askpass() {
     local prompt="$1" var="$2"
     local pass1 pass2
     while true; do
-        pass1=$(whiptail --title "Contraseña" --passwordbox "$prompt" 10 60 3>&1 1>&2 2>&3)
-        [[ $? -ne 0 ]] && { pass1=""; break; }
+        if ! pass1=$(whiptail --title "Contraseña"             --passwordbox "$prompt" 10 60 3>&1 1>&2 2>&3); then
+            pass1=""
+            break
+        fi
         pass2=$(whiptail --title "Confirmar Contraseña" --passwordbox "Confirma: $prompt" 10 60 3>&1 1>&2 2>&3)
         [[ "$pass1" == "$pass2" ]] && break
         whiptail --title "Error" --msgbox "Las contraseñas no coinciden. Intenta de nuevo." 8 60
@@ -182,32 +184,6 @@ suggest_swap() {
     fi
 }
 
-# ─── Validación de disco limpio ────────────────────────────────────────────────
-validate_disk_clean() {
-    local disk="$1"
-    # Verificar si hay tabla de particiones o datos en el disco
-    if wipefs -n "$disk" 2>/dev/null | grep -q .; then
-        warn "El disco $disk contiene datos previos."
-        echo ""
-        if confirm "¿Limpiar el disco ahora con wipefs -a $disk?"; then
-            step "Limpiando $disk..."
-            wipefs -a "$disk"
-            partprobe "$disk" 2>/dev/null || true
-            ok "Disco $disk limpiado correctamente"
-            return
-        fi
-        echo -e "\n   ${BOLD}Para limpiar manualmente:${NC}\n"
-        echo -e "   ${CYAN}Opción 1 (rápida):${NC}"
-        echo -e "   ${DIM}sudo wipefs -a $disk${NC}"
-        echo ""
-        echo -e "   ${CYAN}Opción 2 (más segura, borra primeros 100 MB):${NC}"
-        echo -e "   ${DIM}sudo dd if=/dev/zero of=$disk bs=1M count=100 && sync${NC}"
-        echo ""
-        die "Disco no limpio. Reinicia el script tras limpiarlo."
-    fi
-    ok "Disco $disk está limpio"
-}
-
 # ─── Selección de zona horaria ───────────────────────────────────────────────
 ask_timezone() {
     local zones
@@ -259,7 +235,7 @@ ask_keyboard() {
     local kb
     kb=$(whiptail --title "Distribución de Teclado" --menu "Selecciona el mapa de teclado:" 20 80 12 \
         "1" "us (Inglés estándar, sin acentos)" \
-        "2" "us / altgr-intl (Inglés + AltGr para español - Recomendado)" \
+        "2" "us / intl (Inglés internacional con teclas muertas)" \
         "3" "es (Español España)" \
         "4" "latam (Latinoamérica)" \
         "5" "fr (Francés)" \
@@ -269,7 +245,7 @@ ask_keyboard() {
     
     case "$kb" in
         1) KEYMAP="us";         XKB_LAYOUT="us";    XKB_VARIANT="" ;;
-        2) KEYMAP="us";         XKB_LAYOUT="us";    XKB_VARIANT="altgr-intl" ;;
+        2) KEYMAP="us";         XKB_LAYOUT="us";    XKB_VARIANT="intl" ;;
         3) KEYMAP="es";         XKB_LAYOUT="es";    XKB_VARIANT="" ;;
         4) KEYMAP="la-latin1";  XKB_LAYOUT="latam"; XKB_VARIANT="" ;;
         5) KEYMAP="fr";         XKB_LAYOUT="fr";    XKB_VARIANT="" ;;
@@ -278,9 +254,9 @@ ask_keyboard() {
         8) 
             ask "vconsole keymap (ej: us, es)" KEYMAP "us"
             ask "XKB layout (ej: us, latam)" XKB_LAYOUT "$KEYMAP"
-            ask "XKB variant (ej: altgr-intl, vacío si no aplica)" XKB_VARIANT ""
+            ask "XKB variant (ej: intl, vacío si no aplica)" XKB_VARIANT ""
             ;;
-        *) KEYMAP="us"; XKB_LAYOUT="us"; XKB_VARIANT="altgr-intl" ;;
+        *) KEYMAP="us"; XKB_LAYOUT="us"; XKB_VARIANT="intl" ;;
     esac
 }
 
@@ -298,8 +274,11 @@ ask_questions() {
 
     local disk_opts=()
     for entry in "${disk_list[@]}"; do
-        local dname=$(echo "$entry" | awk '{print $1}')
-        local ddesc=$(echo "$entry" | awk '{print $2 " " substr($0, index($0,$3))}')
+        local dname
+        local ddesc
+
+        dname=$(awk '{print $1}' <<< "$entry")
+        ddesc=$(awk '{print $2 " " substr($0, index($0,$3))}' <<< "$entry")
         disk_opts+=("$dname" "$ddesc")
     done
 
@@ -970,7 +949,15 @@ NEW_ID=$(btrfs subvolume list "$TMPDIR" | awk '$NF=="@" {print $2}')
 btrfs subvolume set-default "$NEW_ID" "$TMPDIR" && echo "  Default subvolume: @ (ID $NEW_ID)"
 
 echo ""
-echo "✓ Rollback completado. Ejecuta: sudo reboot"
+echo "✓ Rollback completado."
+echo ""
+echo "IMPORTANTE:"
+echo "  - Se creó un nuevo subvolumen Btrfs @."
+echo "  - No se creó un nuevo ID de snapshot en Snapper."
+echo "  - El sistema anterior se conservó como @_old_$TIMESTAMP."
+echo "  - No elimines ese backup hasta validar el sistema restaurado."
+echo ""
+echo "Cuando sea seguro reiniciar: sudo reboot"
 ROLLBACK_SCRIPT
 
     chmod 755 /mnt/usr/local/bin/btrfs-rollback
@@ -980,7 +967,9 @@ ROLLBACK_SCRIPT
 # ─── 16. Snapshot inicial ─────────────────────────────────────────────────────
 take_snapshot() {
     step "Creando snapshot inicial..."
-    arch-chroot /mnt snapper --no-dbus -c root create --description "sistema-base-instalado" \
+    arch-chroot /mnt snapper --no-dbus -c root create \
+        --description "sistema-base-instalado" \
+        --userdata "important=yes" \
         || die "Error creando snapshot inicial"
     ok "Snapshot inicial creado"
 }
