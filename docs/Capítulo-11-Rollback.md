@@ -1,305 +1,206 @@
-← [Cap. 10 — Primer arranque](Capítulo-10-Primer-arranque.md) · [Índice](..) · [Cap. 12 — Instalación Hyprland](Capítulo-12-Instalacion-Hyprland.md) →
+# Capítulo 11: Rollback seguro con Btrfs y Snapper
 
----
+[← Cap. 10: Primer arranque](Capítulo-10-Primer-arranque.md) · [Índice](./_index.md) · [Cap. 12: Instalación de Hyprland →](Capítulo-12-Instalacion-Hyprland.md)
 
-Este capítulo cubre el procedimiento completo para revertir el sistema a un estado anterior usando los snapshots creados por snapper.
+## Objetivo
 
----
+Este capítulo explica cómo evaluar un snapshot y cómo realizar un rollback permanente con el helper instalado por el proyecto.
 
-## Conceptos previos: tres herramientas distintas
+> **Advertencia:** un rollback modifica el subvolumen raíz y normalmente requiere reiniciar para usar el sistema restaurado. En un equipo de producción, planifica la interrupción y conserva respaldos externos.
 
-| Herramienta | Para qué sirve |
-|---|---|
-| `snapper list` | Listar snapshots e identificar el número objetivo |
-| Menú GRUB → CachyOS Snapshots | Arrancar temporalmente en **modo solo lectura** — solo para verificar |
-| Procedimiento de rollback (Escenarios A y B) | Hacer el rollback **permanente** — reemplaza `@` con el snapshot |
+## Antes de restaurar
 
-**Arrancar desde el menú de GRUB no hace el rollback permanente.** El snapshot se monta en modo solo lectura. Al reiniciar, el sistema vuelve al `@` de siempre.
+1. Identifica el problema.
+2. Confirma que el snapshot elegido es anterior al fallo.
+3. Revisa qué datos están dentro de `@` y cuáles pertenecen a subvolúmenes separados.
+4. Guarda el trabajo abierto.
+5. Confirma que dispones de acceso de recuperación, Live USB y respaldo de datos importantes.
 
-El árbol de decisión cuando algo falla:
-
-```
-Sistema roto después de un cambio
-           │
-           ▼
-¿Arranca el sistema (aunque sea sin entorno gráfico)?
-           │
-      SÍ ──┼──► Escenario A: rollback desde el sistema vivo
-           │
-      NO ──┼──► Escenario B: rollback desde el Live USB
-```
-
----
-
-## 1. Identificar el snapshot objetivo
-
-Tanto en el Escenario A como en el B, el primer paso es saber a cuál snapshot quieres volver.
-
-Si el sistema arranca (aunque esté roto):
-
-```bash
-snapper -c root list
-```
-
-Ejemplo de salida:
-
-```text
- # │ Tipo   │ Pre número │ Fecha                    │ Usuario │ Limpieza │ Descripción
-───┼────────┼────────────┼──────────────────────────┼─────────┼──────────┼──────────────────────────────
- 0 │ single │            │                          │ root    │          │ current
- 1 │ single │            │ sáb 16 may 2026 19:34:50 │ root    │          │ sistema base limpio post-instalacion
- 2 │ pre    │            │ sáb 16 may 2026 19:55:18 │ root    │ number   │ pacman -Syyyu
- 3 │ post   │          2 │ sáb 16 may 2026 19:55:24 │ root    │ number   │ mkinitcpio zstd
-13 │ single │            │ dom 17 may 2026 10:00:00 │ root    │          │ pre-instalacion-hyprland
-```
-
-Anota el número `#` del snapshot deseado. El `0` es el estado actual — no se puede usar para rollback.
-
-Si el sistema no arranca, identificas el snapshot en el Escenario B (sección 4.3).
-
----
-
-## 2. Verificar el snapshot desde el menú de GRUB (opcional)
-
-Si quieres confirmar que el snapshot objetivo es el correcto antes de hacer el rollback:
-
-1. Reinicia el sistema.
-2. En el menú de GRUB selecciona **CachyOS Snapshots**.
-3. Busca la entrada que corresponde al snapshot por fecha y descripción.
-4. Arranca desde ese snapshot.
-
-El sistema inicia en modo **solo lectura**. Verifica que el estado es el que esperas: paquetes instalados, configuraciones, etc.
-
-Cuando termines de verificar, reinicia. El sistema vuelve al `@` actual. Ahora ya sabes el número del snapshot al que quieres volver y procedes con el Escenario A o B.
-
----
-
-## 3. Escenario A: el sistema arranca
-
-Usa este procedimiento cuando el sistema arranca aunque esté roto: Hyprland no inicia, un paquete dejó el sistema inestable, un servicio crítico falla.
-
-Requiere acceso a la CLI por cualquiera de estas vías:
-
-- Consola directa — el sistema arranca sin entorno gráfico y obtienes el login en texto
-- TTY alternativo — si Hyprland inicia pero falla, presiona `Ctrl+Alt+F2` para abrir un TTY limpio
-- SSH desde otra máquina — si la red funciona y `sshd` está activo
-
-### 3.1 Usar el helper btrfs-rollback (MÉTODO PRINCIPAL)
-
-Durante la instalación, `install-base.sh` instaló `/usr/local/bin/btrfs-rollback`, un helper que automatiza el rollback en una sola línea.
-
-**Paso 1: Listar snapshots disponibles**
+Lista los snapshots:
 
 ```bash
 sudo snapper -c root list
 ```
 
-Anota el número `#` del snapshot al que quieres volver.
+Revisa cambios entre snapshots cuando sea útil:
 
-**Paso 2: Ejecutar el rollback**
+```bash
+sudo snapper -c root status ID1..ID2
+```
 
-Sustituye `N` por el número del snapshot objetivo:
+## Qué restaura el helper
+
+`btrfs-rollback N` utiliza el contenido de:
+
+```text
+@snapshots/N/snapshot
+```
+
+para crear un nuevo subvolumen raíz `@`.
+
+No restaura automáticamente:
+
+- `@home`
+- `@log`
+- `@pkg`
+- `@swap`
+- `@docker`
+- La partición EFI
+- Otros discos o sistemas de archivos
+
+## Diferencia entre IDs
+
+El argumento `N` es el número mostrado por Snapper. Durante el rollback se crea un nuevo subvolumen Btrfs, que recibe su propio ID interno.
+
+El helper no crea un nuevo snapshot de Snapper. Por eso, restaurar el snapshot `3` no genera automáticamente el snapshot `4`.
+
+## Rollback con el helper
+
+Sintaxis:
 
 ```bash
 sudo btrfs-rollback N
 ```
 
-El script:
-- Monta automáticamente el pool BTRFS
-- Muestra un listado legible de snapshots disponibles
-- Pide confirmación antes de hacer cambios
-- Hace backup automático: renombra `@` → `@_old_TIMESTAMP`
-- Restaura el snapshot como nuevo `@`
-- Actualiza el default subvolume
-- Desmonta el pool
+Ejemplo:
 
-**Paso 3: Reiniciar**
+```bash
+sudo btrfs-rollback 3
+```
+
+El helper:
+
+1. Detecta el dispositivo que contiene `/`.
+2. Monta el nivel superior Btrfs en un directorio temporal.
+3. Verifica que exista `@snapshots/N/snapshot`.
+4. Renombra el `@` actual como `@_old_FECHA_HORA`.
+5. Crea un snapshot grabable del estado elegido con el nombre `@`.
+6. Establece el nuevo `@` como subvolumen predeterminado.
+7. Desmonta el directorio temporal.
+
+Al finalizar informa que:
+
+- Se creó un nuevo subvolumen `@`.
+- No se creó un nuevo ID de Snapper.
+- El sistema anterior permanece en `@_old_FECHA_HORA`.
+
+## Reinicio
+
+No reinicies automáticamente durante la ejecución. Primero revisa la salida del helper y confirma que no existan errores.
+
+Cuando sea seguro interrumpir el equipo:
 
 ```bash
 sudo reboot
 ```
 
-El sistema arrancará desde el estado del snapshot. **No elimines `@_old_TIMESTAMP` todavía** — es tu red de seguridad. Si el snapshot restaurado resulta ser el equivocado o no arranca correctamente, sigue la sección 3.2 para restaurar desde el backup.
+## Validación posterior
 
-### 3.2 Fallback manual (si btrfs-rollback no está disponible)
-
-Si por alguna razón `btrfs-rollback` no funciona, puedes hacer el rollback manualmente con los mismos pasos que hace el helper:
-
-**Montar el pool BTRFS:**
+Después de arrancar:
 
 ```bash
-sudo mkdir -p /tmp/btrfs
-sudo mount -o subvolid=5 /dev/nvme0n1p2 /tmp/btrfs
+findmnt /
+sudo snapper -c root list
+systemctl --failed
 ```
 
-**Renombrar el subvolumen actual:**
+Comprueba también los servicios y aplicaciones relacionados con el problema original.
+
+El hecho de que el escritorio abra no es suficiente. Valida red, almacenamiento, audio, sesión gráfica y carga de trabajo habitual antes de eliminar el sistema anterior.
+
+## Backup `@_old_FECHA`
+
+Localiza los backups desde el nivel superior Btrfs. Primero identifica el dispositivo raíz:
 
 ```bash
-sudo mv /tmp/btrfs/@ /tmp/btrfs/@_old_$(date +%Y%m%d_%H%M%S)
+findmnt -no SOURCE /
 ```
 
-**Crear el nuevo @ desde el snapshot:**
+Como el origen puede incluir una opción `[/@]`, no copies ciegamente esa salida en un comando de montaje. El helper realiza la detección necesaria.
 
-Sustituye `N` por el número del snapshot objetivo:
+Los `@_old_FECHA` no son snapshots administrados por Snapper y no se limpian automáticamente.
+
+## Eliminación segura del sistema anterior
+
+Solo después de validar el rollback durante un periodo prudente:
+
+1. Monta el nivel superior Btrfs en una ruta temporal.
+2. Lista los subvolúmenes.
+3. Comprueba el nombre exacto que deseas eliminar.
+4. Elimina uno solo por vez.
+5. Desmonta la ruta temporal.
+
+Nunca uses:
 
 ```bash
-sudo btrfs subvolume snapshot /tmp/btrfs/@snapshots/N/snapshot /tmp/btrfs/@
+sudo btrfs subvolume delete /ruta/@_old_*
 ```
 
-**Actualizar el default subvolume:**
+El comodín puede seleccionar más backups de los previstos.
+
+La eliminación concreta debe parecerse a:
 
 ```bash
-NEW_ID=$(sudo btrfs subvolume list /tmp/btrfs | awk '$NF=="@" {print $2}')
-sudo btrfs subvolume set-default "$NEW_ID" /tmp/btrfs
+sudo btrfs subvolume delete /ruta/exacta/@_old_20260929_091500
 ```
 
-**Desmontar y reiniciar:**
+Este es solo un patrón ilustrativo. Verifica antes la ruta de montaje y el nombre real.
+
+## Recuperación desde Live USB
+
+Utiliza un Live USB cuando el sistema no arranque o el helper no pueda ejecutarse.
+
+Procedimiento general:
+
+1. Inicia el Live USB en modo UEFI.
+2. Desbloquea LUKS si corresponde.
+3. Identifica el sistema Btrfs con `lsblk`, `blkid` y `findmnt`.
+4. Monta el nivel superior con `subvolid=5`.
+5. Revisa `@`, `@snapshots` y los backups existentes.
+6. Conserva el `@` actual con un nombre único.
+7. Crea el nuevo `@` desde el snapshot elegido.
+8. Establece el nuevo subvolumen predeterminado.
+9. Desmonta de forma ordenada.
+10. Reinicia únicamente cuando todas las operaciones hayan terminado correctamente.
+
+No se incluye un dispositivo fijo como `/dev/nvme0n1p2`, porque la ruta cambia entre equipos y cuando se usa LUKS.
+
+## GRUB y `/boot`
+
+El helper actual no ejecuta `grub-mkconfig`. Además, si `/boot` o la partición EFI están fuera de `@`, sus archivos no se restauran junto con el snapshot raíz.
+
+Después de un rollback, verifica la coherencia entre:
+
+- Paquetes de kernel restaurados en `/`.
+- Imágenes de kernel e initramfs en `/boot`.
+- Configuración de GRUB.
+
+Si detectas una diferencia, corrígela desde el sistema restaurado o mediante `arch-chroot` antes de asumir que el rollback está completo.
+
+## Problemas frecuentes
+
+### El snapshot no existe
 
 ```bash
-sudo umount /tmp/btrfs
-sudo reboot
+sudo snapper -c root list
 ```
 
----
+Usa exclusivamente un ID mostrado por la configuración `root`.
 
-## 4. Escenario B: el sistema no arranca
+### El sistema arranca, pero los datos de usuario no cambiaron
 
-Usa este procedimiento cuando el sistema no llega al login: pantalla negra después de GRUB, kernel panic, initramfs falla.
+Es el comportamiento esperado cuando `/home` está en `@home`. El rollback de `@` no reemplaza `@home`.
 
-### 4.1 Arrancar desde el Live USB
+### Aparecen muchos `@_old_*`
 
-Inserta el Live USB de CachyOS y arranca desde él.
+Revisa cada uno y elimina manualmente los que ya no sean necesarios. Snapper no los administra.
 
-### 4.2 Montar el pool BTRFS
+### El número siguiente no es consecutivo al snapshot restaurado
 
-```bash
-mount -o subvolid=5 /dev/nvme0n1p2 /mnt
-```
+Es normal. Los IDs representan el historial de creación, no la versión activa del sistema.
 
-### 4.3 Identificar el snapshot objetivo
+## Referencias
 
-```bash
-btrfs subvolume list /mnt
-```
-
-Busca las líneas con `path @snapshots/N/snapshot`. Si necesitas leer la descripción de cada snapshot:
-
-```bash
-cat /mnt/@snapshots/N/info.xml
-```
-
-El campo `<description>` muestra el nombre que snapper le asignó.
-
-### 4.4 Renombrar el subvolumen roto
-
-```bash
-mv /mnt/@ /mnt/@.broken
-```
-
-### 4.5 Crear el nuevo @ desde el snapshot
-
-```bash
-btrfs subvolume snapshot /mnt/@snapshots/N/snapshot /mnt/@
-```
-
-### 4.6 Desmontar y reiniciar
-
-```bash
-umount /mnt
-reboot
-```
-
-Retira el USB. El sistema arrancará desde el estado del snapshot con el mismo kernel que estaba incluido en él. **No elimines `@.broken` todavía** — espera a confirmar que el sistema funciona correctamente antes de limpiarlo (sección 5).
-
----
-
-## 5. Limpieza post-rollback
-
-### 5.1 Confirmar el estado del sistema
-
-Una vez que el sistema arranca correctamente:
-
-```bash
-snapper -c root list
-```
-
-Revisa que los paquetes y configuraciones corresponden al snapshot restaurado.
-
-### 5.2 Eliminar el backup del subvolumen anterior
-
-Si usaste `btrfs-rollback`, el backup está en `@_old_YYYYMMDD_HHMMSS`. Si todo funciona correctamente, elimínalo:
-
-```bash
-sudo mount -o subvolid=5 /dev/nvme0n1p2 /tmp/btrfs
-```
-
-```bash
-sudo btrfs subvolume delete /tmp/btrfs/@_old_*
-```
-
-```bash
-sudo umount /tmp/btrfs
-```
-
-Si hiciste rollback manual, elimina `@.broken` con el mismo procedimiento (sustituye `@_old_*` por `@.broken`).
-
-### 5.3 Eliminar snapshots innecesarios
-
-Los snapshots del sistema roto ya no son útiles. Elimínalos con snapper:
-
-```bash
-sudo snapper -c root delete N
-```
-
-Para eliminar un rango:
-
-```bash
-sudo snapper -c root delete N-M
-```
-
-Snapper elimina el subvolumen y actualiza `/.snapshots`. `grub-btrfsd` detecta el cambio y regenera el menú de GRUB automáticamente.
-
----
-
-## 6. Verificar el GRUB tras la limpieza
-
-```bash
-systemctl status grub-btrfsd | grep "Grub submenu"
-```
-
-Resultado esperado:
-
-```text
-grub-btrfsd[...]: Grub submenu recreated
-```
-
----
-
-## Recomendación: snapshot manual antes de cambios riesgosos
-
-Antes de instalar un entorno gráfico, actualizar el kernel o cualquier cambio significativo, toma un snapshot manual con descripción clara:
-
-```bash
-sudo snapper -c root create --description "pre-instalacion-hyprland"
-```
-
-Verifica que se creó:
-
-```bash
-snapper -c root list
-```
-
-Tener un snapshot con nombre descriptivo antes del cambio hace que la sección 1 de este capítulo sea trivial — ya sabes exactamente a cuál número volver.
-
----
-
-## Estado esperado al completar un rollback
-
-- El sistema arranca desde el subvolumen `@` que corresponde al snapshot restaurado.
-- El subvolumen `@.broken` fue eliminado del pool.
-- Los snapshots innecesarios fueron eliminados con snapper.
-- El menú de GRUB refleja los snapshots actuales.
-
----
-
-← [Cap. 10 — Primer arranque](Capítulo-10-Primer-arranque.md) · [Índice](..) · [Cap. 12 — Instalación Hyprland](Capítulo-12-Instalacion-Hyprland.md) →
+- CachyOS Wiki, Btrfs snapshots: <https://wiki.cachyos.org/configuration/btrfs_snapshots/>
+- Snapper manual: <https://snapper.io/manpages/snapper.html>
+- Btrfs subvolume documentation: <https://btrfs.readthedocs.io/en/latest/Subvolumes.html>
