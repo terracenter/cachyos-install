@@ -1,108 +1,151 @@
-← [Cap. 07 — Configuración de GRUB](Capítulo-07-Configuración-de-GRUB.md) · [Índice](..) · [Cap. 09 — Verificación de Snapshots](Capítulo-09-Verificacion-de-Snapshots.md) →
+# Capítulo 08: mkinitcpio
 
----
+[← Cap. 07: GRUB](Capítulo-07-Configuración-de-GRUB.md) · [Índice](./_index.md) · [Cap. 09: Verificación de snapshots →](Capítulo-09-Verificacion-de-Snapshots.md)
 
-En este capítulo agregamos el hook `btrfs` al initramfs. Sin él, el sistema puede no montar correctamente la raíz BTRFS durante el arranque, especialmente después de un rollback.
+## Objetivo
 
-> Todos los comandos de este capítulo se ejecutan **dentro del chroot**.
+`mkinitcpio` genera las imágenes initramfs necesarias para arrancar el kernel. El instalador crea la lista de hooks según las opciones seleccionadas y regenera todos los presets instalados.
 
----
+`mkinitcpio` admite enfoques basados en BusyBox o en systemd según los hooks configurados. El orden y conjunto de hooks debe corresponder al método elegido por el instalador.
 
-## 1. Ver la configuración actual
+## Configuración generada
 
-```bash
-grep ^HOOKS /etc/mkinitcpio.conf
-```
-
-Resultado típico en CachyOS:
+El instalador establece:
 
 ```text
-HOOKS=(base udev autodetect microcode modconf kmod block filesystems keyboard fsck)
+MODULES=(btrfs)
 ```
 
----
-
-## 2. Agregar el hook btrfs
-
-El hook `btrfs` debe ir antes de `filesystems`:
-
-```bash
-sed -i 's/ filesystems/ btrfs filesystems/' /etc/mkinitcpio.conf
-```
-
-Verifica el resultado:
-
-```bash
-grep ^HOOKS /etc/mkinitcpio.conf
-```
-
-Resultado esperado:
+Y construye `HOOKS` a partir de:
 
 ```text
-HOOKS=(base udev autodetect microcode modconf kmod block btrfs filesystems keyboard fsck)
+base udev autodetect microcode modconf kms keyboard keymap consolefont block
 ```
 
----
+Después añade de forma condicional:
 
-## 3. Regenerar el initramfs
+- `encrypt`, si se habilitó LUKS.
+- `resume`, si se habilitó hibernación.
+
+Y completa la lista con:
+
+```text
+filesystems btrfs fsck
+```
+
+La línea exacta depende de las opciones elegidas. No utilices un `sed` que inserte `btrfs` cada vez que se ejecuta, porque puede duplicar hooks.
+
+## Revisar la configuración
+
+Dentro del sistema instalado:
+
+```bash
+grep -E '^(MODULES|HOOKS)=' /etc/mkinitcpio.conf
+```
+
+También revisa si se habilitaron LUKS o hibernación:
+
+```bash
+grep '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub
+```
+
+## Generar initramfs
+
+El instalador ejecuta:
 
 ```bash
 mkinitcpio -P
 ```
 
-El flag `-P` regenera todos los presets instalados. Para CachyOS genera los archivos del kernel `linux-cachyos`.
+`-P` procesa todos los presets encontrados en `/etc/mkinitcpio.d/`. Puede tardar y debe terminar sin errores. Los paquetes de kernel regeneran normalmente sus imágenes mediante hooks de Pacman.
 
-Resultado esperado (extracto):
+## Verificar presets e imágenes
 
-```text
-==> Building image from preset: /etc/mkinitcpio.d/linux-cachyos.preset: 'default'
-==> Starting build: 6.x.x-cachyos
-  -> Running build hook: [base]
-  -> Running build hook: [udev]
-  ...
-  -> Running build hook: [btrfs]
-  -> Running build hook: [filesystems]
-  ...
-==> Image generation successful
-```
-
----
-
-## 4. Verificar los archivos generados
+Lista los presets:
 
 ```bash
-ls -lh /boot/initramfs-linux-cachyos*.img
+find /etc/mkinitcpio.d -maxdepth 1 -type f -name '*.preset' -print
 ```
 
-Resultado esperado:
-
-```text
--rw------- 1 root root 26M  ...  /boot/initramfs-linux-cachyos.img
-```
-
-Confirma que el hook `btrfs` quedó incluido en el initramfs generado:
+Lista las imágenes:
 
 ```bash
-lsinitcpio -a /boot/initramfs-linux-cachyos.img | grep btrfs
+find /boot -maxdepth 1 -type f -name 'initramfs-*.img' -ls
 ```
 
-Resultado esperado:
+Para inspeccionar una imagen concreta:
 
-```text
-btrfs
+```bash
+lsinitcpio /boot/initramfs-linux-cachyos.img | less
 ```
 
----
+No asumas que todos los equipos generan exactamente el mismo nombre o una imagen fallback. Depende de los presets instalados.
 
-## Estado esperado al final del capítulo
+## Btrfs
 
-Al terminar este capítulo:
+El proyecto incluye el módulo `btrfs` y el hook `btrfs` de la instalación actual. Esto expresa una decisión del proyecto, pero no debe afirmarse que un hook externo antiguo como `mkinitcpio-btrfs` sea obligatorio para todo sistema con raíz Btrfs.
 
-- El hook `btrfs` está presente en la línea `HOOKS` de `/etc/mkinitcpio.conf`.
-- El initramfs fue regenerado e incluye soporte nativo para BTRFS.
+El paquete histórico `mkinitcpio-btrfs` ofrece funciones avanzadas y lleva años sin una actualización estable; no forma parte de este instalador.
 
-El siguiente capítulo verifica que los snapshots se crearon correctamente y que el pool BTRFS está en el estado esperado.
+## LUKS
 
----
+Cuando se habilita cifrado, la configuración incluye el hook `encrypt` y GRUB recibe un parámetro `cryptdevice`. Verifica que ambos lados sean coherentes antes de reiniciar.
 
-← [Cap. 07 — Configuración de GRUB](Capítulo-07-Configuración-de-GRUB.md) · [Índice](..) · [Cap. 09 — Verificación de Snapshots](Capítulo-09-Verificacion-de-Snapshots.md) →
+## Hibernación
+
+Cuando se habilita hibernación, el instalador añade `resume` y calcula el `resume_offset` del swapfile Btrfs. Comprueba los parámetros de GRUB y regenera tanto initramfs como `grub.cfg` si se modifican posteriormente.
+
+## Validación
+
+```bash
+sudo mkinitcpio -P
+```
+
+Después:
+
+```bash
+find /boot -maxdepth 1 -type f -name 'initramfs-*.img' -size +0 -print
+```
+
+Comprueba que no existan errores recientes:
+
+```bash
+sudo journalctl -b -p err
+```
+
+## Problemas frecuentes
+
+### Hook duplicado
+
+Revisa:
+
+```bash
+grep '^HOOKS=' /etc/mkinitcpio.conf
+```
+
+Edita la lista completa una sola vez. No ejecutes sustituciones repetitivas que vuelvan a insertar el mismo hook.
+
+### Imagen ausente
+
+Comprueba el paquete de kernel y su preset:
+
+```bash
+pacman -Q linux-cachyos
+ls -l /etc/mkinitcpio.d/
+```
+
+### El sistema usa otro kernel
+
+`mkinitcpio -P` procesa todos los presets, no únicamente `linux-cachyos`. Revisa los nombres reales en `/etc/mkinitcpio.d/` y `/boot`.
+
+## Estado esperado
+
+- `/etc/mkinitcpio.conf` contiene módulos y hooks coherentes con Btrfs, LUKS e hibernación.
+- Todos los presets terminan sin errores.
+- Las imágenes initramfs existen y tienen tamaño mayor que cero.
+- GRUB apunta a parámetros compatibles con la configuración del initramfs.
+
+## Referencias
+
+- ArchWiki, mkinitcpio: <https://wiki.archlinux.org/title/Mkinitcpio>
+- ArchWiki, Btrfs: <https://wiki.archlinux.org/title/Btrfs>
