@@ -1,144 +1,122 @@
-← [Cap. 15 — Gestión de paquetes](Capítulo-15-Gestion-Paquetes.md) · [Índice](..) · [Cap. 17 — Herramientas CLI modernas](Capítulo-17-Herramientas-CLI-modernas.md) →
+# Capítulo 16: Acceso remoto
 
----
+[← Cap. 15: Gestión de paquetes](Capítulo-15-Gestion-Paquetes.md) · [Índice](./_index.md) · [Cap. 17: Herramientas CLI →](Capítulo-17-Herramientas-CLI-modernas.md)
 
-## Introducción
+## Alcance
 
-Este capítulo documenta las herramientas de acceso remoto disponibles en la instalación CachyOS + Hyprland, tanto para controlar equipos remotos como para recibir conexiones entrantes.
+El acceso remoto no forma parte del escritorio Hyprland base. Debe habilitarse solo cuando exista una necesidad concreta y aplicando controles de autenticación, red y firewall.
 
-| Herramienta | Rol | Protocolo |
-|---|---|---|
-| SSH | Administración CLI | SSH |
-| wayvnc | Servidor — recibir conexiones al escritorio Hyprland | VNC sobre túnel SSH |
-| AnyDesk | Cliente — conectarse a equipos remotos | AnyDesk |
-| TigerVNC viewer | Cliente — conectarse a servidores VNC remotos | VNC |
+## OpenSSH
 
----
-
-## wayvnc — servidor VNC nativo Wayland
-
-`wayvnc` es el servidor VNC nativo para Wayland. Permite controlar el escritorio Hyprland desde otro equipo.
-
-### Por qué no usar VNC directo
-
-Exponer el puerto VNC directamente en la red es inseguro — el tráfico no está cifrado. La solución es combinar wayvnc con un túnel SSH:
-
-- wayvnc escucha solo en `127.0.0.1` — no accesible desde la red
-- El túnel SSH cifra todo el tráfico
-- La autenticación usa las credenciales del sistema (PAM)
-
-### Instalación
+El instalador base instala y habilita `sshd`. Comprueba su estado:
 
 ```bash
-paru -S wayvnc
+systemctl is-enabled sshd
+systemctl status sshd
 ```
 
-### Configuración del autostart
-
-wayvnc se agrega al autostart de `~/.config/hypr/hyprland.lua` para arrancar automáticamente con la sesión Hyprland:
-
-```lua
-hl.exec_cmd("uwsm app -- wayvnc --render-cursor 127.0.0.1 5900")
-```
-
-> `--render-cursor` dibuja el cursor dentro del frame de pantalla para que sea visible en el cliente VNC. Sin esta opción el cursor no aparece en la sesión remota.
-
-### Verificar que está corriendo
+Si no necesitas acceso remoto:
 
 ```bash
-pgrep -a wayvnc
-ss -tlnp | grep 5900
+sudo systemctl disable --now sshd
 ```
 
-### Inicio manual (si no arrancó con la sesión)
+### Validar la configuración
 
-wayvnc necesita el entorno Wayland activo. Desde una terminal en Hyprland:
+Antes de recargar el servicio:
 
 ```bash
-wayvnc --render-cursor 127.0.0.1 5900 &
+sudo sshd -t
 ```
 
----
+Una configuración válida no produce salida.
 
-## Conectarse al laptop desde otro equipo
+### Claves SSH
 
-### Requisitos en el equipo cliente
-
-- SSH instalado
-- TigerVNC viewer: `sudo pacman -S tigervnc` (Arch) o equivalente
-
-### Paso 1 — Crear el túnel SSH
-
-Abrir una terminal y dejarla abierta durante toda la sesión remota:
+Genera una clave en el cliente:
 
 ```bash
-ssh -L 5901:localhost:5900 -N USUARIO@IP_DEL_EQUIPO
+ssh-keygen -t ed25519
 ```
 
-| Parámetro | Descripción |
-|---|---|
-| `-L 5901:localhost:5900` | Reenvía el puerto local 5901 al puerto 5900 del laptop |
-| `-N` | No ejecuta comandos — mantiene el túnel activo |
-| `USUARIO@IP_DEL_EQUIPO` | Usuario y dirección del laptop |
-
-El terminal queda "bloqueado" — es el comportamiento correcto. El túnel está activo mientras ese terminal esté abierto.
-
-### Paso 2 — Conectar con TigerVNC
-
-En otra terminal:
+Cópiala al equipo remoto:
 
 ```bash
-vncviewer -PreferredEncoding=Tight -QualityLevel=7 localhost:5901
+ssh-copy-id usuario@equipo
 ```
 
-| Opción | Descripción |
-|---|---|
-| `-PreferredEncoding=Tight` | Mejor compresión para conexiones lentas o WiFi |
-| `-QualityLevel=7` | Balance entre calidad y fluidez (rango 0–9) |
-
-> Conectar a `localhost:5901` — el túnel reenvía al laptop automáticamente.
-
----
-
-## AnyDesk — cliente para conectarse a equipos remotos
-
-AnyDesk funciona correctamente en Hyprland como **cliente** para conectarse a otros equipos que lo tengan instalado.
+Prueba la conexión antes de desactivar contraseñas:
 
 ```bash
-paru -S anydesk
-sudo systemctl enable --now anydesk
+ssh usuario@equipo
 ```
 
-> AnyDesk como **servidor** (para recibir conexiones) no funciona de forma fiable en Wayland. Usar wayvnc + túnel SSH para ese caso.
+Después puedes crear un archivo en `/etc/ssh/sshd_config.d/` para restringir usuarios y autenticación. Conserva una sesión administrativa abierta durante la prueba para evitar perder acceso.
 
----
+## Acceso a la sesión Wayland
 
-## TigerVNC viewer — cliente VNC
+WayVNC comparte una salida Wayland existente. No crea por sí solo una sesión completa ni utiliza automáticamente la autenticación PAM del usuario.
 
-Para conectarse a servidores VNC en otros equipos (Linux con X11, Windows, etc.):
+Antes de instalarlo, comprueba si está disponible en un repositorio configurado:
 
 ```bash
-vncviewer IP_REMOTA:5900
+pacman -Si wayvnc
 ```
 
-Con mejores opciones de rendimiento:
+Si está disponible:
 
 ```bash
-vncviewer -PreferredEncoding=Tight -QualityLevel=7 IP_REMOTA:5900
+sudo pacman -S wayvnc
 ```
 
----
+No lo añadas al autostart global sin definir previamente autenticación, interfaz de escucha y política de red.
 
-## Resumen de conexión rápida
+## Túnel SSH
+
+Una opción más segura que exponer VNC a toda la red es limitar el servidor a localhost y acceder mediante un túnel SSH.
+
+En el cliente:
 
 ```bash
-# Túnel SSH (dejar abierto)
-ssh -L 5901:localhost:5900 -N USUARIO@IP_DEL_EQUIPO
-
-# Conectar VNC (en otra terminal)
-vncviewer -PreferredEncoding=Tight -QualityLevel=7 localhost:5901
+ssh -L 5900:127.0.0.1:5900 usuario@equipo
 ```
 
----
+Después conecta el visor VNC del cliente a:
 
-← [Cap. 15 — Gestión de paquetes](Capítulo-15-Gestion-Paquetes.md) · [Índice](..) · [Cap. 17 — Herramientas CLI modernas](Capítulo-17-Herramientas-CLI-modernas.md) →
+```text
+127.0.0.1:5900
+```
+
+El túnel cifra el transporte, pero no reemplaza la seguridad de SSH, las claves, el firewall ni la autenticación del servicio remoto.
+
+## Firewall
+
+No abras el puerto VNC a Internet. Si necesitas acceso fuera de la red local, utiliza una VPN administrada o un túnel SSH con autenticación por claves.
+
+Comprueba puertos escuchando:
+
+```bash
+ss -lntp
+```
+
+Comprueba reglas del firewall configurado en el sistema antes de aceptar conexiones remotas.
+
+## Herramientas de terceros
+
+Aplicaciones como AnyDesk deben considerarse opcionales. No habilites su servicio si solo necesitas utilizarlas como cliente. Revisa sus limitaciones bajo Wayland, permisos y política de privacidad antes de instalarlas.
+
+## Lista de comprobación
+
+- `sshd -t` termina sin errores.
+- El usuario puede entrar con una clave SSH.
+- Solo los usuarios autorizados tienen acceso.
+- VNC no escucha públicamente sin protección.
+- El firewall limita la exposición.
+- Los servicios remotos innecesarios permanecen deshabilitados.
+- Existe una forma local de recuperación si falla la configuración.
+
+## Referencias
+
+- OpenSSH en ArchWiki: <https://wiki.archlinux.org/title/OpenSSH>
+- WayVNC: <https://github.com/any1/wayvnc>
+- TigerVNC y túneles SSH: <https://wiki.archlinux.org/title/TigerVNC>

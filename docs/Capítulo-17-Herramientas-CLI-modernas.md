@@ -1,432 +1,171 @@
-← [Cap. 16 — Acceso remoto](Capítulo-16-Acceso-Remoto.md) · [Índice](..) · [Cap. 18 — Gaming](Capítulo-18-Gaming.md) →
+# Capítulo 17: Herramientas CLI modernas
 
----
+[← Cap. 16: Acceso remoto](Capítulo-16-Acceso-Remoto.md) · [Índice](./_index.md) · [Cap. 18: Gaming →](Capítulo-18-Gaming.md)
 
-## Introducción
+## Alcance
 
-Este capítulo cubre las herramientas de línea de comandos modernas que forman parte del stack de Omarchy. Están todas disponibles en los repositorios oficiales de CachyOS/Arch — no se requiere AUR.
+Las herramientas modernas complementan las utilidades tradicionales de Unix. No deben sustituir globalmente comandos esenciales dentro de scripts del sistema.
 
-La mayoría ya fue instalada por `install-cachyos-hyprland.sh`. Las secciones de configuración aplican sobre una instalación existente; cada herramienta verifica si está instalada antes de proceder.
+La instalación de estas herramientas corresponde a los módulos opcionales de aplicaciones, especialmente:
 
-> **Prerequisito:** Haber completado el Capítulo 12 (instalación del entorno gráfico).
+```text
+hyprland/install/apps/shell-tools.sh
+hyprland/install/apps/terminal-neovim.sh
+```
 
-> `tmux` no se instala aquí. Es una herramienta para sesiones SSH remotas — instálala con `paru -S tmux` en los servidores donde la necesites.
+Comprueba los scripts antes de afirmar que una utilidad se instala automáticamente.
 
----
+## Herramientas recomendadas
 
-## Checklist de la fase
+| Uso | Tradicional | Alternativa |
+|---|---|---|
+| Listar archivos | `ls` | `eza` |
+| Ver archivos | `cat` | `bat` |
+| Buscar texto | `grep` | `ripgrep` (`rg`) |
+| Buscar archivos | `find` | `fd` |
+| Uso de disco | `du` | `dust` |
+| Monitor del sistema | `top` | `btop` |
+| Buscar interactivamente | varias | `fzf` |
+| Navegar directorios | `cd` | `zoxide` |
+| Prompt | shell | `starship` |
 
-- [ ] eza instalado y alias configurados
-- [ ] bat instalado y alias configurados
-- [ ] ripgrep instalado y validado
-- [ ] fzf instalado con integración de shell
-- [ ] zoxide instalado con integración de shell
-- [ ] dust instalado y validado
-- [ ] btop instalado y validado
-- [ ] fastfetch instalado y validado
-- [ ] starship instalado y configurado como prompt
-- [ ] Aliases persistidos en `~/.zshrc`
-- [ ] Cambios validados en sesión nueva
-- [ ] Commit de checkpoint creado
-
----
-
-## 1. Instalación
-
-Todas estas herramientas están en los repositorios oficiales. El script de instalación ya las incluye en `PKGS_CLI` y `PKGS_TERMINAL`. Para verificar si están instaladas o instalar manualmente:
+Instala únicamente las herramientas disponibles en los repositorios configurados:
 
 ```bash
-paru -S --needed \
-    eza bat ripgrep fzf zoxide dust \
-    btop fastfetch starship
+sudo pacman -S --needed eza bat ripgrep fd fzf zoxide btop
 ```
 
-Verificar que todas estén presentes:
+Comprueba Starship antes de instalar:
 
 ```bash
-for cmd in eza bat rg fzf zoxide dust btop fastfetch starship; do
-    command -v "$cmd" &>/dev/null && echo "✓ $cmd" || echo "✗ $cmd FALTA"
-done
+pacman -Si starship
 ```
 
-Salida esperada:
+## Alias seguros
 
-```
-✓ eza
-✓ bat
-✓ rg
-✓ fzf
-✓ zoxide
-✓ dust
-✓ btop
-✓ fastfetch
-✓ starship
+Evita reemplazos globales como:
+
+```text
+alias cat=bat
+alias du=dust
 ```
 
----
-
-## 2. Configuración del shell
-
-Agregar al final de `~/.zshrc`:
+Pueden cambiar opciones, formato y comportamiento esperado. Prefiere alias explícitos:
 
 ```bash
-vim ~/.zshrc
+alias ll='eza -la --group-directories-first'
+alias preview='bat --paging=always'
+alias disks='dust'
 ```
 
-Contenido a añadir al final del archivo:
+Los scripts deben seguir usando las herramientas estándar cuando su compatibilidad sea importante.
 
-```zsh
-# ─── Herramientas CLI modernas ────────────────────────────────────────────────
+## fzf
 
-# eza — listado moderno
-alias ls='eza --icons --group-directories-first'
-alias ll='eza --icons --group-directories-first -l --git'
-alias la='eza --icons --group-directories-first -la --git'
-alias lt='eza --icons --tree --level=2'
+`fzf` es un selector difuso de propósito general. En Bash reciente puede activarse con:
 
-# bat — visor con sintaxis
-alias cat='bat --paging=never'
-alias less='bat --paging=always'
+```bash
+eval "$(fzf --bash)"
+```
 
-# dust — uso de disco
-alias du='dust'
+En Zsh:
 
-# zoxide — cd inteligente
+```bash
+source <(fzf --zsh)
+```
+
+Atajos comunes:
+
+```text
+Ctrl+R   buscar historial
+Ctrl+T   seleccionar archivos
+Alt+C    cambiar de directorio
+```
+
+Añade la inicialización una sola vez y solo al archivo de la shell utilizada.
+
+## zoxide
+
+Inicializa zoxide en Bash:
+
+```bash
+eval "$(zoxide init bash)"
+```
+
+En Zsh:
+
+```bash
 eval "$(zoxide init zsh)"
+```
 
-# fzf — integración de shell
-[[ -f /usr/share/fzf/key-bindings.zsh ]] && source /usr/share/fzf/key-bindings.zsh
-[[ -f /usr/share/fzf/completion.zsh   ]] && source /usr/share/fzf/completion.zsh
+Ejemplo:
 
-# starship — prompt
+```bash
+z cachyos
+```
+
+## Starship
+
+En Bash:
+
+```bash
+eval "$(starship init bash)"
+```
+
+En Zsh:
+
+```bash
 eval "$(starship init zsh)"
-
-# Fix TERM para sesiones SSH sin terminfo del emulador local
-if [[ -n "$SSH_CONNECTION" ]] && ! infocmp "$TERM" &>/dev/null; then
-  export TERM=xterm-256color
-fi
-
-# Fix backspace/delete para terminales modernas (Alacritty)
-bindkey "^?" backward-delete-char
-bindkey "^H" backward-delete-char
-bindkey "^[[3~" delete-char
 ```
 
-Aplicar sin reiniciar sesión:
+No descargues configuraciones remotas directamente sobre tus archivos sin revisarlas. Conserva tu configuración en:
+
+```text
+~/.config/starship.toml
+```
+
+## SSH y shell remota
+
+Una shell remota puede no tener Nerd Fonts, colores o utilidades opcionales. Mantén las configuraciones condicionales:
 
 ```bash
-source ~/.zshrc
+command -v zoxide >/dev/null && eval "$(zoxide init bash)"
 ```
-
----
-
-## 2.1 Fixes para terminal remota (SSH desde Alacritty)
-
-Alacritty envía `TERM=alacritty` al conectarse por SSH. Si el servidor remoto no tiene el terminfo de Alacritty instalado, el backspace, delete y los colores dejan de funcionar. Estos dos fixes se agregan al final de `~/.zshrc` y viajan con rsync a todos los remotos.
-
-### Fix 1 — TERM fallback
-
-```zsh
-# Fix TERM para sesiones SSH sin terminfo del emulador local
-if [[ -n "$SSH_CONNECTION" ]] && ! infocmp "$TERM" &>/dev/null; then
-  export TERM=xterm-256color
-fi
-```
-
-Detecta si estamos en una sesión SSH y si el terminfo del `TERM` actual no existe en el servidor. Si falta, cae a `xterm-256color` que todos los servidores conocen. No afecta la sesión local.
-
-### Fix 2 — Backspace y delete en zsh
-
-```zsh
-# Fix backspace/delete para terminales modernas (Alacritty)
-bindkey "^?" backward-delete-char
-bindkey "^H" backward-delete-char
-bindkey "^[[3~" delete-char
-```
-
-Mapea explícitamente las teclas backspace (`^?` y `^H`) y delete (`^[[3~`) en ZLE (Zsh Line Editor). Algunos servidores remotos tienen configuraciones de `stty erase` que no coinciden con lo que envía Alacritty.
-
-### Validación
-
-Conectarse a un servidor remoto por SSH y verificar:
 
 ```bash
-# Verificar que TERM es compatible
-echo $TERM
-# Esperado en remoto sin terminfo alacritty: xterm-256color
-
-# Verificar backspace (escribir algo y borrar con backspace)
-# Verificar delete (escribir algo, mover cursor atrás, presionar Delete)
+command -v starship >/dev/null && eval "$(starship init bash)"
 ```
 
----
+No dupliques bloques de inicialización en `.bashrc`, `.zshrc` y archivos de perfil sin comprender cuándo se carga cada uno.
 
-## 3. eza — listado de archivos moderno
-
-Reemplaza `ls`. Muestra iconos Nerd Font, colores, permisos y estado git en una sola vista.
-
-### Validación
+## Validación
 
 ```bash
-ls /etc | head -10
+command -v eza bat rg fd fzf zoxide btop
 ```
-
-Salida esperada: listado con íconos de archivo/directorio y colores por tipo.
 
 ```bash
-ll ~/.config
+shellcheck ~/.bashrc 2>/dev/null || true
 ```
 
-Salida esperada: permisos, tamaño, fecha y estado git (si aplica) con iconos.
-
----
-
-## 4. bat — visor de archivos con resaltado
-
-Reemplaza `cat`. Añade resaltado de sintaxis, numeración de líneas y paginación automática.
-
-### Validación
+Para Zsh, inicia una shell nueva y revisa mensajes de error:
 
 ```bash
-cat ~/.zshrc
+zsh -i -c exit
 ```
 
-Salida esperada: contenido con resaltado de sintaxis bash y numeración de líneas.
-
-```bash
-cat /etc/pacman.conf | head -20
-```
-
-Salida esperada: resaltado de sintaxis INI.
-
-### Config opcional
-
-```bash
-mkdir -p ~/.config/bat
-cat > ~/.config/bat/config <<'EOF'
---theme="Catppuccin-mocha"
---style="numbers,changes,header"
-EOF
-```
-
-Verificar tema disponible:
-
-```bash
-bat --list-themes | grep -i catppuccin
-```
-
-Si no aparece Catppuccin, instalar el tema:
-
-```bash
-mkdir -p "$(bat --config-dir)/themes"
-curl -Lo "$(bat --config-dir)/themes/Catppuccin-mocha.tmTheme" \
-    "https://raw.githubusercontent.com/catppuccin/bat/main/themes/Catppuccin%20Mocha.tmTheme"
-bat cache --build
-```
-
----
-
-## 5. ripgrep — búsqueda de texto ultrarrápida
-
-Reemplaza `grep`. Respeta `.gitignore`, busca recursivamente por defecto y es significativamente más rápido.
-
-### Validación
-
-```bash
-rg "hypridle" ~/.config/hypr/
-```
-
-Salida esperada: líneas que contienen `hypridle` con nombre de archivo y número de línea.
-
-```bash
-rg -l "waybar" ~/.config/
-```
-
-Salida esperada: lista de archivos que contienen la palabra `waybar`.
-
----
-
-## 6. fzf — buscador difuso interactivo
-
-Herramienta de filtrado interactivo. Con la integración de shell habilitada:
-
-| Combinación | Acción |
-|---|---|
-| `Ctrl + R` | Historial de comandos con búsqueda difusa |
-| `Ctrl + T` | Seleccionar archivo del directorio actual |
-| `Alt + C` | Navegar a subdirectorio |
-
-### Validación
-
-Presionar `Ctrl+R` en la terminal: debe abrirse un selector interactivo del historial de comandos.
-
-```bash
-vim $(fzf)
-```
-
-Debe abrir un selector de archivos del directorio actual.
-
----
-
-## 7. zoxide — navegación inteligente de directorios
-
-Reemplaza `cd`. Aprende los directorios más frecuentados y permite saltar a ellos con fragmentos del nombre.
-
-### Validación
-
-Navegar a algunos directorios para que zoxide aprenda:
-
-```bash
-cd ~/.config/hypr && cd ~/.config/waybar && cd ~
-```
-
-Luego saltar directamente:
-
-```bash
-z hypr
-```
-
-Salida esperada: cambio de directorio a `~/.config/hypr` sin escribir la ruta completa.
-
-```bash
-zi
-```
-
-Abre un selector fzf con los directorios más frecuentados.
-
----
-
-## 8. dust — analizador de uso de disco
-
-Reemplaza `du`. Muestra el uso de disco con barras proporcionales visuales.
-
-### Validación
-
-```bash
-dust ~/.config
-```
-
-Salida esperada: árbol de directorios con barras de uso proporcional, ordenado de mayor a menor.
-
-```bash
-dust -d 1 /
-```
-
-Salida esperada: uso de disco del raíz con profundidad 1.
-
----
-
-## 9. btop — monitor de recursos del sistema
-
-Reemplaza `htop`. Interfaz TUI con gráficas de CPU, memoria, disco y red. El ícono de CPU en waybar lanza `btop` al hacer clic.
-
-### Validación
-
-```bash
-btop
-```
-
-Salida esperada: interfaz TUI completa con gráficas de recursos. Salir con `q`.
-
-También accesible desde waybar haciendo clic en el ícono de CPU.
-
----
-
-## 10. fastfetch — información del sistema
-
-Reemplaza `neofetch`. Más rápido y con más opciones de configuración.
-
-### Validación
-
-```bash
-fastfetch
-```
-
-Salida esperada: logo de la distribución con información del sistema (OS, kernel, DE, terminal, CPU, GPU, memoria, disco).
-
-### Config básica
-
-```bash
-fastfetch --gen-config
-```
-
-El archivo de configuración se crea en `~/.config/fastfetch/config.jsonc`.
-
----
-
-## 11. starship — prompt de shell personalizable
-
-Muestra información contextual en el prompt: directorio, rama git, estado del repositorio, entorno virtual Python, versión de Node/Rust, etc.
-
-### Validación
-
-Abrir una terminal nueva o ejecutar `source ~/.zshrc`. El prompt debe cambiar de aspecto.
-
-En un directorio con git:
-
-```bash
-cd ~/.config/hypr
-```
-
-El prompt debe mostrar el nombre de la rama y el estado del repositorio.
-
-### Config básica (opcional)
-
-Crear `~/.config/starship.toml`:
-
-```toml
-format = """
-$directory$git_branch$git_status$character"""
-
-[directory]
-truncation_length = 3
-truncate_to_repo = true
-
-[git_branch]
-symbol = " "
-style = "bold purple"
-
-[git_status]
-style = "bold red"
-
-[character]
-success_symbol = "[❯](bold green)"
-error_symbol = "[❯](bold red)"
-```
-
----
-
-## Validación final
-
-Ejecutar en una terminal nueva (para verificar que los cambios persisten tras `source ~/.zshrc`):
-
-```bash
-# Verificar aliases activos
-type ls && type cat && type du
-
-# Verificar prompt starship
-echo $STARSHIP_SESSION_KEY
-
-# Verificar zoxide activo
-type z
-
-# Verificar fzf integrado
-bindkey | grep fzf
-```
-
-Salida esperada: todos los comandos resuelven correctamente sin errores.
-
----
-
-## Checkpoint — commit de la fase
-
-Una vez validadas todas las herramientas en el laptop:
-
-```bash
-git add Capítulo-17-Herramientas-CLI-modernas.md install-cachyos-hyprland.sh
-git commit -m "feat: Fase 1 completada — herramientas CLI modernas del stack Omarchy"
-```
-
----
-
-← [Cap. 16 — Acceso remoto](Capítulo-16-Acceso-Remoto.md) · [Índice](..) · [Cap. 18 — Gaming](Capítulo-18-Gaming.md) →
+## Buenas prácticas
+
+- Instala desde Pacman cuando el paquete esté en repositorios configurados.
+- Usa AUR solo después de revisar `PKGBUILD` y archivos relacionados.
+- Prefiere alias nuevos en lugar de reemplazar comandos básicos.
+- Aplica configuraciones por shell.
+- Mantén funcionales las sesiones SSH sin temas ni fuentes especiales.
+- Documenta únicamente integraciones realmente presentes en Waybar o Hyprland.
+
+## Referencias
+
+- Utilidades principales: <https://wiki.archlinux.org/title/Core_utilities>
+- fzf: <https://wiki.archlinux.org/title/Fzf>
+- Starship: <https://starship.rs/>
+- zoxide: <https://github.com/ajeetdsouza/zoxide>
