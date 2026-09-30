@@ -33,7 +33,7 @@ hyprctl configerrors
 | `Super + E` | Abrir Nautilus |
 | `Super + Space` | Abrir Rofi |
 
-El selector de temas está disponible mediante:
+El selector de temas está disponible con `Super + Shift + T` o mediante el comando:
 
 ```bash
 theme-switcher

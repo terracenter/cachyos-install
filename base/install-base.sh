@@ -1034,8 +1034,8 @@ final_summary() {
     echo -e "\n      ${BOLD}sudo btrfs-rollback <N>${NC}"
     echo -e "      ${BOLD}sudo reboot${NC}\n"
     info "4. Si solo usaras el equipo en TTY/SSH (sin escritorio), el sistema esta listo."
-    info "   Si quieres Hyprland, copia install-cachyos-hyprland.sh y ejecuta:"
-    echo -e "\n      ${BOLD}bash install-cachyos-hyprland.sh${NC}\n"
+    info "   Para instalar Hyprland, ejecuta como usuario normal:"
+    echo -e "\n      ${BOLD}cd ~/cachyos-install && ./install.sh${NC}\n"
     info "5. Tras reiniciar en Hyprland, ejecuta:"
     echo -e "\n      ${BOLD}bash install-hyprland-desktop.sh${NC}\n"
 }

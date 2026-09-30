@@ -46,7 +46,7 @@ Este manual documenta la migración completa de Gentoo a CachyOS con BTRFS, snap
 Los scripts de instalación están en `/home/usuario/Workspace/Desarrollo/Linux/CachyOS/scripts/` (repo GitHub: `terracenter/cachyos-install`):
 
 - `scripts/install-base.sh` — Instalación base automatizada (particionado, BTRFS, pacstrap, snapper, GRUB)
-- `scripts/install-cachyos-hyprland.sh` — Instalación de Hyprland con tema Omarchy
+- `install.sh` — Instalación de Hyprland con tema Omarchy
 - `scripts/install-hyprland-desktop.sh` — Configuración avanzada del escritorio Hyprland
 - `scripts/install-qtile-omarchy.sh` — Instalación y configuración de Qtile con tema Omarchy
 - `scripts/install-gaming.sh` — Configuración de gaming (Steam, GameMode, MangoHud)
