@@ -1,138 +1,151 @@
-← [Cap. 03 — Instalación base](Capítulo-03-Instalación-base-con-pacstrap.md) · [Índice](..) · [Cap. 05 — Configuración del sistema](Capítulo-05-Configuración-del-sistema.md) →
+# Capítulo 04: Repositorios de CachyOS
 
----
+[← Cap. 03: Instalación base](Capítulo-03-Instalación-base-con-pacstrap.md) · [Índice](./_index.md) · [Cap. 05: Configuración del sistema →](Capítulo-05-Configuración-del-sistema.md)
 
-En este capítulo configuramos los repositorios oficiales de CachyOS dentro del chroot. Sin este paso, el sistema resultante es Arch Linux con el kernel CachyOS, no un CachyOS completo. Los repositorios de CachyOS proveen paquetes optimizados para el nivel de instrucciones de la CPU (x86-64-v3 o x86-64-v4), además de paquetes exclusivos como `paru`, `tuigreet` y otros que no están en los repos de Arch.
+## Objetivo
 
-> Todos los comandos de este capítulo se ejecutan **dentro del chroot**.
+Este capítulo explica cómo `base/install-base.sh` conserva la configuración oficial de repositorios de CachyOS en el sistema nuevo.
 
----
+CachyOS ofrece paquetes optimizados para distintos niveles de CPU. La selección concreta debe provenir de una configuración oficial y vigente, no de asociaciones manuales entre generaciones comerciales y niveles x86-64.
 
-## 1. Detectar el nivel de CPU
+## Fuente de verdad
 
-CachyOS ofrece paquetes optimizados para tres niveles de instrucciones. El script detecta automáticamente cuál aplica:
+La instalación se ejecuta desde un Live USB de CachyOS que ya dispone de:
 
-```bash
-CPU_LEVEL=""
-/lib/ld-linux-x86-64.so.2 --help | grep -q "x86-64-v4 (supported" && CPU_LEVEL="v4"
-[[ -z "$CPU_LEVEL" ]] && /lib/ld-linux-x86-64.so.2 --help | grep -q "x86-64-v3 (supported" && CPU_LEVEL="v3"
-echo "Nivel CPU detectado: ${CPU_LEVEL:-base}"
-```
+- Keyring de CachyOS.
+- Mirrorlists oficiales.
+- Secciones de repositorio configuradas en `/etc/pacman.conf`.
 
-Resultado esperado en hardware moderno (Intel 8ª gen o superior, AMD Zen 3 o superior):
+Por ello, el instalador no reconstruye los repositorios analizando páginas HTML, importando una clave fija desde un servidor externo ni manteniendo una tabla manual de procesadores.
 
-```text
-Nivel CPU detectado: v4
-```
+## Paquetes instalados
 
-| Nivel | CPUs típicas |
-|---|---|
-| `v4` | Intel 8ª gen+, AMD Zen 3+ |
-| `v3` | Intel 4ª–7ª gen, AMD Zen/Zen 2 |
-| base | Hardware antiguo — solo repos `[cachyos]` |
-
----
-
-## 2. Importar la clave GPG de CachyOS
-
-```bash
-pacman-key --recv-keys F3B607488DB35A47 --keyserver keyserver.ubuntu.com && pacman-key --lsign-key F3B607488DB35A47
-```
-
-Resultado esperado:
+Durante `pacstrap` se incluyen:
 
 ```text
-gpg: clave F3B607488DB35A47: clave pública "CachyOS <admin@cachyos.org>" importada
-  -> Firmada localmente 1 clave.
+cachyos-keyring
+cachyos-mirrorlist
 ```
 
----
+El keyring permite verificar firmas de paquetes. La mirrorlist define servidores de descarga.
 
-## 3. Instalar keyring y mirrorlist
+## Configuración copiada desde el Live USB
 
-El script descarga dinámicamente los paquetes más recientes del mirror de CachyOS — sin URLs hardcodeadas que queden obsoletas:
-
-```bash
-MIRROR="https://mirror.cachyos.org/repo/x86_64/cachyos"
-pkg_latest() { curl -s "${MIRROR}/" | grep -oE "${1}-[0-9][^\"' ]+\.pkg\.tar\.zst" | sort -V | tail -1; }
-PKGS=("${MIRROR}/$(pkg_latest cachyos-keyring)" "${MIRROR}/$(pkg_latest cachyos-mirrorlist)")
-[[ -n "$CPU_LEVEL" ]] && PKGS+=("${MIRROR}/$(pkg_latest "cachyos-${CPU_LEVEL}-mirrorlist")")
-pacman -U --noconfirm "${PKGS[@]}"
-```
-
-Resultado esperado:
+Después de `pacstrap`, el instalador copia:
 
 ```text
-(1/3) instalando cachyos-keyring
-(2/3) instalando cachyos-mirrorlist
-(3/3) instalando cachyos-v4-mirrorlist
+/etc/pacman.conf
 ```
 
----
-
-## 4. Agregar los repositorios a pacman.conf
-
-El siguiente bloque es **idempotente**: verifica si los repos ya están presentes antes de modificar el archivo.
-
-```bash
-if ! grep -q "^\[cachyos\]" /etc/pacman.conf; then
-    if [[ "$CPU_LEVEL" == "v4" ]]; then
-        REPOS="[cachyos-v4]\nInclude = /etc/pacman.d/cachyos-v4-mirrorlist\n\n[cachyos-extra-v4]\nInclude = /etc/pacman.d/cachyos-v4-mirrorlist\n\n[cachyos]\nInclude = /etc/pacman.d/cachyos-mirrorlist"
-    elif [[ "$CPU_LEVEL" == "v3" ]]; then
-        REPOS="[cachyos-v3]\nInclude = /etc/pacman.d/cachyos-v3-mirrorlist\n\n[cachyos-extra-v3]\nInclude = /etc/pacman.d/cachyos-v3-mirrorlist\n\n[cachyos]\nInclude = /etc/pacman.d/cachyos-mirrorlist"
-    else
-        REPOS="[cachyos]\nInclude = /etc/pacman.d/cachyos-mirrorlist"
-    fi
-    sed -i "/^\[core\]/i ${REPOS}\n" /etc/pacman.conf
-    echo "Repos CachyOS agregados"
-else
-    echo "Repos CachyOS ya presentes — sin cambios"
-fi
-```
-
----
-
-## 5. Verificar la configuración
-
-```bash
-grep -E "^\[cachyos" /etc/pacman.conf
-```
-
-Resultado esperado para v4:
+hacia:
 
 ```text
-[cachyos-v4]
-[cachyos-extra-v4]
-[cachyos]
+/mnt/etc/pacman.conf
 ```
 
-```bash
-pacman -Syu --noconfirm
-```
-
-La sincronización debe mostrar los nuevos repos descargando sus bases de datos:
+También copia todas las mirrorlists disponibles cuyo nombre coincida con:
 
 ```text
- cachyos-v4      117,1 KiB
- cachyos-extra-v4  4,2 MiB
- cachyos           520,4 KiB
- core está actualizado
- extra está actualizado
+/etc/pacman.d/cachyos*-mirrorlist
 ```
 
----
+El patrón permite incorporar automáticamente las variantes presentes en la imagen Live, por ejemplo:
 
-## Estado esperado al final del capítulo
+```text
+cachyos-mirrorlist
+cachyos-v3-mirrorlist
+cachyos-v4-mirrorlist
+cachyos-znver4-mirrorlist
+```
 
-Al terminar este capítulo:
+La lista exacta puede cambiar con el tiempo. El instalador copia únicamente los archivos que realmente existen en el Live USB.
 
-- La clave GPG de CachyOS está importada y firmada localmente.
-- Los paquetes `cachyos-keyring` y `cachyos-mirrorlist` (y la variante v3/v4 según la CPU) están instalados.
-- `/etc/pacman.conf` contiene las secciones `[cachyos-v4]`, `[cachyos-extra-v4]` y `[cachyos]` (o sus equivalentes v3/base) antes de `[core]`.
-- Las bases de datos de los repositorios CachyOS están sincronizadas.
+## Selección de mirrors
 
-El siguiente capítulo configura el sistema: locale, hostname, zona horaria, usuario y sudo.
+Antes de instalar el sistema base, el script intenta ejecutar:
 
----
+```bash
+cachyos-rate-mirrors
+```
 
-← [Cap. 03 — Instalación base](Capítulo-03-Instalación-base-con-pacstrap.md) · [Índice](..) · [Cap. 05 — Configuración del sistema](Capítulo-05-Configuración-del-sistema.md) →
+Si la herramienta no está disponible, intenta instalarla en el entorno Live. Si no puede usarse, conserva la lista de mirrors existente y muestra una advertencia.
+
+La disponibilidad y sincronización de los mirrors cambia con el tiempo. Evita introducir URLs individuales en el instalador o en la documentación.
+
+## Nivel de optimización de CPU
+
+No asocies automáticamente una generación de Intel o AMD con `x86-64-v3`, `x86-64-v4` o `znver4`. La compatibilidad depende de las instrucciones que soporte el procesador.
+
+Como diagnóstico puede consultarse:
+
+```bash
+/lib/ld-linux-x86-64.so.2 --help |
+  grep -A3 'Subdirectories of glibc-hwcaps'
+```
+
+Sin embargo, el instalador debe conservar la selección oficial ya configurada en el Live USB de CachyOS.
+
+## Verificación dentro del sistema instalado
+
+Comprueba los paquetes:
+
+```bash
+arch-chroot /mnt pacman -Q \
+  cachyos-keyring \
+  cachyos-mirrorlist
+```
+
+Revisa las secciones activas:
+
+```bash
+grep -nE '^\[cachyos' /mnt/etc/pacman.conf
+```
+
+Lista las mirrorlists copiadas:
+
+```bash
+find /mnt/etc/pacman.d \
+  -maxdepth 1 \
+  -type f \
+  -name 'cachyos*-mirrorlist' \
+  -print
+```
+
+Sincroniza las bases dentro del chroot:
+
+```bash
+arch-chroot /mnt pacman -Syy
+```
+
+`-Syy` se utiliza aquí para inicializar o forzar la sincronización durante la instalación. En el sistema ya instalado, las actualizaciones normales deben ser completas:
+
+```bash
+sudo pacman -Syu
+```
+
+## Prácticas que deben evitarse
+
+No uses como procedimiento principal:
+
+- Analizar HTML para adivinar el paquete más reciente.
+- Importar una huella GPG fija desde un keyserver externo.
+- Descargar manualmente paquetes del keyring sin verificar su procedencia.
+- Construir repositorios con una tabla generacional de CPU escrita a mano.
+- Ejecutar `pacman -Sy` como actualización parcial habitual.
+- Mantener una lista rígida de mirrorlists que pueda quedar obsoleta.
+
+## Estado esperado
+
+Al terminar:
+
+- `cachyos-keyring` y `cachyos-mirrorlist` están instalados.
+- `/mnt/etc/pacman.conf` procede del Live USB oficial.
+- Las mirrorlists disponibles fueron copiadas a `/mnt/etc/pacman.d/`.
+- Pacman puede sincronizar las bases de datos dentro del chroot.
+- El sistema conserva la variante de repositorios seleccionada por CachyOS.
+
+## Referencias
+
+- CachyOS: <https://cachyos.org/>
+- Mirrors de CachyOS: <https://dashboard.cachyos.org/mirrors>
+- Repositorio de mirrorlists: <https://github.com/CachyOS/CachyOS-PKGBUILDS/tree/master/cachyos-mirrorlist>

@@ -1,148 +1,231 @@
-← [Cap. 09 — Verificación de Snapshots](Capítulo-09-Verificacion-de-Snapshots.md) · [Índice](..) · [Cap. 11 — Rollback](Capítulo-11-Rollback.md) →
+# Capítulo 10: Primer arranque
 
----
+[← Cap. 09: Verificación de snapshots](Capítulo-09-Verificacion-de-Snapshots.md) · [Índice](./_index.md) · [Cap. 11: Rollback →](Capítulo-11-Rollback.md)
 
-En este capítulo salimos del entorno chroot, desmontamos todas las particiones y reiniciamos en el sistema instalado.
+## Objetivo
 
----
+Este capítulo cubre la salida segura del entorno de instalación y las validaciones no destructivas del primer arranque.
 
-## 1. Salir del chroot
+## Antes de salir del Live USB
 
-```bash
-exit
-```
-
-El prompt volverá al entorno Live USB.
-
----
-
-## 2. Desmontar todas las particiones
+Comprueba que el instalador terminó sin errores y que `/mnt` contiene un sistema completo:
 
 ```bash
-umount -R /mnt
+test -x /mnt/bin/bash
 ```
 
-Verifica que no queda nada montado en `/mnt`:
+```bash
+test -s /mnt/boot/grub/grub.cfg
+```
 
 ```bash
 findmnt -R /mnt
 ```
 
-No debe mostrar ninguna salida.
+## Desactivar swap y desmontar
 
----
+Si el instalador dejó activo el swapfile dentro de `/mnt`:
 
-## 3. Reiniciar
+```bash
+swapoff /mnt/swap/swapfile
+```
+
+Desmonta de forma recursiva:
+
+```bash
+umount -R /mnt
+```
+
+Comprueba:
+
+```bash
+findmnt -R /mnt
+```
+
+No debe mostrar montajes activos. Si se usó LUKS, cierra el mapeo solo después de desmontar todos los sistemas de archivos:
+
+```bash
+cryptsetup close cryptroot
+```
+
+Ejecuta ese último comando únicamente si existe el mapeo y ya no está en uso.
+
+## Primer reinicio
+
+El primer arranque requiere reiniciar desde el Live USB hacia el sistema instalado:
 
 ```bash
 reboot
 ```
 
-Retira el USB cuando la pantalla quede en negro o cuando el firmware lo indique. El sistema arrancará desde el disco instalado.
+Retira el medio de instalación cuando el firmware o el equipo lo permitan.
 
----
+## Inicio de sesión
 
-## 4. Verificación post-arranque
+Inicia sesión con el usuario creado durante la instalación. La cuenta root tiene la contraseña bloqueada y la administración se realiza mediante `sudo`.
 
-Una vez dentro del sistema instalado, inicia sesión con tu usuario (`usuario`) y verifica el estado general:
+Comprueba:
 
-Confirma que el sistema arrancó con el kernel de CachyOS:
+```bash
+id
+```
+
+```bash
+sudo -v
+```
+
+## Kernel en ejecución
 
 ```bash
 uname -r
 ```
 
-Resultado esperado:
+La salida debe corresponder al kernel de CachyOS en ejecución. Para revisar además el paquete instalado:
 
-```text
-6.x.x-cachyos
+```bash
+pacman -Q linux-cachyos linux-cachyos-headers
 ```
 
-Confirma que los subvolúmenes BTRFS están montados correctamente:
+## Montajes Btrfs
 
 ```bash
 findmnt -t btrfs
 ```
 
-Resultado esperado:
-
-```text
-TARGET                      SOURCE                        FSTYPE  OPTIONS
-/                           /dev/nvme0n1p2[/@]            btrfs   rw,noatime,...
-├─/.snapshots               /dev/nvme0n1p2[/@snapshots]   btrfs   rw,noatime,...
-├─/home                     /dev/nvme0n1p2[/@home]        btrfs   rw,noatime,...
-├─/swap                     /dev/nvme0n1p2[/@swap]        btrfs   rw,noatime,...
-├─/var/log                  /dev/nvme0n1p2[/@log]         btrfs   rw,noatime,...
-├─/var/cache/pacman/pkg     /dev/nvme0n1p2[/@pkg]         btrfs   rw,noatime,...
-└─/var/lib/docker           /dev/nvme0n1p2[/@docker]      btrfs   rw,noatime,...
-```
-
-Confirma que los servicios de snapper están activos:
+Comprueba individualmente:
 
 ```bash
-systemctl is-enabled snapper-timeline.timer snapper-cleanup.timer grub-btrfsd
+findmnt /
 ```
-
-Resultado esperado:
-
-```text
-enabled
-enabled
-enabled
-```
-
-Confirma que `grub-btrfsd` regeneró las entradas de snapshots:
 
 ```bash
-systemctl status grub-btrfsd | grep "Grub submenu"
+findmnt /home
 ```
-
-Resultado esperado (después de que snap-pac haya creado al menos un snapshot):
-
-```text
-grub-btrfsd[...]: Grub submenu recreated
-```
-
-> **Nota**: Los snapshots aparecen en el menú de GRUB a partir del **segundo arranque**. En el primer arranque `grub-btrfs.cfg` todavía está vacío — `grub-btrfsd` lo genera durante ese primer arranque. Al reiniciar nuevamente, GRUB ya lo lee correctamente y muestra el submenú de snapshots.
-
-Confirma que el nombre del submenú de snapshots en GRUB es correcto:
 
 ```bash
-grep -i "snapshots" /boot/grub/grub.cfg | head -3
+findmnt /.snapshots
 ```
 
-Resultado esperado:
-
-```text
-submenu 'CachyOS Snapshots' ...
+```bash
+findmnt /var/log
 ```
 
-Si el resultado muestra `Arch Linux Snapshots` en lugar de `CachyOS Snapshots`, significa que `grub-mkconfig` se ejecutó antes de configurar `GRUB_BTRFS_SUBMENUNAME`. Corrígelo con:
+```bash
+findmnt /var/cache/pacman/pkg
+```
+
+`/var/lib/docker` solo existirá como subvolumen separado si se seleccionó durante la instalación.
+
+## Swap e hibernación
+
+```bash
+swapon --show
+```
+
+Si se habilitó hibernación, confirma los parámetros del kernel:
+
+```bash
+cat /proc/cmdline
+```
+
+No pruebes hibernación en un equipo de producción hasta verificar el swap, `resume` y `resume_offset`.
+
+## Servicios
+
+```bash
+systemctl --failed
+```
+
+```bash
+systemctl is-active NetworkManager
+```
+
+```bash
+systemctl is-enabled snapper-timeline.timer
+```
+
+```bash
+systemctl is-enabled snapper-cleanup.timer
+```
+
+Para `grub-btrfs`, revisa la unidad existente:
+
+```bash
+systemctl status grub-btrfsd.service 2>/dev/null
+```
+
+```bash
+systemctl status grub-btrfs.path 2>/dev/null
+```
+
+No dependas de una frase exacta del log, porque puede cambiar entre versiones.
+
+## Snapshots
+
+```bash
+sudo snapper -c root list
+```
+
+Debe aparecer `sistema-base-instalado`. El número concreto puede variar.
+
+No es necesario reiniciar una segunda vez solo para comprobar el submenú de GRUB. Primero valida Snapper, la unidad de `grub-btrfs` y el contenido actual de `grub.cfg`:
+
+```bash
+grep -i 'CachyOS Linux Snapshots' /boot/grub/grub.cfg
+```
+
+Si el submenú todavía no fue generado, revisa el servicio y, cuando sea apropiado, ejecuta:
 
 ```bash
 sudo grub-mkconfig -o /boot/grub/grub.cfg
 ```
 
-Confirma que la red está activa:
+## Red
+
+Comprueba la conexión y la ruta:
 
 ```bash
-ping -c 3 archlinux.org
+nmcli general status
 ```
 
----
+```bash
+ip route
+```
 
-## Estado esperado al final del capítulo
+```bash
+getent hosts cachyos.org
+```
 
-Al terminar este capítulo:
+`ping` puede estar bloqueado por algunas redes; la resolución DNS y el estado de NetworkManager son comprobaciones más útiles.
 
-- El sistema arranca desde el disco instalado con el kernel de CachyOS.
-- Todos los subvolúmenes BTRFS están montados según el `fstab`.
-- Los servicios de snapper y `grub-btrfsd` están activos.
-- El submenú de snapshots en GRUB se llama "CachyOS Snapshots".
-- La red funciona.
+## Registros
 
-El siguiente capítulo cubre la resolución de problemas comunes y el procedimiento de rollback en caso de emergencia.
+```bash
+journalctl -b -p err
+```
 
----
+```bash
+dmesg --level=err,warn
+```
 
-← [Cap. 09 — Verificación de Snapshots](Capítulo-09-Verificacion-de-Snapshots.md) · [Índice](..) · [Cap. 11 — Rollback](Capítulo-11-Rollback.md) →
+Revisa los mensajes antes de instalar el escritorio o aplicaciones adicionales.
+
+## Punto de control
+
+Antes de continuar:
+
+- El usuario puede usar `sudo`.
+- El kernel de CachyOS está activo.
+- Los subvolúmenes Btrfs están montados correctamente.
+- El swapfile aparece en `swapon --show`.
+- NetworkManager funciona.
+- No hay servicios críticos fallidos.
+- Snapper muestra el snapshot inicial.
+- GRUB e initramfs existen.
+
+No hagas reinicios adicionales salvo que una prueba concreta lo requiera.
+
+## Referencias
+
+- CachyOS Wiki: <https://wiki.cachyos.org/>
+- ArchWiki, revisión general del sistema: <https://wiki.archlinux.org/title/System_maintenance>

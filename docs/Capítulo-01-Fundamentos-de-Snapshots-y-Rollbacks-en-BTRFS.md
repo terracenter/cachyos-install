@@ -1,199 +1,134 @@
-[Índice](..) · [Cap. 02 — Particionado y montaje](Capítulo-02-Particionado-y-montaje-desde-el-Live-USB.md) →
+# Capítulo 01: Fundamentos de snapshots y rollback en Btrfs
 
----
+[Índice](./_index.md) · [Cap. 02: Particionado y montaje →](Capítulo-02-Particionado-y-montaje-desde-el-Live-USB.md)
 
-## Introducción: El fin de la era de compilación infinita
+## Objetivo
 
-Como usuario de Gentoo de larga data, la estabilidad de LVM y la velocidad de XFS han sido mis pilares. Sin embargo, hay una realidad ineludible: **la vida es corta y los tiempos de compilación son largos.** Compilar el kernel o paquetes pesados en una laptop consume un tiempo precioso que hoy prefiero dedicar a producir.
+Este capítulo explica los conceptos necesarios para entender la estructura Btrfs del proyecto, los snapshots administrados por Snapper y el procedimiento de rollback. No contiene operaciones destructivas.
 
-Viviendo en Venezuela, donde los cortes eléctricos son una constante agresiva, la capacidad de **auto-reparación** y los **snapshots atómicos** de BTRFS ofrecen una capa de seguridad que el esquema tradicional no puede igualar. Una actualización que mata el sistema a mitad, un corte de luz en el momento equivocado — con LVM y XFS eso es una tarde de recuperación. Con BTRFS y snapper, es un rollback de treinta segundos.
+## Btrfs y subvolúmenes
 
-**CachyOS** es la respuesta: binarios optimizados con un kernel agresivo (scheduler BORE), instalación en minutos, y sin renunciar al control absoluto de la consola. Este handbook documenta la migración completa.
+Btrfs permite dividir un sistema de archivos en subvolúmenes administrables de forma independiente. El instalador usa esta estructura:
 
----
-
-## 1. El cambio de paradigma: De LVM a BTRFS
-
-En mi configuración anterior con LVM, el espacio estaba atrapado en muros rígidos. Si `/var` se llenaba, el sistema sufría hasta que yo expandiera manualmente el volumen lógico con `lvextend` y redimensionara el sistema de archivos con `resize2fs`. Un proceso tedioso, con riesgo de error.
-
-**Con BTRFS esos muros desaparecen:**
-
-| LVM + XFS | BTRFS |
-|---|---|
-| Espacio asignado fijo por volumen lógico | Pool compartido — todos los subvolúmenes ven el total disponible |
-| `lvextend` + `resize2fs` para expandir | El espacio fluye solo hacia donde se necesita |
-| Sin snapshots nativos | Snapshots atómicos, instantáneos, sin costo inicial |
-| Rollback = restaurar backup | Rollback = 4 comandos, 30 segundos |
-
----
-
-## 2. ¿Qué es un snapshot en BTRFS?
-
-Un snapshot no es una copia completa de los datos. Es un **puntero** que congela el estado de un subvolumen en un momento exacto.
-
-Imagina una pizarra con dibujos. Un snapshot es como tomar una fotografía: la foto no ocupa el mismo espacio que la pizarra, solo registra qué había dibujado. Cuando modificas la pizarra original, la foto sigue mostrando el estado anterior.
-
-**Técnicamente**: BTRFS usa Copy-on-Write (CoW). Cuando haces un snapshot:
-- Se crea un nuevo subvolumen que apunta a los mismos bloques de datos que el original.
-- Si modificas el original, BTRFS copia SOLO los bloques que cambias.
-- El snapshot sigue apuntando a los bloques viejos.
-
-**Resultado**: Hacer un snapshot es instantáneo (milisegundos) y casi no ocupa espacio inicialmente.
-
----
-
-## 3. ¿Dónde viven los snapshots?
-
-Los snapshots son subvolúmenes normales. Por convención se guardan dentro de `/.snapshots`:
-
-```
-/.snapshots/
-├── 1/
-│   ├── info.xml       (metadatos: fecha, descripción)
-│   └── snapshot/      (el subvolumen snapshot real)
-├── 2/
-│   └── ...
+```text
+@             → /
+@home         → /home
+@log          → /var/log
+@snapshots    → /.snapshots
+@pkg          → /var/cache/pacman/pkg
+@swap         → /swap
+@docker       → /var/lib/docker, cuando se solicita
 ```
 
-La herramienta `snapper` gestiona esta estructura automáticamente.
+La separación es importante durante un rollback. El helper restaura el subvolumen raíz `@`, pero no reemplaza automáticamente `@home`, `@log`, `@pkg`, `@swap` ni `@docker`.
 
----
+## Qué es un snapshot
 
-## 4. ¿Qué significa el símbolo `@`?
+Un snapshot Btrfs captura el estado de un subvolumen en un momento concreto. Inicialmente comparte bloques con el origen y solo consume espacio adicional a medida que los datos divergen.
 
-Al configurar BTRFS notarás que los subvolúmenes se nombran `@`, `@home`, `@log`, etc. No es una regla técnica del sistema de archivos — es una **convención de la comunidad**.
+Un snapshot es útil para recuperarse de:
 
-El `@` permite identificar visualmente qué es un subvolumen y qué es un directorio común. Herramientas como `grub-btrfs` y `snapper` lo buscan por defecto para automatizar snapshots y entradas en el menú de GRUB.
+- Actualizaciones defectuosas.
+- Cambios de configuración que rompen el sistema.
+- Instalaciones o eliminaciones de paquetes no deseadas.
+- Modificaciones accidentales dentro del subvolumen incluido.
 
----
+## Qué no es un snapshot
 
-## 5. La regla de oro: Los snapshots NO son recursivos entre montajes
+Un snapshot **no es un respaldo externo**. Si falla el disco que contiene el sistema de archivos, también pueden perderse sus snapshots.
 
-Este es el punto que más confunde a los usuarios nuevos.
+Mantén copias independientes de los datos importantes, preferiblemente en otro dispositivo o ubicación.
 
-**El error mental clásico:**
-- Tienes `@` montado en `/`
-- Tienes `@home` montado en `/home`
-- Piensas: "Si hago snapshot de `@`, tendré copia de TODO, incluyendo `/home`"
+Los snapshots tampoco resuelven por sí solos:
 
-**La realidad:** Cuando montas `@home` sobre `/home`, le dices al sistema que `/home` es un sistema de archivos independiente. El subvolumen `@` NO ve lo que hay dentro de `@home`.
+- Fallos físicos del almacenamiento.
+- Daños de la partición EFI.
+- Problemas del cargador de arranque.
+- Archivos ubicados en subvolúmenes que no fueron restaurados.
+- Datos externos al sistema de archivos Btrfs.
 
-```
-Subvolumen @              Subvolumen @home
-├── bin/                  ├── usuario1/
-├── etc/                  │   ├── Documentos/
-├── usr/                  │   └── Descargas/
-└── home/  ← VACÍO        └── usuario2/
-   (porque @home se monta encima)
-```
+## Snapper
 
-**Consecuencia práctica:**
-- Snapshot de `@` = respaldo del sistema operativo (sin datos de usuario)
-- Snapshot de `@home` = respaldo de tus documentos
-- Para un respaldo completo necesitas snapshots de ambos
+Snapper administra snapshots y sus metadatos. La configuración del proyecto se llama `root` y opera sobre `/`.
 
----
-
-## 6. ¿Qué significa arrancar desde un snapshot?
-
-Cuando arrancas normalmente, GRUB pasa al kernel:
-
-```
-root=/dev/nvme0n1p2 rootflags=subvol=@
+```bash
+sudo snapper -c root list
 ```
 
-Si quieres arrancar desde un snapshot, GRUB pasa:
+Snapper distingue:
 
-```
-root=/dev/nvme0n1p2 rootflags=subvol=@/.snapshots/1/snapshot
-```
+- `single`: snapshot independiente.
+- `pre`: estado anterior a una operación.
+- `post`: estado posterior relacionado con un snapshot `pre`.
 
-El kernel monta el snapshot como si fuera el sistema raíz. Verás todos tus archivos tal como estaban en el momento del snapshot. El acceso es en **modo solo lectura** por seguridad.
+`snap-pac` crea pares `pre/post` alrededor de operaciones de paquetes.
 
----
+## Identificadores
 
-## 7. Rollback: convertir un snapshot en el sistema activo
+No confundas estos valores:
 
-Arrancar desde un snapshot es temporal. Para que el snapshot se convierta en tu sistema permanente:
+1. **Número de Snapper:** identifica una entrada en `snapper list`.
+2. **ID de subvolumen Btrfs:** identifica internamente un subvolumen.
+3. **Nombre del subvolumen:** por ejemplo `@`, `@snapshots` o `@_old_FECHA`.
 
-1. Renombrar el subvolumen `@` actual como `@.broken`
-2. Crear un nuevo `@` a partir del snapshot deseado
-3. Reiniciar
+Al restaurar el snapshot de Snapper número `3`, el helper crea un nuevo subvolumen Btrfs llamado `@`. No crea automáticamente el snapshot de Snapper número `4`.
 
-El Capítulo 11 documenta este procedimiento en detalle.
+Cuando Snapper vuelva a crear un snapshot, seguirá su secuencia histórica. Los números identifican la creación del snapshot, no la versión lógica del sistema que contiene.
 
----
+## Snapshot inicial
 
-## 8. ¿Por qué separar ciertos directorios en subvolúmenes independientes?
+Al terminar la instalación, el proyecto crea:
 
-| Directorio | ¿Separar? | Motivo |
-|---|---|---|
-| `/home` | **Sí** | No perder documentos al restaurar el sistema |
-| `/var/log` | **Sí** | Los logs sobreviven al rollback para diagnosticar qué falló |
-| `/var/cache` | **Sí** | La caché de paquetes no necesita respaldo — ahorra espacio |
-| `/var/lib/docker` | **Sí** | Las imágenes Docker son gigabytes, no conviene snapshotearlas |
-| `/var/lib/containerd` | **Sí** | Mismo criterio que Docker |
-| `/boot` | **Dentro de `@`** | Los kernels se incluyen en snapshots — rollback consistente |
-
----
-
-## 9. El dilema de `/boot`: consistencia vs compatibilidad
-
-**Escenario A — EFI montado en `/boot` (FAT32 fuera de BTRFS):**
-- Los kernels NO están en snapshots
-- Restauras el sistema pero el kernel sigue siendo el nuevo
-- Riesgo: incompatibilidad kernel ↔ módulos o initramfs
-
-**Escenario B — EFI en `/efi`, `/boot` dentro de BTRFS (este handbook):**
-- Los kernels SÍ están en snapshots
-- Restauras sistema + kernel exacto que funcionaba
-- Rollbacks consistentes y seguros
-
-Este handbook usa el Escenario B. Es la configuración que usan distribuciones empresariales como openSUSE para garantizar rollbacks fiables.
-
----
-
-## 10. Estructura final del sistema
-
-```
-Partición EFI (FAT32)          Partición BTRFS (pool)
-/dev/nvme0n1p1                 /dev/nvme0n1p2
-│                              │
-└── /efi/                      ├── @              → montado en /
-    └── EFI/CachyOS/           ├── @home          → montado en /home
-        └── grubx64.efi        ├── @log           → montado en /var/log
-                               ├── @snapshots     → montado en /.snapshots
-                               ├── @pkg           → montado en /var/cache/pacman/pkg
-                               ├── @swap          → montado en /swap
-                               ├── @docker        → montado en /var/lib/docker
-                               └── snapshots
-                                   └── 1/snapshot/
+```text
+sistema-base-instalado
 ```
 
----
+con el metadato:
 
-## 11. Lo que aprenderás en los siguientes capítulos
+```text
+important=yes
+```
 
-| Capítulo | Contenido |
-|---|---|
-| 2 | Particionado y montaje desde el Live USB |
-| 3 | Instalación base con pacstrap |
-| 4 | Repositorios CachyOS |
-| 5 | Configuración del sistema: locale, hostname, usuarios |
-| 6 | Configuración de Snapper y hooks automáticos de pacman |
-| 7 | Configuración de GRUB con soporte para snapshots |
-| 8 | Configuración de mkinitcpio |
-| 9 | Verificación de snapshots |
-| 10 | Primer arranque |
-| 11 | Rollback desde GRUB o chroot |
-| 12 | Instalación del entorno gráfico Hyprland (estilo Omarchy) |
-| 13 | Configuración de Waybar |
-| 14 | Uso de Hyprland: combinaciones de teclas |
-| 15 | Gestión de paquetes |
-| 16 | Acceso remoto |
-| 17 | Herramientas CLI modernas |
-| 18 | Gaming: Steam, GameMode, MangoHud, Proton-GE |
+Este snapshot representa el primer estado base recuperable. Debe conservarse mientras siga siendo útil, pero no sustituye una copia de seguridad.
 
----
+## Rollback
 
-[Índice](..) · [Cap. 02 — Particionado y montaje](Capítulo-02-Particionado-y-montaje-desde-el-Live-USB.md) →
+El rollback permanente del proyecto sigue este modelo:
+
+```text
+snapshot elegido
+      ↓
+nuevo subvolumen @
+      ↓
+@ anterior renombrado a @_old_FECHA
+      ↓
+nuevo @ establecido como subvolumen predeterminado
+```
+
+El backup `@_old_FECHA` no es administrado por Snapper y no se elimina automáticamente. Debe revisarse y eliminarse manualmente, por su nombre exacto, solo después de validar el sistema restaurado.
+
+## Mantenimiento
+
+Los snapshots consumen espacio conforme cambian los datos. El proyecto configura limpieza por cantidad, línea de tiempo y pares vacíos. Revisa periódicamente:
+
+```bash
+sudo snapper -c root list
+sudo btrfs filesystem usage /
+sudo btrfs subvolume list /
+```
+
+No elimines snapshots o subvolúmenes únicamente porque tengan un número antiguo. Primero confirma su descripción, fecha, importancia y propósito.
+
+## Principios de seguridad
+
+- Nunca uses comodines para eliminar `@_old_*`.
+- No elimines el sistema anterior inmediatamente después de un rollback.
+- No reinicies un equipo de producción sin haber revisado el procedimiento.
+- Verifica siempre el sistema de archivos y el dispositivo antes de montar o modificar subvolúmenes.
+- Conserva respaldos externos de los datos importantes.
+
+## Referencias
+
+- CachyOS Wiki, Btrfs snapshots: <https://wiki.cachyos.org/configuration/btrfs_snapshots/>
+- Snapper manual: <https://snapper.io/manpages/snapper.html>
+- Snapper configuration: <https://snapper.io/manpages/snapper-configs.html>

@@ -1,203 +1,273 @@
-← [Cap. 14 — Uso de Hyprland](Capítulo-14-Uso-Hyprland.md) · [Índice](..) · [Cap. 16 — Acceso remoto](Capítulo-16-Acceso-Remoto.md) →
+# Capítulo 15: Gestión de paquetes
 
----
+[← Cap. 14: Uso de Hyprland](Capítulo-14-Uso-Hyprland.md) · [Índice](./_index.md) · [Cap. 16: Acceso remoto →](Capítulo-16-Acceso-Remoto.md)
 
 ## Introducción
 
-CachyOS es Arch-based. El gestor de paquetes nativo es **pacman**, complementado con **paru** como AUR helper. CachyOS añade sus propios repositorios con paquetes optimizados para arquitecturas modernas (x86-64-v3, x86-64-v4).
+CachyOS utiliza Pacman para administrar paquetes precompilados de Arch Linux y CachyOS. Paru añade automatización para AUR, cuyos paquetes se distribuyen como recetas `PKGBUILD` y se compilan localmente.
 
-| Herramienta | Repositorios | Requiere sudo |
-|---|---|---|
-| `pacman` | Arch + CachyOS | Sí |
-| `paru` | Arch + CachyOS + AUR | No |
+Para repositorios oficiales y CachyOS, usa Pacman como opción principal. Reserva Paru para AUR o para un flujo combinado que comprendas.
 
-> `paru` llama a `sudo` internamente cuando es necesario. Para operaciones del sistema usa `paru`; reserva `pacman` para scripts que requieran control explícito del sudo.
+## Pacman
 
----
-
-## pacman — operaciones básicas
-
-### Instalar paquetes
-
-```bash
-sudo pacman -S nombre-paquete
-sudo pacman -S --needed nombre-paquete   # no reinstala si ya está instalado
-```
-
-### Actualizar el sistema
+### Actualización completa
 
 ```bash
 sudo pacman -Syu
 ```
 
-### Eliminar paquetes
+Arch Linux no admite actualizaciones parciales. Evita refrescar bases sin actualizar, por ejemplo:
 
-```bash
-sudo pacman -R nombre-paquete            # elimina el paquete
-sudo pacman -Rs nombre-paquete           # elimina con dependencias huérfanas
-sudo pacman -Rns nombre-paquete          # elimina con dependencias y archivos de configuración
+```text
+pacman -Sy paquete
 ```
 
-### Buscar paquetes
+Instalar paquetes contra bases nuevas y un sistema antiguo puede producir incompatibilidades de bibliotecas.
+
+### Instalar
 
 ```bash
-pacman -Ss término                       # buscar en repositorios
-pacman -Qs término                       # buscar en instalados
+sudo pacman -S paquete
 ```
-
-### Información de paquetes
 
 ```bash
-pacman -Si nombre-paquete                # info del repositorio
-pacman -Qi nombre-paquete                # info del instalado
-pacman -Ql nombre-paquete                # archivos instalados por el paquete
-pacman -Q                                # listar todos los instalados
-pacman -Qe                               # listar solo los instalados explícitamente
+sudo pacman -S --needed paquete
 ```
 
----
-
-## paru — AUR helper
-
-`paru` tiene sintaxis idéntica a `pacman`. La diferencia es que accede también al AUR (Arch User Repository) y no requiere `sudo` — lo gestiona internamente.
-
-### Instalar (repo oficial o AUR)
+### Buscar
 
 ```bash
-paru -S nombre-paquete
-paru -S --needed nombre-paquete
+pacman -Ss termino
 ```
 
-### Actualizar sistema completo (repos + AUR)
+```bash
+pacman -Qs termino
+```
+
+### Consultar
+
+```bash
+pacman -Si paquete
+```
+
+```bash
+pacman -Qi paquete
+```
+
+```bash
+pacman -Ql paquete
+```
+
+```bash
+pacman -Qo /ruta/al/archivo
+```
+
+### Eliminar
+
+```bash
+sudo pacman -R paquete
+```
+
+```bash
+sudo pacman -Rs paquete
+```
+
+```bash
+sudo pacman -Rns paquete
+```
+
+Lee siempre la lista de paquetes que serán eliminados antes de aceptar.
+
+## Paru y AUR
+
+Paru es un wrapper de Pacman y un helper de AUR. Los helpers de AUR no forman parte del soporte oficial de Arch Linux. Debes conocer el proceso manual con `makepkg` y revisar las fuentes antes de instalar.
+
+No ejecutes:
+
+```text
+sudo paru
+```
+
+Paru solicita elevación cuando Pacman la necesita, pero la compilación de paquetes AUR debe realizarse como usuario normal.
+
+### Buscar e instalar desde AUR
+
+```bash
+paru -Ss termino
+```
+
+```bash
+paru -S paquete-aur
+```
+
+### Revisar un PKGBUILD
+
+```bash
+paru -Gp paquete-aur
+```
+
+O descarga los archivos para inspeccionarlos:
+
+```bash
+paru -G paquete-aur
+```
+
+Revisa al menos:
+
+- `PKGBUILD`.
+- Archivos `.install`.
+- Parches incluidos.
+- URLs de origen.
+- Comandos ejecutados en `prepare()`, `build()` y `package()`.
+
+Si una compilación falla, prueba el proceso con `makepkg` antes de atribuir el error a Paru.
+
+### Actualizar AUR
+
+```bash
+paru -Sua
+```
+
+Para un flujo combinado de repositorios y AUR puede utilizarse:
 
 ```bash
 paru -Syu
 ```
 
-### Buscar en AUR
+Aun así, revisa las noticias y avisos de CachyOS y Arch antes de actualizaciones importantes.
 
-```bash
-paru -Ss término
-paru -Sa término                         # buscar solo en AUR
-```
-
-### Operaciones solo en AUR
-
-```bash
-paru --aur -Syu                          # actualizar solo paquetes AUR
-```
-
-> Los paquetes del AUR se compilan localmente. `paru` muestra el PKGBUILD para revisión antes de instalar — responder `N` para cancelar si algo parece sospechoso.
-
----
-
-## Repositorios CachyOS
-
-CachyOS agrega sus propios repos en `/etc/pacman.conf`. Incluyen paquetes recompilados con optimizaciones para CPUs modernos y el kernel CachyOS.
-
-Ver repositorios activos:
+## Repositorios activos
 
 ```bash
 pacman-conf --repo-list
 ```
 
-Los repos `cachyos`, `cachyos-core`, `cachyos-extra` y `cachyos-multilib` contienen versiones optimizadas de paquetes comunes (mesa, ffmpeg, gcc, etc.).
+No codifiques una lista fija de nombres en procedimientos de mantenimiento. Las variantes de repositorio de CachyOS pueden cambiar según la arquitectura y la configuración instalada.
 
----
+## Huérfanos
 
-## Mantenimiento
-
-### Actualización completa del sistema
+Lista dependencias que ya no son necesarias:
 
 ```bash
-paru -Syu
+pacman -Qtdq
 ```
 
-Actualiza repos oficiales, CachyOS y AUR en un solo comando.
+Si la salida está vacía, no hay nada que eliminar.
 
-### Limpiar caché de paquetes
-
-pacman guarda todos los paquetes descargados en `/var/cache/pacman/pkg/`. Limpiar periódicamente:
+Para eliminar de forma segura la lista producida:
 
 ```bash
-sudo pacman -Sc     # elimina versiones antiguas, conserva la instalada
-sudo pacman -Scc    # elimina toda la caché (libera más espacio)
+pacman -Qtdq | sudo pacman -Rns -
 ```
 
-### Eliminar paquetes huérfanos
+Revisa la transacción antes de confirmar. No uses sustitución `$(pacman -Qtdq)` sin manejar el caso vacío.
 
-Paquetes instalados como dependencia que ya no son necesarios:
+## Caché de paquetes
+
+La caché permite reinstalar o degradar paquetes sin volver a descargarlos. No conviene eliminarla por completo como mantenimiento rutinario.
+
+`paccache` pertenece al paquete `pacman-contrib`:
 
 ```bash
-pacman -Qtdq                              # listar huérfanos
-sudo pacman -Rns $(pacman -Qtdq)         # eliminarlos (si hay alguno)
+sudo pacman -S --needed pacman-contrib
 ```
 
-### Actualizar mirrors
-
-CachyOS incluye `cachyos-rate-mirrors` para ordenar los mirrors por velocidad. Se ejecuta automáticamente vía timer, pero se puede lanzar manualmente:
+Conserva las tres versiones más recientes:
 
 ```bash
-rate-mirrors --protocol https cachyos | sudo tee /etc/pacman.d/cachyos-mirrorlist
+sudo paccache -r
 ```
 
-Verificar cuándo se ejecutó el timer por última vez:
+Conserva una versión de paquetes desinstalados:
 
 ```bash
-systemctl status cachyos-rate-mirrors.timer
+sudo paccache -ruk1
 ```
 
-### Verificar integridad de paquetes instalados
+Evita usar habitualmente:
+
+```text
+pacman -Scc
+```
+
+Eliminar toda la caché reduce las opciones de recuperación rápida.
+
+## Mirrors
+
+El proyecto utiliza `cachyos-rate-mirrors`. Para una ejecución manual:
 
 ```bash
-sudo pacman -Qk 2>&1 | grep -v "0 advertencias"
+sudo cachyos-rate-mirrors
 ```
 
----
+Comprueba primero su ayuda y configuración instalada:
 
-## Snapper — instantáneas automáticas
-
-CachyOS incluye **snapper** integrado con pacman. Cada instalación o actualización de paquetes genera automáticamente dos snapshots del sistema de archivos (pre y post):
-
-```
-==> root: 82    ← snapshot pre-instalación
-==> root: 83    ← snapshot post-instalación
+```bash
+cachyos-rate-mirrors --help
 ```
 
-Listar snapshots:
+No reemplaces manualmente la mirrorlist con un comando genérico si el wrapper de CachyOS ya administra varias mirrorlists.
+
+## Verificación de paquetes
+
+Comprueba los archivos de un paquete:
+
+```bash
+pacman -Qk paquete
+```
+
+Comprueba todos los paquetes, sabiendo que puede producir bastante salida:
+
+```bash
+pacman -Qk
+```
+
+Los archivos de configuración modificados o ciertos archivos generados pueden requerir interpretación. No elimines ni reinstales paquetes basándote únicamente en una línea sin contexto.
+
+## Snapper y transacciones
+
+`snap-pac` puede crear snapshots `pre/post` alrededor de operaciones de Pacman.
 
 ```bash
 sudo snapper -c root list
 ```
 
-Comparar cambios entre snapshots:
+`snapper undochange` revierte diferencias de archivos entre snapshots. No equivale al rollback completo del subvolumen raíz realizado por:
 
 ```bash
-sudo snapper -c root diff 82..83
+sudo btrfs-rollback ID
 ```
 
-Restaurar a un snapshot anterior (desde live USB si el sistema no arranca):
+Para una recuperación completa, consulta el [Capítulo 11](Capítulo-11-Rollback.md).
 
-```bash
-sudo snapper -c root undochange 83..82
-```
+## Prácticas recomendadas
 
-> Los snapshots requieren que la partición raíz esté en **Btrfs**. Si el sistema usa ext4, snapper no genera snapshots.
-
----
+- Actualiza con `pacman -Syu`.
+- Lee avisos de CachyOS y Arch antes de cambios importantes.
+- Revisa los `PKGBUILD` del AUR.
+- No uses `sudo` para compilar paquetes AUR.
+- Conserva varias versiones en la caché.
+- Revisa huérfanos antes de eliminarlos.
+- Comprueba snapshots antes y después de mantenimiento relevante.
+- Evita actualizaciones parciales.
 
 ## Referencia rápida
 
-```
-paru -Syu               → actualizar todo
-paru -S paquete         → instalar
-paru -Ss término        → buscar
-pacman -Qi paquete      → info del instalado
-pacman -Rns paquete     → desinstalar limpio
-sudo pacman -Sc         → limpiar caché
-pacman -Qtdq            → listar huérfanos
+```text
+sudo pacman -Syu       Actualizar repositorios oficiales y CachyOS
+sudo pacman -S paquete Instalar paquete precompilado
+pacman -Ss termino     Buscar en repositorios
+pacman -Qi paquete     Consultar paquete instalado
+sudo pacman -Rns pkg   Eliminar paquete y dependencias no usadas
+paru -S paquete-aur    Compilar e instalar desde AUR
+paru -Sua              Actualizar paquetes AUR
+sudo paccache -r       Conservar tres versiones en caché
+pacman -Qtdq           Listar huérfanos
 ```
 
----
+## Referencias
 
-← [Cap. 14 — Uso de Hyprland](Capítulo-14-Uso-Hyprland.md) · [Índice](..) · [Cap. 16 — Acceso remoto](Capítulo-16-Acceso-Remoto.md) →
+- ArchWiki, Pacman: <https://wiki.archlinux.org/title/Pacman>
+- ArchWiki, helpers de AUR: <https://wiki.archlinux.org/title/AUR_helpers>
+- Paru: <https://github.com/Morganamilo/paru>
+- CachyOS FAQ: <https://wiki.cachyos.org/cachyos_basic/faq/>

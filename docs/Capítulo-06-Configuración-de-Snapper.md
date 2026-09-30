@@ -1,266 +1,204 @@
-← [Cap. 05 — Configuración del sistema](Capítulo-05-Configuración-del-sistema.md) · [Índice](..) · [Cap. 07 — Configuración de GRUB](Capítulo-07-Configuración-de-GRUB.md) →
+# Capítulo 06: Configuración y mantenimiento de Snapper
 
----
+[← Cap. 05: Configuración del sistema](Capítulo-05-Configuración-del-sistema.md) · [Índice](./_index.md) · [Cap. 07: GRUB →](Capítulo-07-Configuración-de-GRUB.md)
 
-En este capítulo configuramos snapper para gestionar snapshots BTRFS automáticamente. Al finalizar, el sistema creará snapshots antes y después de cada operación de pacman, y también por calendario (cada hora, cada día).
+## Objetivo
 
-> Todos los comandos de este capítulo se ejecutan **dentro del chroot**.
+El instalador configura Snapper para administrar snapshots del subvolumen raíz Btrfs. Este capítulo describe la configuración realmente generada por `base/install-base.sh` y su mantenimiento.
 
----
+## Estructura requerida
 
-## 1. Crear la configuración de snapper para la raíz
-
-Snapper necesita una configuración por cada subvolumen que va a gestionar. La creación de la configuración implica un procedimiento especial porque ya existe `@snapshots` montado en `/.snapshots`.
-
-**Por qué es necesario este procedimiento:** snapper intenta crear un subvolumen BTRFS en `/.snapshots` durante `create-config`. Como ese directorio ya está ocupado por el montaje de `@snapshots`, falla con `errno:17 (File exists)`. La solución es desmontarlo temporalmente, dejar que snapper cree su configuración y el subvolumen, eliminar ese subvolumen interno, y volver a montar `@snapshots`.
-
-Además, dentro del entorno chroot D-Bus no está en ejecución, por lo que es obligatorio usar el flag `--no-dbus` en todos los comandos de snapper.
-
-> **Nota:** `create-config` registra el nombre del config en `/etc/conf.d/snapper` (clave `SNAPPER_CONFIGS`), además de crear el archivo `/etc/snapper/configs/root`. Si alguna vez necesitas rehacer este paso, usa `snapper --no-dbus -c root delete-config` — no borres el archivo manualmente, ya que eso deja el registro en `/etc/conf.d/snapper` y el siguiente `create-config` fallará con `config already exists`.
-
-Desmonta `/.snapshots` temporalmente:
-
-```bash
-umount /.snapshots
-```
-
-Elimina el directorio vacío:
-
-```bash
-rmdir /.snapshots
-```
-
-Crea la configuración de snapper. Esta vez sí tendrá éxito porque el directorio ya no existe:
-
-```bash
-snapper --no-dbus -c root create-config /
-```
-
-Snapper habrá creado un subvolumen `.snapshots` dentro de `@`. Elimínalo — usaremos `@snapshots` en su lugar:
-
-```bash
-btrfs subvolume delete /.snapshots
-```
-
-Resultado esperado:
+El instalador crea y monta:
 
 ```text
-Delete subvolume 265 (no-commit): '//.snapshots'
+@snapshots → /.snapshots
 ```
 
-Recrea el directorio vacío y monta `@snapshots`. Sustituye `/dev/DISCO_BTRFS` por la partición BTRFS del equipo (ej. `/dev/nvme0n1p2` en NVMe, `/dev/sda2` en SATA):
-
-```bash
-mkdir /.snapshots
-mount -o noatime,compress=zstd,ssd,subvol=@snapshots /dev/DISCO_BTRFS /.snapshots
-```
-
-> El mensaje `systemctl daemon-reload` que puede aparecer al montar es inofensivo en el entorno chroot. No requiere ninguna acción.
-
-Este comando crea el archivo `/etc/snapper/configs/root` con los parámetros por defecto.
-
-> Una vez arrancado el sistema real, snapper funciona con normalidad sin el flag `--no-dbus`.
-
-Verifica que el archivo fue creado:
-
-```bash
-cat /etc/snapper/configs/root
-```
-
----
-
-## 2. Verificar el punto de montaje /.snapshots
-
-Después de crear la configuración, confirma que `/.snapshots` sigue siendo el subvolumen `@snapshots` que montamos en el Capítulo 3 y no fue reemplazado por snapper:
-
-```bash
-findmnt /.snapshots
-```
-
-Resultado esperado:
+La configuración se guarda en:
 
 ```text
-TARGET        SOURCE                        FSTYPE  OPTIONS
-/.snapshots   /dev/nvme0n1p2[/@snapshots]   btrfs   rw,noatime,...
+/etc/snapper/configs/root
 ```
 
-Si el resultado muestra `[/@snapshots]`, está correcto.
-
----
-
-## 3. Ajustar permisos de /.snapshots
-
-Por defecto snapper crea el directorio con permisos restrictivos. Asigna el grupo `sudo` como propietario de grupo y ajusta los permisos para que los miembros del grupo puedan listar snapshots sin necesidad de root:
-
-```bash
-chmod 750 /.snapshots
-chown :sudo /.snapshots
-```
-
-Verifica:
-
-```bash
-ls -la / | grep snapshots
-```
-
-Resultado esperado:
+Y se registra en:
 
 ```text
-drwxr-x---  1 root sudo  ... .snapshots
+/etc/conf.d/snapper
 ```
 
----
+## Política instalada
 
-## 4. Configurar los parámetros de retención
-
-Aplica los valores de retención con `sed`:
-
-```bash
-sed -i \
-  -e 's/ALLOW_GROUPS=""/ALLOW_GROUPS="sudo"/' \
-  -e 's/NUMBER_MIN_AGE="3600"/NUMBER_MIN_AGE="1800"/' \
-  -e 's/TIMELINE_MIN_AGE="3600"/TIMELINE_MIN_AGE="1800"/' \
-  -e 's/TIMELINE_LIMIT_HOURLY="10"/TIMELINE_LIMIT_HOURLY="5"/' \
-  -e 's/TIMELINE_LIMIT_DAILY="10"/TIMELINE_LIMIT_DAILY="7"/' \
-  -e 's/TIMELINE_LIMIT_WEEKLY="0"/TIMELINE_LIMIT_WEEKLY="2"/' \
-  -e 's/TIMELINE_LIMIT_MONTHLY="10"/TIMELINE_LIMIT_MONTHLY="1"/' \
-  -e 's/TIMELINE_LIMIT_YEARLY="10"/TIMELINE_LIMIT_YEARLY="0"/' \
-  /etc/snapper/configs/root
-```
-
-Verifica los valores modificados:
-
-```bash
-grep -E 'ALLOW_GROUPS|NUMBER_MIN_AGE|TIMELINE_LIMIT|TIMELINE_MIN_AGE' /etc/snapper/configs/root
-```
-
-Resultado esperado:
+La configuración actual usa:
 
 ```text
-ALLOW_GROUPS="sudo"
+NUMBER_CLEANUP="yes"
 NUMBER_MIN_AGE="1800"
+NUMBER_LIMIT="50"
+NUMBER_LIMIT_IMPORTANT="10"
+
+TIMELINE_CREATE="yes"
+TIMELINE_CLEANUP="yes"
 TIMELINE_MIN_AGE="1800"
 TIMELINE_LIMIT_HOURLY="5"
 TIMELINE_LIMIT_DAILY="7"
-TIMELINE_LIMIT_WEEKLY="2"
-TIMELINE_LIMIT_MONTHLY="1"
-TIMELINE_LIMIT_QUARTERLY="0"
+TIMELINE_LIMIT_WEEKLY="0"
+TIMELINE_LIMIT_MONTHLY="0"
 TIMELINE_LIMIT_YEARLY="0"
+
+EMPTY_PRE_POST_CLEANUP="yes"
+EMPTY_PRE_POST_MIN_AGE="1800"
 ```
 
-Descripción de los parámetros clave:
+Interpretación:
 
-| Parámetro | Valor | Descripción |
-|---|---|---|
-| `ALLOW_GROUPS` | `sudo` | Grupo autorizado a usar snapper sin privilegios de root |
-| `NUMBER_CLEANUP` | `yes` | Activa la limpieza automática de snapshots pre/post |
-| `NUMBER_LIMIT` | `50` | Máximo de snapshots numerados a conservar |
-| `NUMBER_LIMIT_IMPORTANT` | `10` | Máximo de snapshots marcados como importantes |
-| `TIMELINE_CREATE` | `yes` | Activa los snapshots automáticos por calendario |
-| `TIMELINE_CLEANUP` | `yes` | Activa la limpieza automática de snapshots de calendario |
-| `TIMELINE_LIMIT_HOURLY` | `5` | Snapshots por hora a conservar |
-| `TIMELINE_LIMIT_DAILY` | `7` | Snapshots diarios a conservar |
-| `TIMELINE_LIMIT_WEEKLY` | `2` | Snapshots semanales a conservar |
-| `TIMELINE_LIMIT_MONTHLY` | `1` | Snapshots mensuales a conservar |
-| `TIMELINE_LIMIT_YEARLY` | `0` | Snapshots anuales (desactivado) |
+- Se conservan hasta 50 snapshots administrados por el algoritmo `number`.
+- Hasta 10 snapshots importantes pueden conservarse dentro de esa política.
+- La línea temporal conserva 5 horarios y 7 diarios.
+- No conserva automáticamente históricos semanales, mensuales ni anuales.
+- Los pares `pre/post` sin cambios pueden eliminarse.
+- La edad mínima de limpieza es de 1800 segundos.
 
----
+## Servicios de mantenimiento
 
-## 5. Habilitar los servicios de snapper
-
-Habilita el timer que crea snapshots automáticos por calendario:
+El instalador habilita:
 
 ```bash
-systemctl enable snapper-timeline.timer
+sudo systemctl enable --now snapper-timeline.timer
+sudo systemctl enable --now snapper-cleanup.timer
 ```
 
-Habilita el timer que limpia snapshots antiguos según las reglas de retención:
+Comprueba su estado:
 
 ```bash
-systemctl enable snapper-cleanup.timer
+systemctl status snapper-timeline.timer
+systemctl status snapper-cleanup.timer
+systemctl list-timers 'snapper-*'
 ```
 
-Verifica que ambos quedaron habilitados:
+## Snapshot inicial protegido
+
+El instalador crea:
 
 ```bash
-systemctl is-enabled snapper-timeline.timer snapper-cleanup.timer
+sudo snapper -c root create   --description "sistema-base-instalado"   --userdata "important=yes"
 ```
 
-Resultado esperado:
+Durante la instalación desde chroot se utiliza `--no-dbus`. Después del arranque normal no es necesario usar esa opción.
+
+Comprueba el snapshot:
+
+```bash
+sudo snapper -c root list
+```
+
+## Snapshots de paquetes
+
+Con `snap-pac`, las operaciones de Pacman pueden crear pares `pre/post` automáticamente.
+
+Comprueba la integración después de una operación real de paquetes:
+
+```bash
+sudo snapper -c root list
+```
+
+No instales paquetes innecesarios únicamente para generar snapshots en un equipo de producción.
+
+## Limpieza manual
+
+Consulta primero la lista:
+
+```bash
+sudo snapper -c root list
+```
+
+Para ejecutar los algoritmos configurados:
+
+```bash
+sudo snapper -c root cleanup number
+sudo snapper -c root cleanup timeline
+sudo snapper -c root cleanup empty-pre-post
+```
+
+Para eliminar un snapshot concreto:
+
+```bash
+sudo snapper -c root delete ID
+```
+
+Sustituye `ID` por un número revisado previamente. No elimines el snapshot base ni otros snapshots importantes sin comprender sus consecuencias.
+
+## Espacio usado
+
+Revisa periódicamente:
+
+```bash
+sudo btrfs filesystem usage /
+sudo btrfs filesystem df /
+sudo snapper -c root list
+```
+
+La configuración contiene valores `SPACE_LIMIT` y `FREE_LIMIT`, pero la limpieza basada en espacio depende de cuotas Btrfs correctamente configuradas. El proyecto no debe prometer esa protección hasta que las cuotas se habiliten y validen en un commit independiente.
+
+## Backups `@_old_FECHA`
+
+Los subvolúmenes creados por `btrfs-rollback` con nombres como:
 
 ```text
-enabled
-enabled
+@_old_20260929_091500
 ```
 
----
+no forman parte de Snapper. Por tanto:
 
-## 6. Verificar los hooks de snap-pac
+- No aparecen como snapshots normales.
+- No son eliminados por `snapper-cleanup.timer`.
+- Deben revisarse con `btrfs subvolume list`.
+- Se eliminan manualmente por nombre exacto después de validar el rollback.
 
-Los hooks de pacman que disparan snapper se instalaron con `snap-pac` en el Capítulo 3. Verifica que están presentes:
+Ejemplo de localización, sin eliminar:
 
 ```bash
-ls /usr/share/libalpm/hooks/ | grep snap
+sudo btrfs subvolume list / | grep '@_old_'
 ```
 
-Resultado esperado:
+No uses comodines con `btrfs subvolume delete`.
 
-```text
-05-snap-pac-pre.hook
-10-snap-pac-removal.hook
-zz-snap-pac-post.hook
-```
-
-| Hook | Descripción |
-|---|---|
-| `05-snap-pac-pre.hook` | Se ejecuta antes de instalaciones y actualizaciones (`-S`, `-Syu`) — crea el snapshot **pre** |
-| `10-snap-pac-removal.hook` | Se ejecuta antes de remociones (`-R`) — crea el snapshot **pre** para operaciones de desinstalación |
-| `zz-snap-pac-post.hook` | Se ejecuta al finalizar cualquier operación de pacman — crea el snapshot **post** |
-
-El prefijo numérico controla el orden de ejecución dentro del sistema de hooks de libalpm.
-
----
-
-## 7. Crear un snapshot manual de prueba
-
-Crea el primer snapshot manualmente para verificar que todo funciona:
+## Validación
 
 ```bash
-snapper --no-dbus -c root create --description "sistema base limpio post-instalacion"
+sudo snapper -c root list-configs
+sudo snapper -c root get-config
+findmnt /
+findmnt /.snapshots
+systemctl --failed
 ```
 
-Lista los snapshots existentes:
+También comprueba permisos:
 
 ```bash
-snapper --no-dbus -c root list
+sudo ls -ld /.snapshots
 ```
 
-Resultado esperado:
+## Problemas frecuentes
 
-```text
- # | Type   | Pre # | Date | User | Cleanup | Description
----+--------+-------+------+------+---------+----------------------------
- 0 | single |       |      | root |         | current
- 1 | single |       | ...  | root |         | sistema base limpio post-instalacion
+### La configuración `root` no existe
+
+```bash
+sudo snapper list-configs
+sudo test -f /etc/snapper/configs/root
 ```
 
-El snapshot `0` representa el estado actual del sistema (no es un snapshot real, es una referencia). El snapshot `1` es el que acabas de crear.
+No ejecutes `create-config` sobre una estructura ya preparada por el instalador sin revisar primero `/.snapshots` y `/etc/snapper/configs/root`.
 
----
+### Los snapshots no aparecen en GRUB
 
-## Estado esperado al final del capítulo
+Snapper y GRUB son componentes distintos. Primero confirma que los snapshots existan. Después revisa `grub-btrfs` y su servicio.
 
-Al terminar este capítulo:
+### El espacio no disminuye inmediatamente
 
-- Snapper tiene una configuración activa para el subvolumen raíz `/`.
-- `/.snapshots` está montado correctamente con permisos para el grupo `sudo`.
-- Los parámetros de retención están configurados.
-- Los servicios `snapper-timeline.timer` y `snapper-cleanup.timer` están habilitados.
-- Los hooks de `snap-pac` están en su lugar.
-- Existe al menos un snapshot manual que confirma que el sistema funciona.
+Btrfs comparte bloques entre snapshots. La eliminación de un snapshot no implica que todos sus bloques sean liberados si siguen referenciados por otros subvolúmenes.
 
-El siguiente capítulo configura GRUB para que muestre los snapshots disponibles en el menú de arranque.
+## Referencias
 
----
-
-← [Cap. 05 — Configuración del sistema](Capítulo-05-Configuración-del-sistema.md) · [Índice](..) · [Cap. 07 — Configuración de GRUB](Capítulo-07-Configuración-de-GRUB.md) →
+- Snapper manual: <https://snapper.io/manpages/snapper.html>
+- Snapper configuration: <https://snapper.io/manpages/snapper-configs.html>
+- CachyOS Wiki, Btrfs snapshots: <https://wiki.cachyos.org/configuration/btrfs_snapshots/>

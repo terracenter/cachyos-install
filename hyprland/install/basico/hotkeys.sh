@@ -69,6 +69,7 @@ hl.bind(mainMod .. " + L", hl.dsp.exec_cmd("hyprlock"))
 hl.bind(mainMod .. " + M", hl.dsp.exec_cmd("~/.local/bin/power-menu"))
 hl.bind(mainMod .. " + F", hl.dsp.window.fullscreen())
 hl.bind(mainMod .. " + T", hl.dsp.exec_cmd("~/.local/bin/toggle-window-float"))
+hl.bind(mainMod .. " + SHIFT + T", hl.dsp.exec_cmd("~/.local/bin/theme-switcher"))
 
 hl.bind(mainMod .. " + left", hl.dsp.focus({ direction = "left" }))
 hl.bind(mainMod .. " + right", hl.dsp.focus({ direction = "right" }))
