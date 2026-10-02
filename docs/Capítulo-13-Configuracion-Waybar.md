@@ -42,7 +42,7 @@ Los espacios se asignan dinámicamente, cinco por monitor. No se codifican cinco
 ### Módulos de la derecha
 
 - `network`: red cableada, Wi-Fi o desconectada.
-- `pulseaudio`: volumen y acceso a `pavucontrol`.
+- `pulseaudio`: volumen y acceso al menú de audio integrado con `Rofi`.
 - `cpu`: uso de CPU.
 - `memory`: uso de memoria.
 - `battery`: carga y estado de batería cuando existe.

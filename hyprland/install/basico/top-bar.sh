@@ -18,7 +18,7 @@ cat > "$waybar_dir/config.jsonc" <<'JSON'
     "hyprland/workspaces": { "format": "{name}", "on-click": "activate" },
     "clock": { "format": "{:%A %H:%M}", "format-alt": "{:%d/%m/%Y}" },
     "network": { "format-wifi": "󰖩  {essid}", "format-ethernet": "󰈀  {ipaddr}", "format-disconnected": "󰖪" },
-    "pulseaudio": { "format": "󰕾  {volume}%", "format-muted": "󰖁", "on-click": "pavucontrol" },
+    "pulseaudio": { "format": "󰕾  {volume}%", "format-muted": "󰖁", "on-click": "~/.local/bin/hypr-audio-setup" },
     "cpu": { "format": "󰻠  {usage}%" },
     "memory": { "format": "󰍛  {percentage}%" },
     "battery": { "format": "󰁹  {capacity}%", "format-charging": "󰂄  {capacity}%" },

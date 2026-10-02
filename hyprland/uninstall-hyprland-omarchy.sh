@@ -56,6 +56,7 @@ fi
 
 step "Limpiando configuraciones de Hyprland..."
 rm -rf "$HOME/.config/hypr" "$HOME/.config/waybar" "$HOME/.config/mako" "$HOME/.config/swayosd"
+rm -f "$HOME/.local/bin/hypr-audio-setup" "$HOME/.local/bin/hypr-audio-volume" "$HOME/.local/bin/hypr-monitor-workspaces" "$HOME/.local/bin/theme-apply" "$HOME/.local/bin/theme-switcher" "$HOME/.local/bin/power-menu" "$HOME/.local/bin/confirm-close-window" "$HOME/.local/bin/toggle-window-float" "$HOME/.local/bin/render-lockscreen" "$HOME/.local/bin/lockscreen-content" "$HOME/.local/bin/lockscreen-settings" "$HOME/.local/bin/sddm-bg-switcher" "$HOME/.local/share/applications/hypr-audio-setup.desktop" "$HOME/.local/share/applications/sddm-bg-switcher.desktop"
 sudo rm -f /usr/share/wayland-sessions/hyprland.desktop
 
 ok "Configuraciones de Hyprland desinstaladas con éxito."
