@@ -49,6 +49,19 @@ Los espacios se asignan dinámicamente, cinco por monitor. No se codifican cinco
 - `tray`: bandeja de aplicaciones.
 - `custom/power`: abre el menú seguro de sesión y energía.
 
+### Control de audio por aplicación
+
+El icono de audio permite controlar el flujo de la aplicación enfocada:
+
+- Rueda hacia arriba: aumenta el volumen de la aplicación enfocada.
+- Rueda hacia abajo: reduce el volumen de la aplicación enfocada.
+- Clic derecho: abre el menú de audio y ruteo con Rofi.
+- Clic central: abre `pavucontrol`.
+- Clic izquierdo: sin acción, para evitar silencios accidentales.
+
+> **Limitación conocida:** la ventana que reproduce audio debe conservar el foco. Mueve el cursor directamente desde esa ventana hasta el icono de audio de Waybar. Si antes enfocas otra ventana sin audio, el script no podrá identificar el flujo esperado.
+
+
 ## Lanzador
 
 El lanzador abre Rofi:
