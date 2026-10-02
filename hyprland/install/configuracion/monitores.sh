@@ -1,39 +1,51 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
+
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 source "$SCRIPT_DIR/../basico/helpers.sh"
-show_script_version "Monitores Lua y espacios de trabajo" "${BASH_SOURCE[0]}"
+
+show_script_version "Gestion visual de monitores" "${BASH_SOURCE[0]}"
+
 [[ $EUID -ne 0 ]] || die "Ejecuta este modulo como usuario normal."
 
-step "Configurando monitores dinamicos"
-mkdir -p "$HOME/.local/bin" "$HOME/.config/hypr/modules"
+step "Instalando gestor visual de monitores"
 
-cat > "$HOME/.config/hypr/modules/monitors.lua" <<'LUA'
-hl.monitor({ output = "", mode = "preferred", position = "auto", scale = "auto" })
+paru -S --needed --noconfirm nwg-displays \
+    || die "No se pudo instalar nwg-displays"
+
+config_dir="$HOME/.config/hypr"
+mkdir -p "$config_dir"
+
+monitors_file="$config_dir/monitors.lua"
+workspaces_file="$config_dir/workspaces.lua"
+
+if [[ ! -f "$monitors_file" ]]; then
+    cat > "$monitors_file" <<'LUA'
+-- Configuracion inicial segura.
+-- Usa nwg-displays para guardar una distribucion personalizada.
+hl.monitor({
+    output = "",
+    mode = "preferred",
+    position = "auto",
+    scale = "auto",
+})
 LUA
+    ok "Configuracion inicial de monitores creada"
+else
+    ok "Configuracion personalizada de monitores conservada"
+fi
 
-cat > "$HOME/.local/bin/hypr-monitor-workspaces" <<'SCRIPT'
-#!/usr/bin/env bash
-set -u
-configure() {
-    mapfile -t monitors < <(hyprctl monitors -j 2>/dev/null | jq -r 'sort_by(.x, .y) | .[].name')
-    ((${#monitors[@]})) || return 0
-    local index=0 start workspace monitor
-    for monitor in "${monitors[@]}"; do
-        start=$((index * 5 + 1))
-        for ((workspace=start; workspace<start+5; workspace++)); do
-            hyprctl keyword workspace "$workspace,monitor:$monitor,default:false" >/dev/null
-        done
-        index=$((index + 1))
-    done
-}
-configure
-[[ ${1:-} == --watch ]] || exit 0
-socket="$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/.socket2.sock"
-[[ -S $socket ]] || exit 1
-while IFS= read -r event; do
-    case "$event" in monitoradded\>*|monitorremoved\>*) sleep 1; configure ;; esac
-done < <(socat -U - UNIX-CONNECT:"$socket")
-SCRIPT
-chmod 755 "$HOME/.local/bin/hypr-monitor-workspaces"
-ok "Cinco espacios de trabajo por monitor configurados"
+if [[ ! -f "$workspaces_file" ]]; then
+    cat > "$workspaces_file" <<'LUA'
+-- Asignaciones generadas por nwg-displays.
+-- Archivo inicialmente vacio para no imponer rangos de workspaces.
+LUA
+    ok "Archivo inicial de workspaces creado"
+else
+    ok "Asignaciones personalizadas de workspaces conservadas"
+fi
+
+rm -f "$HOME/.local/bin/hypr-monitor-workspaces"
+
+ok "Gestion visual disponible mediante nwg-displays"
+info "Organiza las pantallas, asigna workspaces y guarda desde nwg-displays."

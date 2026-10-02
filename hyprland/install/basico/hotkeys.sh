@@ -16,7 +16,8 @@ mkdir -p "$modules_dir" "$bin_dir"
 
 cat > "$config_file" <<'LUA'
 -- CachyOS Hyprland 0.56+
-require("modules/monitors")
+require("monitors")
+require("workspaces")
 require("modules/input")
 require("modules/appearance")
 require("modules/autostart")
@@ -50,7 +51,6 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("wl-paste --type text --watch cliphist store")
     hl.exec_cmd("wl-paste --type image --watch cliphist store")
     hl.exec_cmd("dbus-update-activation-environment --systemd --all")
-    hl.exec_cmd("~/.local/bin/hypr-monitor-workspaces --watch")
     hl.exec_cmd("~/.local/bin/theme-apply")
 end)
 LUA
