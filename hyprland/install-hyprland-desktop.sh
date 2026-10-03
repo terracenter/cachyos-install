@@ -41,6 +41,7 @@ main() {
     run_module "$CONFIG_DIR/teclado-mouse.sh"
     run_module "$CONFIG_DIR/audio.sh"
     run_module "$CONFIG_DIR/sddm.sh"
+    run_module "$CONFIG_DIR/grub.sh"
 
     header "Hyprland base instalado"
     info "La instalacion de aplicaciones opcionales se realiza por separado."
