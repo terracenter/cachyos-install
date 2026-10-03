@@ -89,6 +89,13 @@ for i = 1, 10 do
     hl.bind(mainMod .. " + " .. key, hl.dsp.focus({ workspace = i }))
     hl.bind(mainMod .. " + SHIFT + " .. key, hl.dsp.window.move({ workspace = i }))
 end
+
+-- Capturas de pantalla
+hl.bind("Print", hl.dsp.exec_cmd("uwsm app -- ~/.local/bin/screenshot-area"))
+hl.bind(mainMod .. " + Print", hl.dsp.exec_cmd("uwsm app -- ~/.local/bin/screenshot-full"))
+hl.bind(mainMod .. " + SHIFT + Print", hl.dsp.exec_cmd("uwsm app -- ~/.local/bin/screenshot-window"))
+hl.bind("CTRL + Print", hl.dsp.exec_cmd("~/.local/bin/screenshot-copy"))
+
 hl.bind(mainMod .. " + mouse:272", hl.dsp.window.drag(), { mouse = true })
 hl.bind(mainMod .. " + mouse:273", hl.dsp.window.resize(), { mouse = true })
 hl.bind("XF86AudioRaiseVolume", hl.dsp.exec_cmd("wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+"), { locked = true, repeating = true })
