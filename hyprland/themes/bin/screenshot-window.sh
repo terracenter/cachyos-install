@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
-SS_DIR="$HOME/Pictures/Screenshots"
+PICTURES_DIR="$(xdg-user-dir PICTURES 2>/dev/null || printf '%s\n' "$HOME/Pictures")"
+SS_DIR="$PICTURES_DIR/Capturas"
 mkdir -p "$SS_DIR"
 FILENAME="$SS_DIR/$(date +%Y%m%d_%H%M%S).png"
 GEOM=$(hyprctl activewindow -j | jq -r '"\(.at[0]),\(.at[1]) \(.size[0])x\(.size[1])"')

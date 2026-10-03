@@ -30,6 +30,10 @@ find "$themes_dir" -type f -name colors.toml \
 
 install -Dm755 "$source_dir/bin/theme-apply.sh" "$bin_dir/theme-apply"
 install -Dm755 "$source_dir/bin/theme-switcher.sh" "$bin_dir/theme-switcher"
+install -Dm755 "$source_dir/bin/screenshot-area.sh" "$bin_dir/screenshot-area"
+install -Dm755 "$source_dir/bin/screenshot-copy.sh" "$bin_dir/screenshot-copy"
+install -Dm755 "$source_dir/bin/screenshot-full.sh" "$bin_dir/screenshot-full"
+install -Dm755 "$source_dir/bin/screenshot-window.sh" "$bin_dir/screenshot-window"
 install -Dm644 "$source_dir/nord/wallpaper.jpg" \
     "$backgrounds_dir/omarchy-nord-0-black-moon.jpg"
 
