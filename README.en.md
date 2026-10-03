@@ -1,35 +1,29 @@
-# <PROJECT_NAME>
+# CachyOS + Omarchy Installer
 
-<Short project description.>
+Modular CachyOS installer based on Omarchy with additional customizations, integrated documentation and support for Hyprland and Qtile.
 
-## Status
+## Features
 
-- Status: <active/paused/blocked/legacy>
-- Version: see `VERSION` or `RELEASES.md`/`CHANGELOG.md`
-- Operational documentation: `Obsidian/07.Desarrollos/<NN.Nombre-Proyecto>/index.md`
+- CachyOS + BTRFS + Snapper.
+- Modular Hyprland setup.
+- Persistent monitor management with nwg-displays.
+- Customized Waybar.
+- Per-application audio controls.
+- Integrated screenshot tools.
+- Qtile support.
+- Technical handbook.
 
-## Usage
+## Screenshot Shortcuts
+
+- Print: Area screenshot.
+- Super + Print: Full screenshot.
+- Super + Shift + Print: Active window.
+- Ctrl + Print: Copy screenshot to clipboard.
+
+## Installation
 
 ```bash
-<main usage command>
+git clone https://github.com/terracenter/cachyos-install.git
+cd cachyos-install
+./install.sh
 ```
-
-## Development
-
-```bash
-<setup command>
-<test/build command>
-```
-
-## Documentation
-
-- `README.md`: main documentation.
-- `README.en.md`: English documentation when applicable.
-- `SECURITY.md`: security policy.
-- `CONTRIBUTING.md`: contribution rules.
-- `ROADMAP.md`: project status and direction.
-- `CHANGELOG.md` or `RELEASES.md`: change history.
-
-## Security
-
-Do not store secrets, tokens, `.env`, logs, local databases or generated binaries in the repository.
