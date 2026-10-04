@@ -1,6 +1,6 @@
 # Capítulo 01: Fundamentos de snapshots y rollback en Btrfs
 
-[Índice](./_index.md) · [Cap. 02: Particionado y montaje →](Capítulo-02-Particionado-y-montaje-desde-el-Live-USB.md)
+[Índice](../_index.md) · [Cap. 02: Particionado y montaje →](Capítulo-02-Particionado-y-montaje-desde-el-Live-USB.md)
 
 ## Objetivo
 

@@ -1,6 +1,6 @@
 # Capítulo 02: Particionado y montaje desde el Live USB
 
-[← Cap. 01: Fundamentos de Btrfs](Capítulo-01-Fundamentos-de-Snapshots-y-Rollbacks-en-BTRFS.md) · [Índice](./_index.md) · [Cap. 03: Instalación base →](Capítulo-03-Instalación-base-con-pacstrap.md)
+[← Cap. 01: Fundamentos de Btrfs](Capítulo-01-Fundamentos-de-Snapshots-y-Rollbacks-en-BTRFS.md) · [Índice](../_index.md) · [Cap. 03: Instalación base →](Capítulo-03-Instalación-base-con-pacstrap.md)
 
 ## Objetivo
 

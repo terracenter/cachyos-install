@@ -1,6 +1,6 @@
 # Capítulo 06: Configuración y mantenimiento de Snapper
 
-[← Cap. 05: Configuración del sistema](Capítulo-05-Configuración-del-sistema.md) · [Índice](./_index.md) · [Cap. 07: GRUB →](Capítulo-07-Configuración-de-GRUB.md)
+[← Cap. 05: Configuración del sistema](Capítulo-05-Configuración-del-sistema.md) · [Índice](../_index.md) · [Cap. 07: GRUB →](Capítulo-07-Configuración-de-GRUB.md)
 
 ## Objetivo
 

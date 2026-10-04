@@ -1,6 +1,6 @@
 # Capítulo 09: Verificación de snapshots
 
-[← Cap. 08: mkinitcpio](Capítulo-08-mkinitcpio.md) · [Índice](./_index.md) · [Cap. 10: Primer arranque →](Capítulo-10-Primer-arranque.md)
+[← Cap. 08: mkinitcpio](Capítulo-08-mkinitcpio.md) · [Índice](../_index.md) · [Cap. 10: Primer arranque →](Capítulo-10-Primer-arranque.md)
 
 ## Objetivo
 

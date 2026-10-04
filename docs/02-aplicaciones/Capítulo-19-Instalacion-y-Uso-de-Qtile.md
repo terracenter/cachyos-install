@@ -1,4 +1,4 @@
-← [Cap. 18 — Gaming](Capítulo-18-Gaming.md) · [Índice](_index.md)
+← [Cap. 18 — Gaming](Capítulo-18-Gaming.md) · [Índice](../_index.md)
 
 ---
 
@@ -106,4 +106,4 @@ La barra superior de Qtile incorpora widgets dinámicos altamente interactivos:
 
 ---
 
-← [Cap. 18 — Gaming](Capítulo-18-Gaming.md) · [Índice](_index.md)
+← [Cap. 18 — Gaming](Capítulo-18-Gaming.md) · [Índice](../_index.md)

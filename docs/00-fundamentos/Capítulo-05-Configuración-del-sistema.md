@@ -1,6 +1,6 @@
 # Capítulo 05: Configuración del sistema
 
-[← Cap. 04: Repositorios CachyOS](Capítulo-04-Repositorios-CachyOS.md) · [Índice](./_index.md) · [Cap. 06: Snapper →](Capítulo-06-Configuración-de-Snapper.md)
+[← Cap. 04: Repositorios CachyOS](Capítulo-04-Repositorios-CachyOS.md) · [Índice](../_index.md) · [Cap. 06: Snapper →](Capítulo-06-Configuración-de-Snapper.md)
 
 ## Objetivo
 

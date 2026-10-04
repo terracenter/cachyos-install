@@ -1,6 +1,6 @@
 # Capítulo 04: Repositorios de CachyOS
 
-[← Cap. 03: Instalación base](Capítulo-03-Instalación-base-con-pacstrap.md) · [Índice](./_index.md) · [Cap. 05: Configuración del sistema →](Capítulo-05-Configuración-del-sistema.md)
+[← Cap. 03: Instalación base](Capítulo-03-Instalación-base-con-pacstrap.md) · [Índice](../_index.md) · [Cap. 05: Configuración del sistema →](Capítulo-05-Configuración-del-sistema.md)
 
 ## Objetivo
 

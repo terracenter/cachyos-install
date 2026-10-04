@@ -1,6 +1,6 @@
 # Capítulo 10: Primer arranque
 
-[← Cap. 09: Verificación de snapshots](Capítulo-09-Verificacion-de-Snapshots.md) · [Índice](./_index.md) · [Cap. 11: Rollback →](Capítulo-11-Rollback.md)
+[← Cap. 09: Verificación de snapshots](Capítulo-09-Verificacion-de-Snapshots.md) · [Índice](../_index.md) · [Cap. 11: Rollback →](Capítulo-11-Rollback.md)
 
 ## Objetivo
 

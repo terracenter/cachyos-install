@@ -1,6 +1,6 @@
 # Capítulo 16: Acceso remoto
 
-[← Cap. 15: Gestión de paquetes](Capítulo-15-Gestion-Paquetes.md) · [Índice](./_index.md) · [Cap. 17: Herramientas CLI →](Capítulo-17-Herramientas-CLI-modernas.md)
+[← Cap. 15: Gestión de paquetes](Capítulo-15-Gestion-Paquetes.md) · [Índice](../_index.md) · [Cap. 17: Herramientas CLI →](Capítulo-17-Herramientas-CLI-modernas.md)
 
 ## Alcance
 

@@ -1,6 +1,6 @@
 # Capítulo 14: Uso de Hyprland
 
-[← Cap. 13: Configuración de Waybar](Capítulo-13-Configuracion-Waybar.md) · [Índice](./_index.md) · [Cap. 15: Gestión de paquetes →](Capítulo-15-Gestion-Paquetes.md)
+[← Cap. 13: Configuración de Waybar](Capítulo-13-Configuracion-Waybar.md) · [Índice](../_index.md) · [Cap. 15: Gestión de paquetes →](../02-aplicaciones/Capítulo-15-Gestion-Paquetes.md)
 
 ## Introducción
 
