@@ -62,7 +62,7 @@ SDDM
 GRUB
 ```
 
-Pendientes:
+### Pendientes
 
 - Auditoría completa de todos los temas.
 - Revisión de mapas SDDM.
@@ -73,17 +73,35 @@ Pendientes:
 
 ## Aplicaciones Compartidas
 
-Pendientes de evaluación:
+### Evaluados:
 
 ```text
-cycle-window-size
-kb-switch
-pomodoro
-show-keys
-idle-settings
+✅ kb-switch
+  Adoptar solución nativa de Omarchy.
+
+❌ cycle-window-size
+  Descartado.
+  Motivo:
+  - No existe implementación en el proyecto.
+  - No existe implementación equivalente identificada en Omarchy.
+  - No se encontró una necesidad concreta que justifique mantenerlo en el roadmap.
+
+🟡 show-keys
+  Adopción parcial.
+  - Hyprland: migrar a la solución nativa de Omarchy.
+  - Qtile: mantener implementación actual.
+  - Pendiente validar la migración definitiva.
+
+``` 
+
+### Pendientes de evaluación:
+
+```text
+⏳ pomodoro
+⏳ idle-settings
 ```
 
-Objetivo:
+### Objetivo:
 
 ```text
 Integrar o descartar
