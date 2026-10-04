@@ -1,6 +1,6 @@
 # Capítulo 18: Gaming en CachyOS
 
-[← Cap. 17: Herramientas CLI](Capítulo-17-Herramientas-CLI-modernas.md) · [Índice](./_index.md) · [Cap. 19: Qtile →](Capítulo-19-Instalacion-y-Uso-de-Qtile.md)
+[← Cap. 17: Herramientas CLI](Capítulo-17-Herramientas-CLI-modernas.md) · [Índice](../_index.md) · [Cap. 19: Qtile →](Capítulo-19-Instalacion-y-Uso-de-Qtile.md)
 
 ## Alcance
 

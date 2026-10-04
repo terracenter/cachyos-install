@@ -1,6 +1,6 @@
 # Capítulo 07: Configuración de GRUB
 
-[← Cap. 06: Snapper](Capítulo-06-Configuración-de-Snapper.md) · [Índice](./_index.md) · [Cap. 08: mkinitcpio →](Capítulo-08-mkinitcpio.md)
+[← Cap. 06: Snapper](Capítulo-06-Configuración-de-Snapper.md) · [Índice](../_index.md) · [Cap. 08: mkinitcpio →](Capítulo-08-mkinitcpio.md)
 
 ## Objetivo
 

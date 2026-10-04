@@ -1,6 +1,6 @@
 # Capítulo 08: mkinitcpio
 
-[← Cap. 07: GRUB](Capítulo-07-Configuración-de-GRUB.md) · [Índice](./_index.md) · [Cap. 09: Verificación de snapshots →](Capítulo-09-Verificacion-de-Snapshots.md)
+[← Cap. 07: GRUB](Capítulo-07-Configuración-de-GRUB.md) · [Índice](../_index.md) · [Cap. 09: Verificación de snapshots →](Capítulo-09-Verificacion-de-Snapshots.md)
 
 ## Objetivo
 

@@ -1,6 +1,6 @@
 # Capítulo 17: Herramientas CLI modernas
 
-[← Cap. 16: Acceso remoto](Capítulo-16-Acceso-Remoto.md) · [Índice](./_index.md) · [Cap. 18: Gaming →](Capítulo-18-Gaming.md)
+[← Cap. 16: Acceso remoto](Capítulo-16-Acceso-Remoto.md) · [Índice](../_index.md) · [Cap. 18: Gaming →](Capítulo-18-Gaming.md)
 
 ## Alcance
 

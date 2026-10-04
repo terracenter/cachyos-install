@@ -1,6 +1,6 @@
 # Capítulo 15: Gestión de paquetes
 
-[← Cap. 14: Uso de Hyprland](Capítulo-14-Uso-Hyprland.md) · [Índice](./_index.md) · [Cap. 16: Acceso remoto →](Capítulo-16-Acceso-Remoto.md)
+[← Cap. 14: Uso de Hyprland](../01-hyprland/Capítulo-14-Uso-Hyprland.md) · [Índice](../_index.md) · [Cap. 16: Acceso remoto →](Capítulo-16-Acceso-Remoto.md)
 
 ## Introducción
 
@@ -238,7 +238,7 @@ sudo snapper -c root list
 sudo btrfs-rollback ID
 ```
 
-Para una recuperación completa, consulta el [Capítulo 11](Capítulo-11-Rollback.md).
+Para una recuperación completa, consulta el [Capítulo 11](../00-fundamentos/Capítulo-11-Rollback.md).
 
 ## Prácticas recomendadas
 

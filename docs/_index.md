@@ -4,39 +4,46 @@ Este manual documenta la instalación y administración de CachyOS con Btrfs, sn
 
 ## Introducción
 
-- [Capítulo 00: De Gentoo a CachyOS](Capítulo-00-De-Gentoo-a-CachyOS.md)
+- [Capítulo 00: De Gentoo a CachyOS](00-fundamentos/Capítulo-00-De-Gentoo-a-CachyOS.md)
 
 ## Parte I: sistema base y recuperación
 
-1. [Fundamentos de snapshots y rollback en Btrfs](Capítulo-01-Fundamentos-de-Snapshots-y-Rollbacks-en-BTRFS.md)
-2. [Particionado y montaje desde el Live USB](Capítulo-02-Particionado-y-montaje-desde-el-Live-USB.md)
-3. [Instalación base con pacstrap](Capítulo-03-Instalación-base-con-pacstrap.md)
-4. [Repositorios de CachyOS](Capítulo-04-Repositorios-CachyOS.md)
-5. [Configuración del sistema](Capítulo-05-Configuración-del-sistema.md)
-6. [Configuración y mantenimiento de Snapper](Capítulo-06-Configuración-de-Snapper.md)
-7. [Configuración de GRUB](Capítulo-07-Configuración-de-GRUB.md)
-8. [mkinitcpio](Capítulo-08-mkinitcpio.md)
-9. [Verificación de snapshots](Capítulo-09-Verificacion-de-Snapshots.md)
-10. [Primer arranque](Capítulo-10-Primer-arranque.md)
-11. [Rollback seguro](Capítulo-11-Rollback.md)
+1. [Fundamentos de snapshots y rollback en Btrfs](00-fundamentos/Capítulo-01-Fundamentos-de-Snapshots-y-Rollbacks-en-BTRFS.md)
+2. [Particionado y montaje desde el Live USB](00-fundamentos/Capítulo-02-Particionado-y-montaje-desde-el-Live-USB.md)
+3. [Instalación base con pacstrap](00-fundamentos/Capítulo-03-Instalación-base-con-pacstrap.md)
+4. [Repositorios de CachyOS](00-fundamentos/Capítulo-04-Repositorios-CachyOS.md)
+5. [Configuración del sistema](00-fundamentos/Capítulo-05-Configuración-del-sistema.md)
+6. [Configuración y mantenimiento de Snapper](00-fundamentos/Capítulo-06-Configuración-de-Snapper.md)
+7. [Configuración de GRUB](00-fundamentos/Capítulo-07-Configuración-de-GRUB.md)
+8. [mkinitcpio](00-fundamentos/Capítulo-08-mkinitcpio.md)
+9. [Verificación de snapshots](00-fundamentos/Capítulo-09-Verificacion-de-Snapshots.md)
+10. [Primer arranque](00-fundamentos/Capítulo-10-Primer-arranque.md)
+11. [Rollback seguro](00-fundamentos/Capítulo-11-Rollback.md)
 
 ## Parte II: Hyprland sobre Wayland
 
-12. [Instalación de Hyprland](Capítulo-12-Instalacion-Hyprland.md)
-13. [Configuración de Waybar](Capítulo-13-Configuracion-Waybar.md)
-14. [Uso de Hyprland](Capítulo-14-Uso-Hyprland.md)
+12. [Instalación de Hyprland](01-hyprland/Capítulo-12-Instalacion-Hyprland.md)
+13. [Configuración de Waybar](01-hyprland/Capítulo-13-Configuracion-Waybar.md)
+14. [Uso de Hyprland](01-hyprland/Capítulo-14-Uso-Hyprland.md)
 
 ## Parte III: administración y aplicaciones
 
-15. [Gestión de paquetes](Capítulo-15-Gestion-Paquetes.md)
-16. [Acceso remoto](Capítulo-16-Acceso-Remoto.md)
-17. [Herramientas CLI modernas](Capítulo-17-Herramientas-CLI-modernas.md)
-18. [Gaming en CachyOS](Capítulo-18-Gaming.md)
+15. [Gestión de paquetes](02-aplicaciones/Capítulo-15-Gestion-Paquetes.md)
+16. [Acceso remoto](02-aplicaciones/Capítulo-16-Acceso-Remoto.md)
+17. [Herramientas CLI modernas](02-aplicaciones/Capítulo-17-Herramientas-CLI-modernas.md)
+18. [Gaming en CachyOS](02-aplicaciones/Capítulo-18-Gaming.md)
 
 ## Parte IV: Qtile y componentes opcionales
 
-19. [Instalación y uso de Qtile sobre Xorg](Capítulo-19-Instalacion-y-Uso-de-Qtile.md)
-20. [Eww en Xorg y Wayland](Capítulo-20-Eww-en-Xorg-y-Wayland.md)
+19. [Instalación y uso de Qtile sobre Xorg](02-aplicaciones/Capítulo-19-Instalacion-y-Uso-de-Qtile.md)
+20. [Eww en Xorg y Wayland](02-aplicaciones/Capítulo-20-Eww-en-Xorg-y-Wayland.md)
+
+## Parte V: arquitectura y evolución
+
+21. [Arquitectura del Proyecto](03-arquitectura/Capítulo-21-Arquitectura-del-Proyecto.md)
+22. [Sistema de Temas](03-arquitectura/Capítulo-22-Sistema-de-Temas.md)
+23. [Aplicaciones Compartidas](03-arquitectura/Capítulo-23-Aplicaciones-Compartidas.md)
+24. [ROADMAP del Proyecto](03-arquitectura/Capítulo-24-ROADMAP.md)
 
 ## Scripts principales
 

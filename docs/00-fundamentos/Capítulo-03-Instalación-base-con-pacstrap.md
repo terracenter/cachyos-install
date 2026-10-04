@@ -1,6 +1,6 @@
 # Capítulo 03: Instalación base con pacstrap
 
-[← Cap. 02: Particionado y montaje](Capítulo-02-Particionado-y-montaje-desde-el-Live-USB.md) · [Índice](./_index.md) · [Cap. 04: Repositorios CachyOS →](Capítulo-04-Repositorios-CachyOS.md)
+[← Cap. 02: Particionado y montaje](Capítulo-02-Particionado-y-montaje-desde-el-Live-USB.md) · [Índice](../_index.md) · [Cap. 04: Repositorios CachyOS →](Capítulo-04-Repositorios-CachyOS.md)
 
 ## Objetivo
 

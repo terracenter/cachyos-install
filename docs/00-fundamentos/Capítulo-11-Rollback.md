@@ -1,6 +1,6 @@
 # Capítulo 11: Rollback seguro con Btrfs y Snapper
 
-[← Cap. 10: Primer arranque](Capítulo-10-Primer-arranque.md) · [Índice](./_index.md) · [Cap. 12: Instalación de Hyprland →](Capítulo-12-Instalacion-Hyprland.md)
+[← Cap. 10: Primer arranque](Capítulo-10-Primer-arranque.md) · [Índice](../_index.md) · [Cap. 12: Instalación de Hyprland →](../01-hyprland/Capítulo-12-Instalacion-Hyprland.md)
 
 ## Objetivo
 
