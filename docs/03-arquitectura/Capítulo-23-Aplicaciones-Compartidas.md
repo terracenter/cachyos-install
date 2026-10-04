@@ -72,16 +72,31 @@ confirm-close-window
 
 ---
 
-### Utilidades Compartidas (Pendientes de Auditoría)
+### Utilidades Compartidas
 
-Actualmente existen herramientas que deben evaluarse para su incorporación formal:
+Herramientas auditadas:
 
 ```text
-cycle-window-size
-kb-switch
-pomodoro
-show-keys
-idle-settings
+✅ kb-switch
+  Adoptar solución nativa de Omarchy.
+
+❌ cycle-window-size
+  Descartado.
+  Motivo:
+  - No existe implementación en el proyecto.
+  - No existe implementación equivalente identificada en Omarchy.
+
+🟡 show-keys
+  Adopción parcial.
+  - Hyprland: migrar a la solución nativa de Omarchy.
+  - Qtile: mantener implementación actual.
+```
+
+Pendientes de auditoría:
+
+```text
+⏳ pomodoro
+⏳ idle-settings
 ```
 
 ---
