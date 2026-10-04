@@ -92,12 +92,22 @@ Herramientas auditadas:
   - Qtile: mantener implementación actual.
 ```
 
+Estado actual:
+
+```text
+🟡 idle-settings
+  Auditoría completada.
+  - Qtile: mantener implementación actual.
+  - Hyprland: Omarchy utiliza hypridle/hyprlock.
+  - No se identificó una herramienta equivalente de configuración.
+```
+
 Pendientes de auditoría:
 
 ```text
 ⏳ pomodoro
-⏳ idle-settings
-```
+``` 
+
 
 ---
 
