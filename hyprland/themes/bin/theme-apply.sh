@@ -69,6 +69,44 @@ gtk_theme=$(optional gtk_theme); cursor_theme=$(optional cursor_theme); icon_the
 
 printf '%s\n' "$THEME" > "$CURRENT_DIR/theme"
 
+# Sincronizar SDDM automáticamente
+sddm_map="$HOME/.local/share/omarchy-local/sddm-bg-map"
+
+if [[ -f "$sddm_map" ]] && [[ -x /usr/local/bin/sddm-apply-bg ]]; then
+    sddm_bg=$(
+        grep "^${THEME}=" "$sddm_map" 2>/dev/null | cut -d= -f2
+    )
+
+    [[ -z "$sddm_bg" ]] && \
+        sddm_bg=$(
+            grep '^default=' "$sddm_map" | cut -d= -f2
+        )
+
+    [[ -n "$sddm_bg" ]] && \
+        sudo /usr/local/bin/sddm-apply-bg "$sddm_bg" >/dev/null 2>&1 || true
+fi
+
+# Sincronizar GRUB automáticamente
+grub_map="$HOME/.local/share/omarchy-local/grub-theme-map"
+
+if [[ -f "$grub_map" ]] && [[ -x /usr/local/bin/grub-apply-theme ]]; then
+    grub_theme=$(
+        grep "^${THEME}=" "$grub_map" 2>/dev/null | cut -d= -f2
+    )
+
+    [[ -z "$grub_theme" ]] && \
+        grub_theme=$(
+            grep '^default=' "$grub_map" | cut -d= -f2
+        )
+
+    theme_file="/usr/share/grub/themes/${grub_theme}/theme.txt"
+
+    [[ -f "$theme_file" ]] && \
+        sudo /usr/local/bin/grub-apply-theme "$theme_file" >/dev/null 2>&1 || true
+fi
+
+
+
 if [[ -n ${WAYLAND_DISPLAY:-} ]]; then
     hyprctl reload >/dev/null 2>&1 || true
     if [[ -f $wallpaper ]]; then
