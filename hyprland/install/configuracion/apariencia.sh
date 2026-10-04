@@ -34,9 +34,9 @@ install -Dm755 "$source_dir/bin/screenshot-area.sh" "$bin_dir/screenshot-area"
 install -Dm755 "$source_dir/bin/screenshot-copy.sh" "$bin_dir/screenshot-copy"
 install -Dm755 "$source_dir/bin/screenshot-full.sh" "$bin_dir/screenshot-full"
 install -Dm755 "$source_dir/bin/screenshot-window.sh" "$bin_dir/screenshot-window"
-install -Dm644 "$source_dir/nord/wallpaper.jpg" \
-    "$backgrounds_dir/omarchy-nord-0-black-moon.jpg"
-
+install -Dm644 "$source_dir/astronaut/wallpaper.jpg" \
+    "$backgrounds_dir/astronaut/wallpaper.jpg"
+    
 cat > "$bin_dir/power-menu" <<'SCRIPT'
 #!/usr/bin/env bash
 set -Eeuo pipefail

@@ -1,0 +1,34 @@
+wallpaper = "/home/usuario/.local/share/backgrounds/astronaut/wallpaper.jpg"
+
+accent = "#b7cef1"
+cursor = "#ffffff"
+foreground = "#ffffff"
+background = "#21222C"
+
+selection_foreground = "#ffffff"
+selection_background = "#343746"
+
+color0 = "#21222C"
+color1 = "#ff5c8a"
+color2 = "#8bd49c"
+color3 = "#f0d56e"
+color4 = "#b7cef1"
+color5 = "#c792ea"
+color6 = "#89ddff"
+color7 = "#d8dee9"
+
+color8 = "#343746"
+color9 = "#ff7aa2"
+color10 = "#a6e3a1"
+color11 = "#f9e2af"
+color12 = "#c6dcff"
+color13 = "#d4bfff"
+color14 = "#a6e3ff"
+color15 = "#ffffff"
+
+mantle = "#21222C"
+
+gtk_theme    = "catppuccin-mocha-mauve-standard+default"
+cursor_theme = "catppuccin-mocha-dark-cursors"
+icon_theme   = "Papirus-Dark"
+color_scheme = "prefer-dark"
