@@ -94,12 +94,22 @@ GRUB
 
 ``` 
 
+### Estado actual:
+
+```text
+🟡 idle-settings
+  Auditoría completada.
+  - Qtile: mantener implementación actual.
+  - Hyprland: Omarchy utiliza hypridle/hyprlock.
+  - No se identificó una herramienta equivalente de configuración.
+```
+
 ### Pendientes de evaluación:
 
 ```text
 ⏳ pomodoro
-⏳ idle-settings
 ```
+
 
 ### Objetivo:
 

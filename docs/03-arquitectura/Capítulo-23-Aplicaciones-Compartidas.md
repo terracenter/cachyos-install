@@ -106,7 +106,7 @@ Pendientes de auditoría:
 
 ```text
 ⏳ pomodoro
-``` 
+```
 
 
 ---
