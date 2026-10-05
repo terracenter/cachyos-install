@@ -104,10 +104,14 @@ GRUB
   - No se identificó una herramienta equivalente de configuración.
 ```
 
-### Pendientes de evaluación:
+### Estado actual:
 
 ```text
-⏳ pomodoro
+🟡 pomodoro
+  Auditoría completada.
+  - No existe implementación actual.
+  - No se identificó una solución equivalente en Omarchy.
+  - Mantener como posible desarrollo futuro.
 ```
 
 
