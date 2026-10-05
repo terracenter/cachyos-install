@@ -105,7 +105,11 @@ Estado actual:
 Pendientes de auditoría:
 
 ```text
-⏳ pomodoro
+🟡 pomodoro
+  Auditoría completada.
+  - No existe implementación actual.
+  - No se identificó una solución equivalente en Omarchy.
+  - La funcionalidad sigue considerándose útil para productividad.
 ```
 
 
