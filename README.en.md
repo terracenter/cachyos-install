@@ -27,3 +27,7 @@ git clone https://github.com/terracenter/cachyos-install.git
 cd cachyos-install
 ./install.sh
 ```
+
+## License
+
+GPL-3.0 (see `LICENSE`). Based on Omarchy (MIT); its notice is in `THIRD-PARTY-LICENSES.md`.

@@ -51,3 +51,7 @@ docs/
 ## Documentación
 
 La documentación completa se encuentra en la carpeta docs/.
+
+## Licencia
+
+GPL-3.0 (ver `LICENSE`). Basado en Omarchy (MIT); su aviso está en `THIRD-PARTY-LICENSES.md`.
