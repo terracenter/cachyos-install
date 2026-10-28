@@ -194,7 +194,15 @@ La partición EFI y ciertos archivos de `/boot` pueden quedar fuera del snapshot
 
 ### El tema del escritorio cambió, pero GRUB no
 
-Es el comportamiento actual. `theme-apply` no sincroniza temas de GRUB.
+`theme-apply` sincroniza GRUB solo si existen el mapa `~/.local/share/omarchy-local/grub-theme-map` y el helper `/usr/local/bin/grub-apply-theme`. Los crea el instalador de temas (`temas.sh`). Si falta alguno de los dos, el tema de GRUB no cambia.
+
+1. Comprueba que existan:
+
+   ```bash
+   ls -l ~/.local/share/omarchy-local/grub-theme-map /usr/local/bin/grub-apply-theme
+   ```
+
+2. Si faltan, vuelve a instalar el sistema de temas. Consulta el Capítulo 22.
 
 ## Estado esperado
 
