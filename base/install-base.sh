@@ -146,6 +146,8 @@ USERNAME=""
 FULLNAME=""
 USERPASS=""
 TIMEZONE="America/Caracas"
+TZ_DETECTED=""        # zona horaria detectada por IP; vacía si no se pudo detectar
+TZ_DETECT_DONE=false  # la consulta a ipinfo.io se hace una sola vez
 LOCALE="es_VE.UTF-8"
 KEYMAP="us"        # vconsole (/etc/vconsole.conf)
 XKB_LAYOUT="us"   # X11/Wayland (SDDM + Hyprland)
@@ -236,20 +238,47 @@ suggest_swap() {
 }
 
 # ─── Selección de zona horaria ───────────────────────────────────────────────
+# Consulta una sola vez a ipinfo.io para recomendar la zona: la IP pública sale hacia ese servicio.
+# Deja TZ_DETECTED vacía si no hay curl, no hay respuesta o el valor no parece una zona IANA.
+# No guarda la respuesta, no reintenta y nunca detiene el asistente.
+detect_timezone() {
+    local json tz
+    TZ_DETECT_DONE=true
+    TZ_DETECTED=""
+    command -v curl &>/dev/null || return 0
+    json=$(curl -fs --max-time 5 https://ipinfo.io/json 2>/dev/null) || return 0
+    tz=$(printf '%s\n' "$json" | sed -n 's/.*"timezone"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)
+    if [[ $tz =~ ^[A-Za-z_]+(/[A-Za-z0-9_+-]+)+$ ]]; then TZ_DETECTED="$tz"; fi
+    return 0
+}
+
 ask_timezone() {
+    $TZ_DETECT_DONE || detect_timezone
     local zones
     mapfile -t zones < <(timedatectl list-timezones 2>/dev/null)
     if [[ ${#zones[@]} -gt 0 ]]; then
-        local tz_opts=()
+        local tz_opts=() rec="" z
         for z in "${zones[@]}"; do
-            tz_opts+=("$z" "")
+            if [[ -n "$TZ_DETECTED" && "$z" == "$TZ_DETECTED" ]]; then
+                tz_opts+=("$z" "(Recomendada)")
+                rec="$z"
+            else
+                tz_opts+=("$z" "")
+            fi
         done
-        local def=()
-        if answered; then def=(--default-item "$TIMEZONE"); fi
-        wt --title "Zona Horaria" "${def[@]}" --menu "Selecciona tu zona horaria:" 20 70 12 "${tz_opts[@]}" || return 1
+        local def=() msg="Selecciona tu zona horaria (no se pudo detectar por IP):"
+        if [[ -n "$rec" ]]; then msg="Selecciona tu zona horaria (Recomendada = detectada por IP):"; fi
+        if answered; then
+            def=(--default-item "$TIMEZONE")
+        elif [[ -n "$rec" ]]; then
+            def=(--default-item "$rec")
+        fi
+        wt --title "Zona Horaria" "${def[@]}" --menu "$msg" 20 70 12 "${tz_opts[@]}" || return 1
         TIMEZONE="$WT_OUT"
     else
-        ask "Zona horaria (ej: America/Caracas)" TIMEZONE "$TIMEZONE" || return 1
+        local init="$TIMEZONE"
+        if ! answered && [[ -n "$TZ_DETECTED" ]]; then init="$TZ_DETECTED"; fi
+        ask "Zona horaria (ej: America/Caracas)" TIMEZONE "$init" || return 1
     fi
     return 0
 }
