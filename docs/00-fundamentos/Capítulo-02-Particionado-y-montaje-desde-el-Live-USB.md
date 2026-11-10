@@ -55,12 +55,11 @@ Al final, el resumen es un menú: puedes confirmar la instalación o ir directo 
 El instalador:
 
 1. Comprueba que el destino sea un dispositivo de bloque.
-2. Advierte si contiene firmas o datos previos.
-3. Solicita permiso para limpiar las firmas existentes; si no lo concedes, vuelve a pedirte el disco.
-4. Muestra un resumen final, desde el que puedes cambiar cualquier respuesta antes de confirmar.
-5. Solicita una confirmación adicional antes de particionar.
+2. Advierte si contiene firmas o datos previos; en ese momento no borra nada.
+3. Muestra un resumen final, desde el que puedes cambiar cualquier respuesta antes de confirmar.
+4. Al elegir «CONFIRMAR E INSTALAR», pregunta una última vez si estás seguro de borrar todos los datos del disco. El botón marcado por defecto es «No», que te devuelve al resumen.
 
-La función de particionado vuelve a ejecutar `wipefs -af` inmediatamente antes de crear la tabla GPT. Esto asegura que no queden firmas antiguas después de la confirmación.
+Solo después de ese «Sí» la función de particionado ejecuta `wipefs -af`, inmediatamente antes de crear la tabla GPT. Esto asegura que no queden firmas antiguas.
 
 ## Tabla de particiones
 
