@@ -101,6 +101,7 @@ BTRFS_DEV=""        # = BTRFS_PART, o /dev/mapper/cryptroot si LUKS
 
 SYS_HOSTNAME=""
 USERNAME=""
+FULLNAME=""
 USERPASS=""
 TIMEZONE="America/Caracas"
 LOCALE="es_VE.UTF-8"
@@ -314,6 +315,12 @@ ask_questions() {
     [[ "$USERNAME" =~ ^[a-z_][a-z0-9_-]*$ ]] \
         || die "Usuario inválido: solo letras minúsculas, números, _ y -"
 
+    ask "Nombre completo del usuario" FULLNAME
+    [[ "$FULLNAME" =~ [^[:space:]] ]] \
+        || die "El nombre completo no puede estar vacío."
+    [[ "$FULLNAME" != *:* && ! "$FULLNAME" =~ [[:cntrl:]] ]] \
+        || die "Nombre completo inválido: no puede contener ':' ni caracteres de control."
+
     askpass "Contraseña para $USERNAME" USERPASS
     [[ -n "$USERPASS" ]] || die "La contraseña no puede estar vacía."
 
@@ -370,6 +377,7 @@ show_summary() {
     echo -e "   ${BOLD}Disco          :${NC} ${RED}${BOLD}$TARGET_DISK — TODO EL CONTENIDO SERÁ ELIMINADO${NC}"
     echo -e "   ${BOLD}Hostname       :${NC} $SYS_HOSTNAME"
     echo -e "   ${BOLD}Usuario        :${NC} $USERNAME"
+    echo -e "   ${BOLD}Nombre completo:${NC} $FULLNAME"
     echo -e "   ${BOLD}Zona horaria   :${NC} $TIMEZONE"
     echo -e "   ${BOLD}Locale         :${NC} $LOCALE"
     echo -e "   ${BOLD}Teclado        :${NC} ${XKB_LAYOUT}${XKB_VARIANT:+ / $XKB_VARIANT}  (vconsole: $KEYMAP)"
@@ -704,7 +712,7 @@ CHROOT
 
     # ── Usuario — arch-chroot separado para usar variables del shell externo ───
     arch-chroot /mnt useradd -m -G wheel,audio,video,storage,optical \
-        -s /bin/bash "${USERNAME}" \
+        -s /bin/bash -c "${FULLNAME}" "${USERNAME}" \
         || die "Error al crear el usuario ${USERNAME}"
     arch-chroot /mnt passwd -l root \
         || die "Error al bloquear la cuenta root"
@@ -999,6 +1007,7 @@ final_summary() {
     echo -e "   ${BOLD}Disco          :${NC} $TARGET_DISK"
     echo -e "   ${BOLD}Hostname       :${NC} $SYS_HOSTNAME"
     echo -e "   ${BOLD}Usuario        :${NC} $USERNAME (sudo via wheel)"
+    echo -e "   ${BOLD}Nombre completo:${NC} $FULLNAME"
     echo -e "   ${BOLD}Shell          :${NC} $_shell_desc"
     echo -e "   ${BOLD}Zona horaria   :${NC} $TIMEZONE"
     echo -e "   ${BOLD}Locale         :${NC} $LOCALE"
