@@ -4,17 +4,5 @@
 __pycache__/
 *.pyc
 
-# Bitácora interna — vive en el vault (Obsidian/Planes/CachyOS/TASK_LOG.md), no en el repo público
-TASK_LOG.md
-
-# Pointer local para CLAUDE.md
-CLAUDE.md
-
-AGENTS.md
-
-# Recursos privados de empresa
+# Recursos locales no publicables
 hyprland/assets/lockscreen/
-/CLAUDE.md
-/CLAUDE.es-VE.md
-/TASK_LOG.md
-/DEVELOPMENT_LOG.md
