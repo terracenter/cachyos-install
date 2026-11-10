@@ -129,9 +129,15 @@ menu_base() {
     printf '============================================================\n'
 } >> "$LOG_FILE"
 
-if sudo --preserve-env=TERM,LANG,LC_ALL,NCURSES_NO_UTF8_ACS \
-    bash "$SCRIPT_DIR/base/install-base.sh" 2>&1 |
-    tee -a "$LOG_FILE"; then
+command -v script >/dev/null 2>&1 || \
+    die "Falta el comando 'script' (paquete util-linux)."
+
+# whiptail necesita una terminal real en stdin, stdout y stderr. 'script'
+# le da un pty y guarda la sesión en el log; con sudo dentro de un pipe a
+# tee, el menú de disco no recibe las teclas.
+if script -q -e -f -a \
+    -c "sudo --preserve-env=TERM,LANG,LC_ALL,NCURSES_NO_UTF8_ACS bash $(printf '%q' "$SCRIPT_DIR/base/install-base.sh")" \
+    "$LOG_FILE"; then
 
     printf '%s Instalación base finalizada correctamente.\n' \
         "$(date '+%Y-%m-%d %H:%M:%S')" >> "$LOG_FILE"
