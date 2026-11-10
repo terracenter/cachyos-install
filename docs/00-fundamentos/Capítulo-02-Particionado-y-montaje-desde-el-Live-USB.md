@@ -39,14 +39,25 @@ sudo bash base/install-base.sh
 
 El script muestra los discos detectados mediante Whiptail. No exige escribir manualmente `/dev/nvme0n1`, `/dev/sda` u otra ruta.
 
+## Navegación del asistente
+
+Todas las pantallas de preguntas se manejan igual:
+
+- **Aceptar** guarda la respuesta y pasa a la siguiente pregunta.
+- **Atrás** vuelve a la pregunta anterior con la respuesta que ya diste marcada: si no la tocas se queda, y si eliges otra, cambia. En la primera pregunta, Atrás pide confirmar la salida.
+- **Esc** pregunta si quieres salir del instalador. Si respondes que no, la misma pantalla se repite. Ni Atrás ni Esc asignan nunca un valor por defecto.
+- Las contraseñas no se muestran al volver: dejar el campo vacío conserva la actual.
+
+Al final, el resumen es un menú: puedes confirmar la instalación o ir directo a cualquier pregunta, cambiarla y volver al resumen.
+
 ## Confirmaciones de seguridad
 
 El instalador:
 
 1. Comprueba que el destino sea un dispositivo de bloque.
 2. Advierte si contiene firmas o datos previos.
-3. Solicita permiso para limpiar las firmas existentes.
-4. Muestra un resumen final.
+3. Solicita permiso para limpiar las firmas existentes; si no lo concedes, vuelve a pedirte el disco.
+4. Muestra un resumen final, desde el que puedes cambiar cualquier respuesta antes de confirmar.
 5. Solicita una confirmación adicional antes de particionar.
 
 La función de particionado vuelve a ejecutar `wipefs -af` inmediatamente antes de crear la tabla GPT. Esto asegura que no queden firmas antiguas después de la confirmación.
