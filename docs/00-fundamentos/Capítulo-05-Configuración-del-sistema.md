@@ -61,6 +61,8 @@ El proyecto distingue dos configuraciones:
 1. `KEYMAP`, usado en la consola virtual y guardado en `/etc/vconsole.conf`.
 2. `XKB_LAYOUT` y `XKB_VARIANT`, usados por el entorno gráfico.
 
+El instalador marca como `(Recomendada)` la distribución que corresponde al idioma que elegiste antes, y la deja seleccionada, pero puedes elegir cualquier otra. Si el país del idioma coincide con una distribución de la lista (`us`, `es`, `fr`, `de`, `pt`), recomienda esa; si el idioma es español y el país no es España, recomienda `latam`. Con cualquier otro idioma, el menú aparece sin ninguna marcada.
+
 Para un teclado físico US con teclas muertas:
 
 ```text
