@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- El asistente de la instalación base pide el nombre completo del usuario y lo guarda en el campo de comentario de la cuenta.
+
 ### Fixed
 
 - El menú de selección de disco de la instalación base no respondía al teclado cuando se lanzaba desde `install.sh`; ahora el instalador base corre bajo `script` en vez de un pipe a `tee`.

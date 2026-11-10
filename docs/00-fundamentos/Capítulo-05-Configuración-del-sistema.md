@@ -102,6 +102,8 @@ getent hosts "$(hostname)"
 
 ## Usuario y privilegios
 
+El instalador pide el nombre completo del usuario y lo guarda en el campo de comentario de la cuenta (`useradd -c`). No puede quedar vacío ni contener `:` ni caracteres de control.
+
 El instalador crea el usuario con Bash y lo añade a:
 
 ```text
@@ -218,7 +220,7 @@ cat /etc/hosts
 - Locale generado.
 - Teclado de consola y XKB definidos por separado.
 - Hostname y resolución local configurados.
-- Usuario creado con contraseña y acceso por `wheel`.
+- Usuario creado con su nombre completo, contraseña y acceso por `wheel`.
 - Cuenta root bloqueada.
 - NetworkManager habilitado.
 - SSH habilitado por el instalador y disponible para revisión posterior.

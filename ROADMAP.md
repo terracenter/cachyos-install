@@ -15,7 +15,7 @@ Instalador reproducible basado en CachyOS + Omarchy + personalizaciones propias:
 - [x] Snapper, grub-btrfs y rollback (`btrfs-rollback`).
 - [x] GRUB y mkinitcpio.
 - [x] El selector de disco responde al teclado cuando se lanza desde `install.sh`.
-- [ ] El asistente pide el nombre completo del usuario.
+- [x] El asistente pide el nombre completo del usuario.
 - [ ] Cada pregunta del asistente tiene opción de regresar, y Cancelar nunca asigna un valor por defecto.
 - [ ] La zona horaria se detecta por IP y queda marcada como recomendada.
 - [ ] El idioma y el teclado quedan recomendados según la zona horaria y el idioma elegidos.
