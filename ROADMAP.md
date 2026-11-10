@@ -21,6 +21,7 @@ Instalador reproducible basado en CachyOS + Omarchy + personalizaciones propias:
 - [x] El idioma del sistema queda recomendado según el país detectado por IP.
 - [x] El teclado queda recomendado según el idioma elegido.
 - [x] Segunda confirmación, explícita, antes de borrar el disco.
+- [x] El repositorio queda descargado en la carpeta del usuario y el primer inicio de sesión avisa cómo continuar.
 - [ ] Instalación base validada en hardware real.
 
 ## Fase 2 — Escritorio Hyprland (`hyprland/`)
