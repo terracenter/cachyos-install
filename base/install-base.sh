@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Las preguntas del asistente se invocan por nombre desde WIZARD_STEPS: shellcheck no ve esas llamadas.
+# shellcheck disable=SC2317,SC2329
 export NCURSES_NO_UTF8_ACS=1
 # ┌─────────────────────────────────────────────────────────────────────────────┐
 # │ install-base.sh                                                              │
@@ -41,48 +43,88 @@ warn()    { echo -e "   ${YELLOW}AVISO  $1${NC}"; }
 info()    { echo -e "   ${DIM}→  $1${NC}"; }
 die()     { echo -e "\n   ${RED}ERROR  $1${NC}\n" >&2; exit 1; }
 
+# Ejecuta whiptail con el botón Atrás y deja la respuesta en WT_OUT.
+# Retorna 0 al aceptar y 1 con Atrás. Esc pregunta si se sale del instalador;
+# si no se sale, repite la misma pantalla. Nunca asigna ningún valor.
+wt() {
+    local rc
+    while true; do
+        if WT_OUT=$(whiptail --backtitle "$BACKTITLE" --cancel-button "Atrás" "$@" 3>&1 1>&2 2>&3); then
+            return 0
+        else
+            rc=$?
+        fi
+        if [[ $rc -eq 255 ]]; then
+            confirm_exit
+        else
+            return 1
+        fi
+    done
+}
+
+confirm_exit() {
+    if whiptail --title "Salir" --backtitle "$BACKTITLE" --defaultno --yes-button "Sí" --no-button "No" --yesno "¿Salir del instalador?" 8 50; then
+        die "Instalación cancelada."
+    fi
+}
+
+# La pregunta en curso ya se respondió antes (se volvió a ella con Atrás o desde el resumen).
+answered() { [[ -n "${STEP_OK[$CURRENT_STEP]:-}" ]]; }
+
+# $1 = texto, $2 = variable, $3 = valor inicial. Asigna la variable solo si el usuario acepta.
 ask() {
-    local prompt="$1" var="$2" default="${3:-}" response
-    if ! response=$(whiptail --title "Entrada Requerida"         --inputbox "$prompt" 10 60 "$default" 3>&1 1>&2 2>&3); then
-        printf -v "$var" '%s' "$default"
+    local prompt="$1" var="$2" default="${3:-}"
+    wt --title "Entrada Requerida" --inputbox "$prompt" 10 60 "$default" || return 1
+    printf -v "$var" '%s' "$WT_OUT"
+}
+
+# Pregunta Sí/No como menú, para que lleve el botón Atrás. $2 = variable (true|false).
+# La primera vez propone Sí; si la pregunta ya se respondió (o $3 no está vacío), marca la respuesta dada.
+ask_yesno() {
+    local prompt="$1" var="$2" item="si"
+    if { answered || [[ -n "${3:-}" ]]; } && [[ "${!var}" == "false" ]]; then item="no"; fi
+    wt --title "Pregunta" --default-item "$item" --menu "$prompt" 12 70 2 "si" "Sí" "no" "No" || return 1
+    if [[ "$WT_OUT" == "si" ]]; then
+        printf -v "$var" '%s' true
     else
-        printf -v "$var" '%s' "$response"
+        printf -v "$var" '%s' false
     fi
 }
 
 ask_number() {
-    local prompt="$1" var="$2" default="${3:-}" response
+    local prompt="$1" var="$2" default="${3:-}"
     while true; do
-        if ! response=$(whiptail --title "Número Requerido"             --inputbox "$prompt" 10 60 "$default" 3>&1 1>&2 2>&3); then
+        wt --title "Número Requerido" --inputbox "$prompt" 10 60 "$default" || return 1
+        if [[ -z "$WT_OUT" && -n "$default" ]]; then
             printf -v "$var" '%s' "$default"
-            break
+            return 0
         fi
-        if [[ -z "$response" && -n "$default" ]]; then
-            printf -v "$var" '%s' "$default"
-            break
+        if [[ "$WT_OUT" =~ ^[0-9]+$ ]] && (( WT_OUT >= 1 )); then
+            printf -v "$var" '%s' "$WT_OUT"
+            return 0
         fi
-        if [[ "$response" =~ ^[0-9]+$ ]] && (( response >= 1 )); then
-            printf -v "$var" '%s' "$response"
-            break
-        else
-            whiptail --title "Error" --msgbox "Entrada inválida — escribe un número válido." 8 50
-        fi
+        whiptail --title "Error" --msgbox "Entrada inválida — escribe un número válido." 8 50
     done
 }
 
+# $1 = texto, $2 = variable. Si la variable ya tiene valor, dejar el campo vacío lo conserva.
 askpass() {
-    local prompt="$1" var="$2"
-    local pass1 pass2
+    local prompt="$1" var="$2" pass1 pass2 hint=""
+    if [[ -n "${!var}" ]]; then hint=" (vacío = conservar la actual)"; fi
     while true; do
-        if ! pass1=$(whiptail --title "Contraseña"             --passwordbox "$prompt" 10 60 3>&1 1>&2 2>&3); then
-            pass1=""
-            break
+        wt --title "Contraseña" --passwordbox "${prompt}${hint}" 10 60 || return 1
+        pass1="$WT_OUT"
+        if [[ -z "$pass1" && -n "${!var}" ]]; then
+            return 0
         fi
-        pass2=$(whiptail --title "Confirmar Contraseña" --passwordbox "Confirma: $prompt" 10 60 3>&1 1>&2 2>&3)
-        [[ "$pass1" == "$pass2" ]] && break
+        wt --title "Confirmar Contraseña" --passwordbox "Confirma: $prompt" 10 60 || continue
+        pass2="$WT_OUT"
+        if [[ "$pass1" == "$pass2" ]]; then
+            printf -v "$var" '%s' "$pass1"
+            return 0
+        fi
         whiptail --title "Error" --msgbox "Las contraseñas no coinciden. Intenta de nuevo." 8 60
     done
-    printf -v "$var" '%s' "$pass1"
 }
 
 confirm() {
@@ -120,6 +162,14 @@ RAM_GB=0
 GPU_TYPE=""
 EXTRA_KERNEL_PARAMS=""
 SWAP_OFFSET=0
+
+# Asistente de preguntas: botón Atrás, Esc para salir y resumen con acceso directo.
+BACKTITLE="Instalador base CachyOS — Esc = salir"
+WT_OUT=""           # respuesta de la última pantalla de whiptail
+CURRENT_STEP=""     # pregunta en curso
+declare -A STEP_OK=()  # preguntas ya respondidas (para marcar su valor al volver a ellas)
+WIZARD_STEPS=(step_disk step_hostname step_username step_fullname step_userpass
+              ask_timezone ask_locale ask_keyboard step_luks step_swap step_docker step_shell)
 
 # ─── 1. Verificaciones previas ────────────────────────────────────────────────
 check_prereqs() {
@@ -194,18 +244,34 @@ ask_timezone() {
         for z in "${zones[@]}"; do
             tz_opts+=("$z" "")
         done
-        TIMEZONE=$(whiptail --title "Zona Horaria" --menu "Selecciona tu zona horaria:" 20 70 12 "${tz_opts[@]}" 3>&1 1>&2 2>&3)
-        [[ -z "$TIMEZONE" ]] && TIMEZONE="America/Caracas"
+        local def=()
+        if answered; then def=(--default-item "$TIMEZONE"); fi
+        wt --title "Zona Horaria" "${def[@]}" --menu "Selecciona tu zona horaria:" 20 70 12 "${tz_opts[@]}" || return 1
+        TIMEZONE="$WT_OUT"
     else
-        ask "Zona horaria (ej: America/Caracas)" TIMEZONE "America/Caracas"
+        ask "Zona horaria (ej: America/Caracas)" TIMEZONE "$TIMEZONE" || return 1
     fi
+    return 0
 }
 
 
 # ─── Selección de locale ──────────────────────────────────────────────────────
 ask_locale() {
-    local loc
-    loc=$(whiptail --title "Locale del Sistema" --menu "Selecciona el idioma del sistema:" 20 70 12 \
+    local def=() cur=9
+    if answered; then
+        case "$LOCALE" in
+            es_VE.UTF-8) cur=1 ;;
+            es_ES.UTF-8) cur=2 ;;
+            es_MX.UTF-8) cur=3 ;;
+            es_AR.UTF-8) cur=4 ;;
+            es_CO.UTF-8) cur=5 ;;
+            es_CL.UTF-8) cur=6 ;;
+            en_US.UTF-8) cur=7 ;;
+            en_GB.UTF-8) cur=8 ;;
+        esac
+        def=(--default-item "$cur")
+    fi
+    wt --title "Locale del Sistema" "${def[@]}" --menu "Selecciona el idioma del sistema:" 20 70 12 \
         "1" "es_VE.UTF-8 (Español Venezuela - Recomendado)" \
         "2" "es_ES.UTF-8 (Español España)" \
         "3" "es_MX.UTF-8 (Español México)" \
@@ -214,9 +280,9 @@ ask_locale() {
         "6" "es_CL.UTF-8 (Español Chile)" \
         "7" "en_US.UTF-8 (Inglés EE.UU.)" \
         "8" "en_GB.UTF-8 (Inglés Reino Unido)" \
-        "9" "Otro (entrada manual)" 3>&1 1>&2 2>&3)
+        "9" "Otro (entrada manual)" || return 1
     
-    case "$loc" in
+    case "$WT_OUT" in
         1) LOCALE="es_VE.UTF-8" ;;
         2) LOCALE="es_ES.UTF-8" ;;
         3) LOCALE="es_MX.UTF-8" ;;
@@ -225,16 +291,28 @@ ask_locale() {
         6) LOCALE="es_CL.UTF-8" ;;
         7) LOCALE="en_US.UTF-8" ;;
         8) LOCALE="en_GB.UTF-8" ;;
-        9) ask "Locale manual (ej: es_PE.UTF-8)" LOCALE "es_VE.UTF-8" ;;
-        *) LOCALE="es_VE.UTF-8" ;;
+        9) ask "Locale manual (ej: es_PE.UTF-8)" LOCALE "$LOCALE" || { ask_locale; return $?; } ;;
     esac
+    return 0
 }
 
 
 # ─── Selección de teclado ────────────────────────────────────────────────────
 ask_keyboard() {
-    local kb
-    kb=$(whiptail --title "Distribución de Teclado" --menu "Selecciona el mapa de teclado:" 20 80 12 \
+    local def=() cur=8 km xl xv
+    if answered; then
+        case "${KEYMAP}|${XKB_LAYOUT}|${XKB_VARIANT}" in
+            "us|us|")           cur=1 ;;
+            "us|us|intl")       cur=2 ;;
+            "es|es|")           cur=3 ;;
+            "la-latin1|latam|") cur=4 ;;
+            "fr|fr|")           cur=5 ;;
+            "de|de|")           cur=6 ;;
+            "pt-latin1|pt|")    cur=7 ;;
+        esac
+        def=(--default-item "$cur")
+    fi
+    wt --title "Distribución de Teclado" "${def[@]}" --menu "Selecciona el mapa de teclado:" 20 80 12 \
         "1" "us (Inglés estándar, sin acentos)" \
         "2" "us / intl (Inglés internacional con teclas muertas)" \
         "3" "es (Español España)" \
@@ -242,9 +320,9 @@ ask_keyboard() {
         "5" "fr (Francés)" \
         "6" "de (Alemán)" \
         "7" "pt (Portugués)" \
-        "8" "Otro (entrada manual)" 3>&1 1>&2 2>&3)
+        "8" "Otro (entrada manual)" || return 1
     
-    case "$kb" in
+    case "$WT_OUT" in
         1) KEYMAP="us";         XKB_LAYOUT="us";    XKB_VARIANT="" ;;
         2) KEYMAP="us";         XKB_LAYOUT="us";    XKB_VARIANT="intl" ;;
         3) KEYMAP="es";         XKB_LAYOUT="es";    XKB_VARIANT="" ;;
@@ -253,20 +331,51 @@ ask_keyboard() {
         6) KEYMAP="de";         XKB_LAYOUT="de";    XKB_VARIANT="" ;;
         7) KEYMAP="pt-latin1";  XKB_LAYOUT="pt";    XKB_VARIANT="" ;;
         8) 
-            ask "vconsole keymap (ej: us, es)" KEYMAP "us"
-            ask "XKB layout (ej: us, latam)" XKB_LAYOUT "$KEYMAP"
-            ask "XKB variant (ej: intl, vacío si no aplica)" XKB_VARIANT ""
+            km="$KEYMAP"; xl="$XKB_LAYOUT"; xv="$XKB_VARIANT"
+            ask "vconsole keymap (ej: us, es)" km "$km" || { ask_keyboard; return $?; }
+            if ! answered; then xl="$km"; fi
+            ask "XKB layout (ej: us, latam)" xl "$xl" || { ask_keyboard; return $?; }
+            ask "XKB variant (ej: intl, vacío si no aplica)" xv "$xv" || { ask_keyboard; return $?; }
+            KEYMAP="$km"; XKB_LAYOUT="$xl"; XKB_VARIANT="$xv"
             ;;
-        *) KEYMAP="us"; XKB_LAYOUT="us"; XKB_VARIANT="intl" ;;
     esac
+    return 0
 }
 
 
 # ─── 4. Preguntas al usuario ──────────────────────────────────────────────────
+# Recorre las preguntas en orden. Aceptar avanza y Atrás retrocede una; Atrás en la primera
+# pregunta pide confirmar la salida. $1 = índice inicial. Con $2 se repite solo esa pregunta
+# (acceso directo desde el resumen) y se retorna 0 al aceptar o 1 con Atrás.
+run_wizard() {
+    local i="${1:-0}" only="${2:-}" n=${#WIZARD_STEPS[@]} rc
+    while (( i >= 0 && i < n )); do
+        CURRENT_STEP="${WIZARD_STEPS[$i]}"
+        if "$CURRENT_STEP"; then
+            rc=0
+        else
+            rc=$?
+        fi
+        if [[ $rc -eq 0 ]]; then
+            STEP_OK[$CURRENT_STEP]=1
+            [[ -n "$only" ]] && return 0
+            i=$((i + 1))
+        else
+            [[ -n "$only" ]] && return 1
+            if (( i == 0 )); then confirm_exit; else i=$((i - 1)); fi
+        fi
+    done
+    return 0
+}
+
 ask_questions() {
     header "Configuración de la instalación"
+    run_wizard
+}
 
-    # ── Disco ─────────────────────────────────────────────────────────────────
+# ── Pregunta: disco ───────────────────────────────────────────────────────────
+step_disk() {
+    local line disk def=()
     echo -e "\n   ${BOLD}Discos disponibles:${NC}"
     local disk_list=()
     while IFS= read -r line; do
@@ -283,95 +392,172 @@ ask_questions() {
         disk_opts+=("$dname" "$ddesc")
     done
 
-    TARGET_DISK=$(whiptail --title "Selección de Disco" --menu "Elige el disco de instalación (¡SE BORRARÁ TODO!):" 15 70 6 "${disk_opts[@]}" 3>&1 1>&2 2>&3)
-    if [[ -z "$TARGET_DISK" ]]; then
-        die "Selección de disco cancelada."
-    fi
-    ok "Disco seleccionado: $TARGET_DISK"
-    [[ -b "$TARGET_DISK" ]] || die "Disco no encontrado: $TARGET_DISK"
+    if answered; then def=(--default-item "$TARGET_DISK"); fi
+    while true; do
+        wt --title "Selección de Disco" "${def[@]}" --menu "Elige el disco de instalación (¡SE BORRARÁ TODO!):" 15 70 6 "${disk_opts[@]}" || return 1
+        disk="$WT_OUT"
+        ok "Disco seleccionado: $disk"
+        [[ -b "$disk" ]] || die "Disco no encontrado: $disk"
 
-    # ── Verificación de disco limpio ──────────────────────────────────────────
-    if wipefs -n "$TARGET_DISK" 2>/dev/null | grep -q .; then
-        warn "El disco $TARGET_DISK contiene datos previos."
-        echo ""
-        if confirm "¿Limpiar el disco ahora con wipefs -a $TARGET_DISK?"; then
-            step "Limpiando $TARGET_DISK..."
-            wipefs -a "$TARGET_DISK"
-            partprobe "$TARGET_DISK" 2>/dev/null || true
-            ok "Disco $TARGET_DISK limpiado correctamente"
+        # ── Verificación de disco limpio ──────────────────────────────────────
+        if wipefs -n "$disk" 2>/dev/null | grep -q .; then
+            warn "El disco $disk contiene datos previos."
+            echo ""
+            if confirm "¿Limpiar el disco ahora con wipefs -a $disk?"; then
+                step "Limpiando $disk..."
+                wipefs -a "$disk"
+                partprobe "$disk" 2>/dev/null || true
+                ok "Disco $disk limpiado correctamente"
+            else
+                echo -e "\n   ${CYAN}Para limpiar manualmente:${NC}  sudo wipefs -a $disk\n"
+                warn "Disco no limpio. Elige otro disco, o límpialo y vuelve a elegirlo."
+                continue
+            fi
         else
-            echo -e "\n   ${CYAN}Para limpiar manualmente:${NC}  sudo wipefs -a $TARGET_DISK\n"
-            die "Disco no limpio. Reinicia el script tras limpiarlo."
+            ok "Disco $disk está limpio"
         fi
-    else
-        ok "Disco $TARGET_DISK está limpio"
-    fi
+        TARGET_DISK="$disk"
+        return 0
+    done
+}
 
-    # ── Sistema ───────────────────────────────────────────────────────────────
-    ask "Nombre del equipo (hostname)" SYS_HOSTNAME
-    [[ -n "$SYS_HOSTNAME" ]] || die "El hostname no puede estar vacío."
+# ── Preguntas: sistema ────────────────────────────────────────────────────────
+# Cada pregunta trabaja con una copia local y solo guarda la respuesta si es válida:
+# con Atrás la información anterior no cambia.
+step_hostname() {
+    local v="$SYS_HOSTNAME"
+    while true; do
+        ask "Nombre del equipo (hostname)" v "$v" || return 1
+        [[ -n "$v" ]] && break
+        whiptail --title "Error" --msgbox "El hostname no puede estar vacío." 8 60
+    done
+    SYS_HOSTNAME="$v"
+    return 0
+}
 
-    ask "Nombre de usuario" USERNAME
-    [[ "$USERNAME" =~ ^[a-z_][a-z0-9_-]*$ ]] \
-        || die "Usuario inválido: solo letras minúsculas, números, _ y -"
+step_username() {
+    local v="$USERNAME"
+    while true; do
+        ask "Nombre de usuario" v "$v" || return 1
+        [[ "$v" =~ ^[a-z_][a-z0-9_-]*$ ]] && break
+        whiptail --title "Error" --msgbox "Usuario inválido: solo letras minúsculas, números, _ y -" 8 60
+    done
+    USERNAME="$v"
+    return 0
+}
 
-    ask "Nombre completo del usuario" FULLNAME
-    [[ "$FULLNAME" =~ [^[:space:]] ]] \
-        || die "El nombre completo no puede estar vacío."
-    [[ "$FULLNAME" != *:* && ! "$FULLNAME" =~ [[:cntrl:]] ]] \
-        || die "Nombre completo inválido: no puede contener ':' ni caracteres de control."
+step_fullname() {
+    local v="$FULLNAME"
+    while true; do
+        ask "Nombre completo del usuario" v "$v" || return 1
+        if [[ ! "$v" =~ [^[:space:]] ]]; then
+            whiptail --title "Error" --msgbox "El nombre completo no puede estar vacío." 8 60
+        elif [[ "$v" == *:* || "$v" =~ [[:cntrl:]] ]]; then
+            whiptail --title "Error" --msgbox "Nombre completo inválido: no puede contener ':' ni caracteres de control." 8 70
+        else
+            break
+        fi
+    done
+    FULLNAME="$v"
+    return 0
+}
 
-    askpass "Contraseña para $USERNAME" USERPASS
-    [[ -n "$USERPASS" ]] || die "La contraseña no puede estar vacía."
+step_userpass() {
+    local v="$USERPASS"
+    while true; do
+        askpass "Contraseña para $USERNAME" v || return 1
+        [[ -n "$v" ]] && break
+        whiptail --title "Error" --msgbox "La contraseña no puede estar vacía." 8 60
+    done
+    USERPASS="$v"
+    return 0
+}
 
-    ask_timezone
-    ask_locale
-    ask_keyboard
+# ── Pregunta: LUKS ────────────────────────────────────────────────────────────
+# $1 = nombre de la variable donde queda la passphrase. Retorna 1 con Atrás.
+ask_luks_pass() {
+    local name="$1" val
+    while true; do
+        askpass "Passphrase LUKS (se pedirá en cada arranque)" "$name" || return 1
+        val="${!name}"
+        [[ ${#val} -ge 8 ]] && return 0
+        whiptail --title "Error" --msgbox "Passphrase demasiado corta (mínimo 8 caracteres)." 8 60
+        printf -v "$name" '%s' ""
+    done
+}
 
-    # ── LUKS ──────────────────────────────────────────────────────────────────
-    if confirm "¿Cifrado completo del disco con LUKS2?"; then
-        USE_LUKS=true
-        askpass "Passphrase LUKS (se pedirá en cada arranque)" LUKS_PASS
-        [[ ${#LUKS_PASS} -ge 8 ]] || die "Passphrase demasiado corta (mínimo 8 caracteres)."
-        ok "Cifrado LUKS2 habilitado"
-    fi
+step_luks() {
+    local use="$USE_LUKS" pass="$LUKS_PASS" seen=""
+    while true; do
+        ask_yesno "¿Cifrado completo del disco con LUKS2?" use "$seen" || return 1
+        seen=1
+        if [[ "$use" == "false" ]]; then
+            pass=""
+            break
+        fi
+        if ask_luks_pass pass; then
+            ok "Cifrado LUKS2 habilitado"
+            break
+        fi
+    done
+    USE_LUKS="$use"
+    LUKS_PASS="$pass"
+    return 0
+}
 
-    # ── Hibernación y swap ────────────────────────────────────────────────────
+# ── Pregunta: hibernación y swap ──────────────────────────────────────────────
+# La swap sugerida se recalcula solo cuando cambia la respuesta de hibernación;
+# si no cambia, se conserva el tamaño que el usuario ya eligió.
+step_swap() {
+    local hib="$USE_HIBERNATE" swap="$SWAP_SIZE" prev="" seen=""
+    if answered; then prev="$USE_HIBERNATE"; fi
     echo -e "\n   ${BOLD}RAM detectada: ${RAM_GB} GB${NC}"
     echo -e "   ${DIM}Referencia swap:${NC}"
     echo -e "   ${DIM}  Sin hibernación: $(suggest_swap false) GB sugeridos${NC}"
     echo -e "   ${DIM}  Con hibernación: $(suggest_swap true) GB sugeridos${NC}"
 
-    if confirm "¿Soporte de hibernación (suspend-to-disk)?"; then
-        USE_HIBERNATE=true
-        SWAP_SIZE=$(suggest_swap true)
-        info "Swap calculada para hibernación: ${SWAP_SIZE} GB"
-    else
-        SWAP_SIZE=$(suggest_swap false)
-        info "Swap sugerida: ${SWAP_SIZE} GB"
-    fi
-    ask_number "Tamaño del swap en GB" SWAP_SIZE "$SWAP_SIZE"
+    while true; do
+        ask_yesno "¿Soporte de hibernación (suspend-to-disk)?" hib "$seen" || return 1
+        seen=1
+        if [[ "$hib" != "$prev" ]]; then
+            swap=$(suggest_swap "$hib")
+            prev="$hib"
+        fi
+        if [[ "$hib" == "true" ]]; then
+            info "Swap calculada para hibernación: ${swap} GB"
+        else
+            info "Swap sugerida: ${swap} GB"
+        fi
+        ask_number "Tamaño del swap en GB" swap "$swap" && break
+    done
+    USE_HIBERNATE="$hib"
+    SWAP_SIZE="$swap"
+    return 0
+}
 
-    # ── Docker ────────────────────────────────────────────────────────────────
-    if confirm "¿Subvolumen @docker para /var/lib/docker? (recomendado si usarás Docker)"; then
-        USE_DOCKER=true
-        ok "Subvolumen @docker incluido"
-    fi
+# ── Pregunta: Docker ──────────────────────────────────────────────────────────
+step_docker() {
+    ask_yesno "¿Subvolumen @docker para /var/lib/docker? (recomendado si usarás Docker)" USE_DOCKER || return 1
+    if $USE_DOCKER; then ok "Subvolumen @docker incluido"; fi
+    return 0
+}
 
-    # ── Shell interactivo ─────────────────────────────────────────────────────
-    SHELL_CHOICE=$(whiptail --title "Shell Interactivo" --menu "Selecciona la configuración del shell:" 15 70 3 \
+# ── Pregunta: shell interactivo ───────────────────────────────────────────────
+step_shell() {
+    local def=()
+    if answered; then def=(--default-item "$SHELL_CHOICE"); fi
+    wt --title "Shell Interactivo" "${def[@]}" --menu "Selecciona la configuración del shell:" 15 70 3 \
         "bash" "Bash mejorado (ble.sh + Oh My Bash)" \
         "zsh" "ZSH con plugins (syntax-highlighting, autosuggestions)" \
-        "none" "Ninguno (Bash por defecto)" 3>&1 1>&2 2>&3)
+        "none" "Ninguno (Bash por defecto)" || return 1
     
-    if [[ -z "$SHELL_CHOICE" ]]; then
-        SHELL_CHOICE="none"
-    fi
+    SHELL_CHOICE="$WT_OUT"
     ok "Shell seleccionado: $SHELL_CHOICE"
+    return 0
 }
 
 # ─── 5. Resumen y confirmación ────────────────────────────────────────────────
-show_summary() {
+print_summary() {
     header "Resumen de instalación"
 
     echo -e "   ${BOLD}Disco          :${NC} ${RED}${BOLD}$TARGET_DISK — TODO EL CONTENIDO SERÁ ELIMINADO${NC}"
@@ -403,7 +589,46 @@ show_summary() {
 
     echo -e "\n   ${RED}${BOLD}ADVERTENCIA: OPERACIÓN IRREVERSIBLE.${NC}"
     echo -e "   ${RED}Se borrarán TODOS los datos de $TARGET_DISK.${NC}\n"
-    confirm "¿Confirmas la instalación?" || die "Instalación cancelada."
+}
+
+# Muestra el resumen como menú: confirma la instalación o salta directo a cualquier pregunta.
+# Atrás vuelve a la última pregunta; Esc o «Salir» piden confirmar la salida.
+show_summary() {
+    local items choice i
+    while true; do
+        print_summary
+        items=(
+            "instalar"      "CONFIRMAR E INSTALAR (se borra TODO $TARGET_DISK)"
+            "step_disk"     "Disco: $TARGET_DISK"
+            "step_hostname" "Hostname: $SYS_HOSTNAME"
+            "step_username" "Usuario: $USERNAME"
+            "step_fullname" "Nombre completo: $FULLNAME"
+            "step_userpass" "Contraseña: ********"
+            "ask_timezone"  "Zona horaria: $TIMEZONE"
+            "ask_locale"    "Idioma: $LOCALE"
+            "ask_keyboard"  "Teclado: ${XKB_LAYOUT}${XKB_VARIANT:+ / $XKB_VARIANT} (vconsole: $KEYMAP)"
+            "step_luks"     "Cifrado LUKS2: $( $USE_LUKS && echo 'SI' || echo 'NO' )"
+            "step_swap"     "Hibernación: $( $USE_HIBERNATE && echo 'SI' || echo 'NO' ) — Swap: ${SWAP_SIZE} GB"
+            "step_docker"   "Subvolumen @docker: $( $USE_DOCKER && echo 'SI' || echo 'NO' )"
+            "step_shell"    "Shell: $SHELL_CHOICE"
+            "salir"         "Salir del instalador"
+        )
+        if ! wt --title "Resumen de instalación" --notags --default-item "instalar" \
+                --menu "Elige una pregunta para cambiarla, o confirma la instalación:" 22 78 15 "${items[@]}"; then
+            run_wizard $(( ${#WIZARD_STEPS[@]} - 1 ))
+            continue
+        fi
+        choice="$WT_OUT"
+        case "$choice" in
+            instalar) return 0 ;;
+            salir)    confirm_exit ;;
+            *)
+                for i in "${!WIZARD_STEPS[@]}"; do
+                    [[ "${WIZARD_STEPS[$i]}" == "$choice" ]] && run_wizard "$i" solo
+                done
+                ;;
+        esac
+    done
 }
 
 # ─── 6. Particionado ──────────────────────────────────────────────────────────
