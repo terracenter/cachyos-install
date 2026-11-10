@@ -19,7 +19,7 @@ LOG_FILE="$SCRIPT_DIR/install-base.log"
 
 # ─── Colores ──────────────────────────────────────────────────────────────────
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
-BLUE='\033[0;34m'; CYAN='\033[0;36m'; BOLD='\033[1m'; DIM='\033[2m'; NC='\033[0m'
+BLUE='\033[0;34m'; BOLD='\033[1m'; DIM='\033[2m'; NC='\033[0m'
 
 # ─── Trap de error inesperado ─────────────────────────────────────────────────
 # Invocada indirectamente por el trap ERR.
@@ -127,8 +127,9 @@ askpass() {
     done
 }
 
+# $1 = texto; $2 (opcional) = --defaultno, para que «No» sea el botón marcado por defecto.
 confirm() {
-    if whiptail --title "Confirmación" --yesno "$1" 10 60; then
+    if whiptail --title "Confirmación" ${2:+"$2"} --yesno "$1" 12 66; then
         return 0
     else
         return 1
@@ -463,32 +464,20 @@ step_disk() {
     done
 
     if answered; then def=(--default-item "$TARGET_DISK"); fi
-    while true; do
-        wt --title "Selección de Disco" "${def[@]}" --menu "Elige el disco de instalación (¡SE BORRARÁ TODO!):" 15 70 6 "${disk_opts[@]}" || return 1
-        disk="$WT_OUT"
-        ok "Disco seleccionado: $disk"
-        [[ -b "$disk" ]] || die "Disco no encontrado: $disk"
+    wt --title "Selección de Disco" "${def[@]}" --menu "Elige el disco de instalación (¡SE BORRARÁ TODO!):" 15 70 6 "${disk_opts[@]}" || return 1
+    disk="$WT_OUT"
+    ok "Disco seleccionado: $disk"
+    [[ -b "$disk" ]] || die "Disco no encontrado: $disk"
 
-        # ── Verificación de disco limpio ──────────────────────────────────────
-        if wipefs -n "$disk" 2>/dev/null | grep -q .; then
-            warn "El disco $disk contiene datos previos."
-            echo ""
-            if confirm "¿Limpiar el disco ahora con wipefs -a $disk?"; then
-                step "Limpiando $disk..."
-                wipefs -a "$disk"
-                partprobe "$disk" 2>/dev/null || true
-                ok "Disco $disk limpiado correctamente"
-            else
-                echo -e "\n   ${CYAN}Para limpiar manualmente:${NC}  sudo wipefs -a $disk\n"
-                warn "Disco no limpio. Elige otro disco, o límpialo y vuelve a elegirlo."
-                continue
-            fi
-        else
-            ok "Disco $disk está limpio"
-        fi
-        TARGET_DISK="$disk"
-        return 0
-    done
+    # Aquí no se borra nada: solo se avisa. La limpieza (wipefs -af) ocurre en partition_disk,
+    # después de la última confirmación del resumen.
+    if wipefs -n "$disk" 2>/dev/null | grep -q .; then
+        warn "El disco $disk contiene datos previos; se borrarán al confirmar la instalación."
+    else
+        ok "Disco $disk está limpio"
+    fi
+    TARGET_DISK="$disk"
+    return 0
 }
 
 # ── Preguntas: sistema ────────────────────────────────────────────────────────
@@ -662,6 +651,7 @@ print_summary() {
 }
 
 # Muestra el resumen como menú: confirma la instalación o salta directo a cualquier pregunta.
+# «Confirmar e instalar» pide una última confirmación, con «No» por defecto; «No» vuelve a este menú.
 # Atrás vuelve a la última pregunta; Esc o «Salir» piden confirmar la salida.
 show_summary() {
     local items choice i
@@ -690,7 +680,11 @@ show_summary() {
         fi
         choice="$WT_OUT"
         case "$choice" in
-            instalar) return 0 ;;
+            instalar)
+                if confirm "Se borrarán TODOS los datos de $TARGET_DISK de forma irreversible. ¿Estás seguro de continuar?" --defaultno; then
+                    return 0
+                fi
+                ;;
             salir)    confirm_exit ;;
             *)
                 for i in "${!WIZARD_STEPS[@]}"; do

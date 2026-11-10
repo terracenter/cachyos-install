@@ -20,7 +20,7 @@ Instalador reproducible basado en CachyOS + Omarchy + personalizaciones propias:
 - [x] La zona horaria se detecta por IP y queda marcada como recomendada.
 - [x] El idioma del sistema queda recomendado según el país detectado por IP.
 - [x] El teclado queda recomendado según el idioma elegido.
-- [ ] Segunda confirmación, explícita, antes de borrar el disco.
+- [x] Segunda confirmación, explícita, antes de borrar el disco.
 - [ ] Instalación base validada en hardware real.
 
 ## Fase 2 — Escritorio Hyprland (`hyprland/`)
