@@ -10,7 +10,7 @@ La mayor parte de la configuración se escribe en `/mnt` y las acciones que requ
 
 ## Zona horaria
 
-Para recomendarte una zona, el instalador consulta una sola vez a `ipinfo.io` (`https://ipinfo.io/json`). Esa consulta envía tu IP pública a ese servicio, espera como máximo 5 segundos, solo lee el campo `timezone` y no guarda la respuesta. La zona detectada aparece en el menú como `(Recomendada)` y queda seleccionada, pero puedes elegir cualquier otra. Si no hay respuesta, o la zona detectada no está en la lista, el menú aparece sin ninguna zona marcada. El instalador exige conexión a Internet.
+Para recomendarte una zona, el instalador consulta una sola vez a `ipinfo.io` (`https://ipinfo.io/json`). Esa consulta envía tu IP pública a ese servicio, espera como máximo 5 segundos, solo lee los campos `timezone` y `country` y no guarda la respuesta. La zona detectada aparece en el menú como `(Recomendada)` y queda seleccionada, pero puedes elegir cualquier otra. Si no hay respuesta, o la zona detectada no está en la lista, el menú aparece sin ninguna zona marcada. El instalador exige conexión a Internet.
 
 El instalador permite elegir una zona de `/usr/share/zoneinfo` y crea:
 
@@ -31,6 +31,8 @@ timedatectl
 ```
 
 ## Locale
+
+El instalador marca como `(Recomendada)` el idioma de la lista que corresponde al país (campo `country`) de la misma consulta a `ipinfo.io` de la zona horaria, y lo deja seleccionado, pero puedes elegir cualquier otro. Si el país no coincide con ningún idioma de la lista, o no se pudo detectar, el menú aparece sin ninguno marcado.
 
 El usuario selecciona un locale, por ejemplo:
 
