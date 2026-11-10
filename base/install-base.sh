@@ -345,8 +345,29 @@ ask_locale() {
 
 
 # ─── Selección de teclado ────────────────────────────────────────────────────
+# La recomendación sale del idioma elegido (LOCALE, con la forma idioma_PAÍS): si el país coincide con una distribución
+# de la lista (us, es, fr, de, pt) se recomienda esa; si el idioma es español y el país no es España, se recomienda latam.
 ask_keyboard() {
-    local def=() cur=8 km xl xv
+    local def=() cur=8 rec=0 km xl xv lang cc msg
+    local labels=("us (Inglés estándar, sin acentos)" "us / intl (Inglés internacional con teclas muertas)" "es (Español España)" "latam (Latinoamérica)" "fr (Francés)" "de (Alemán)" "pt (Portugués)")
+    if [[ $LOCALE =~ ^([a-z]{2,3})_([A-Z]{2})([.@]|$) ]]; then
+        lang="${BASH_REMATCH[1]}"
+        cc="${BASH_REMATCH[2]}"
+        case "$cc" in
+            US) rec=1 ;;
+            ES) rec=3 ;;
+            FR) rec=5 ;;
+            DE) rec=6 ;;
+            PT) rec=7 ;;
+            *)  if [[ $lang == es ]]; then rec=4; fi ;;
+        esac
+    fi
+    if (( rec > 0 )); then
+        labels[rec-1]+=" (Recomendada)"
+        msg="Selecciona el mapa de teclado (Recomendada = según el idioma elegido):"
+    else
+        msg="Selecciona el mapa de teclado (sin recomendación para este idioma):"
+    fi
     if answered; then
         case "${KEYMAP}|${XKB_LAYOUT}|${XKB_VARIANT}" in
             "us|us|")           cur=1 ;;
@@ -358,15 +379,17 @@ ask_keyboard() {
             "pt-latin1|pt|")    cur=7 ;;
         esac
         def=(--default-item "$cur")
+    elif (( rec > 0 )); then
+        def=(--default-item "$rec")
     fi
-    wt --title "Distribución de Teclado" "${def[@]}" --menu "Selecciona el mapa de teclado:" 20 80 12 \
-        "1" "us (Inglés estándar, sin acentos)" \
-        "2" "us / intl (Inglés internacional con teclas muertas)" \
-        "3" "es (Español España)" \
-        "4" "latam (Latinoamérica)" \
-        "5" "fr (Francés)" \
-        "6" "de (Alemán)" \
-        "7" "pt (Portugués)" \
+    wt --title "Distribución de Teclado" "${def[@]}" --menu "$msg" 20 80 12 \
+        "1" "${labels[0]}" \
+        "2" "${labels[1]}" \
+        "3" "${labels[2]}" \
+        "4" "${labels[3]}" \
+        "5" "${labels[4]}" \
+        "6" "${labels[5]}" \
+        "7" "${labels[6]}" \
         "8" "Otro (entrada manual)" || return 1
     
     case "$WT_OUT" in

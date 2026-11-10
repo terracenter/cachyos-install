@@ -19,7 +19,7 @@ Instalador reproducible basado en CachyOS + Omarchy + personalizaciones propias:
 - [x] Cada pregunta del asistente tiene opción de regresar, y Cancelar nunca asigna un valor por defecto.
 - [x] La zona horaria se detecta por IP y queda marcada como recomendada.
 - [x] El idioma del sistema queda recomendado según el país detectado por IP.
-- [ ] El teclado queda recomendado según la zona horaria y el idioma elegidos.
+- [x] El teclado queda recomendado según el idioma elegido.
 - [ ] Segunda confirmación, explícita, antes de borrar el disco.
 - [ ] Instalación base validada en hardware real.
 
