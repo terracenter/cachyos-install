@@ -1,5 +1,9 @@
 # Instalador de CachyOS + Omarchy + Personalizaciones
 
+![Licencia](https://img.shields.io/badge/licencia-GPL--3.0-blue)
+![Estado](https://img.shields.io/badge/estado-Activo-brightgreen)
+![Stack](https://img.shields.io/badge/stack-Bash_%7C_Hyprland_%7C_Qtile-informational)
+
 Instalador modular para CachyOS basado en Omarchy, con personalizaciones propias, documentación integrada y soporte para Hyprland y Qtile.
 
 ## Características
