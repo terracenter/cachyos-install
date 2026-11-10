@@ -64,6 +64,8 @@ Retira el medio de instalación cuando el firmware o el equipo lo permitan.
 
 Inicia sesión con el usuario creado durante la instalación. La cuenta root tiene la contraseña bloqueada y la administración se realiza mediante `sudo`.
 
+La instalación base deja el repositorio descargado en `~/cachyos-install`. La primera vez que se abre un shell interactivo con ese usuario, aparece un aviso que lo indica y que muestra el comando para continuar con el escritorio: `cd ~/cachyos-install && ./install.sh`. El aviso sale una sola vez. Si la descarga falló durante la instalación, el aviso no aparece y el resumen final de la instalación base explica cómo descargar el repositorio.
+
 Comprueba:
 
 ```bash
@@ -215,6 +217,7 @@ Revisa los mensajes antes de instalar el escritorio o aplicaciones adicionales.
 Antes de continuar:
 
 - El usuario puede usar `sudo`.
+- El repositorio está en `~/cachyos-install`.
 - El kernel de CachyOS está activo.
 - Los subvolúmenes Btrfs están montados correctamente.
 - El swapfile aparece en `swapon --show`.

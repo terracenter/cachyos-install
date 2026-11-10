@@ -160,6 +160,8 @@ LUKS_PASS=""
 USE_HIBERNATE=false
 USE_DOCKER=false
 SHELL_CHOICE="none"
+REPO_URL="https://github.com/terracenter/cachyos-install.git"
+REPO_CLONED=false   # true cuando el repositorio quedó descargado en la carpeta del usuario
 
 SWAP_SIZE=4
 RAM_GB=0
@@ -1201,6 +1203,46 @@ USERSCRIPT
     info "Shell mejorado activo en el primer inicio de sesión"
 }
 
+# ─── 16b. Repositorio en la carpeta del usuario ───────────────────────────────
+# Descarga el repositorio en /home/<usuario>/cachyos-install y deja un aviso para el primer
+# inicio de sesión. Es un extra: si algo falla avisa y la instalación continúa sin el aviso.
+install_repo_home() {
+    step "Descargando el repositorio en /home/$USERNAME/cachyos-install..."
+    if ! arch-chroot /mnt pacman -S --needed --noconfirm git; then
+        warn "No se pudo instalar git: el repositorio no se descargó."
+        return 0
+    fi
+    if ! arch-chroot /mnt /bin/su -l "$USERNAME" -s /bin/bash -c "git clone '$REPO_URL' \"\$HOME/cachyos-install\""; then
+        warn "No se pudo descargar el repositorio desde $REPO_URL."
+        return 0
+    fi
+    REPO_CLONED=true
+    ok "Repositorio descargado en /home/$USERNAME/cachyos-install"
+
+    # Aviso del primer inicio de sesión: un marcador y un bloque al principio del rc del shell.
+    # El bloque muestra el mensaje y borra el marcador, por eso sale una sola vez.
+    local rc="/mnt/home/$USERNAME/.bashrc"
+    if [[ "$SHELL_CHOICE" == "zsh" ]]; then rc="/mnt/home/$USERNAME/.zshrc"; fi
+    # shellcheck disable=SC2016
+    if ! arch-chroot /mnt /bin/su -l "$USERNAME" -s /bin/bash -c 'mkdir -p "$HOME/.config/cachyos-install" && : > "$HOME/.config/cachyos-install/primer-inicio"'; then
+        warn "No se pudo crear el marcador del aviso de primer inicio de sesión."
+        return 0
+    fi
+    if [[ ! -f "$rc" ]]; then touch "$rc"; fi
+    cat > "${rc}.new" << 'AVISO'
+# cachyos-install: aviso del primer inicio de sesión (borra su marcador al mostrarse)
+if [[ $- == *i* && -f "$HOME/.config/cachyos-install/primer-inicio" ]]; then
+    printf '\n  El repositorio cachyos-install está en ~/cachyos-install.\n  Para continuar con la instalación, ejecuta:\n\n      cd ~/cachyos-install && ./install.sh\n\n'
+    rm -f "$HOME/.config/cachyos-install/primer-inicio"
+fi
+
+AVISO
+    cat "$rc" >> "${rc}.new"
+    mv "${rc}.new" "$rc"
+    arch-chroot /mnt chown "$USERNAME:$USERNAME" "/home/$USERNAME/${rc##*/}"
+    ok "Aviso del primer inicio de sesión configurado en ~/${rc##*/}"
+}
+
 # ─── 15. Helper de Rollback Btrfs ─────────────────────────────────────────────
 install_rollback_helper() {
     step "Instalando helper btrfs-rollback..."
@@ -1332,8 +1374,15 @@ final_summary() {
     echo -e "\n      ${BOLD}sudo btrfs-rollback <N>${NC}"
     echo -e "      ${BOLD}sudo reboot${NC}\n"
     info "4. Si solo usaras el equipo en TTY/SSH (sin escritorio), el sistema esta listo."
-    info "   Para instalar Hyprland, ejecuta como usuario normal:"
-    echo -e "\n      ${BOLD}cd ~/cachyos-install && ./install.sh${NC}\n"
+    if $REPO_CLONED; then
+        info "   El repositorio ya esta en /home/$USERNAME/cachyos-install y tu primer inicio de sesion"
+        info "   mostrara un aviso con el comando. Para instalar Hyprland, ejecuta como usuario normal:"
+        echo -e "\n      ${BOLD}cd ~/cachyos-install && ./install.sh${NC}\n"
+    else
+        warn "   El repositorio no se pudo descargar. Para instalar Hyprland, ejecuta como usuario normal:"
+        echo -e "\n      ${BOLD}git clone $REPO_URL ~/cachyos-install${NC}"
+        echo -e "      ${BOLD}cd ~/cachyos-install && ./install.sh${NC}\n"
+    fi
     info "5. Tras reiniciar en Hyprland, ejecuta:"
     echo -e "\n      ${BOLD}bash install-hyprland-desktop.sh${NC}\n"
 }
@@ -1373,6 +1422,7 @@ generate_fstab
 configure_cachyos_repos
 configure_chroot
 install_shell_enhancement
+install_repo_home
 install_rollback_helper
 take_snapshot
 unmount_all
