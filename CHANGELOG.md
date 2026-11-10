@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - El asistente de la instalación base pide el nombre completo del usuario y lo guarda en el campo de comentario de la cuenta.
 - Cada pregunta del asistente de la instalación base tiene el botón Atrás, que vuelve a la pregunta anterior con la respuesta ya dada marcada; Esc pregunta si se quiere salir del instalador, y el resumen final es un menú que permite ir directo a cualquier pregunta antes de confirmar.
 - La instalación base consulta una sola vez a `ipinfo.io` (la IP pública sale hacia ese servicio, con un máximo de 5 segundos y sin guardar la respuesta) para detectar la zona horaria: la zona detectada aparece en el menú como `(Recomendada)` y queda seleccionada. Si no hay respuesta, el menú aparece sin recomendación.
+- El menú de idioma del sistema de la instalación base recomienda el idioma según el país que devuelve esa misma consulta a `ipinfo.io`: el idioma de la lista que corresponde a ese país aparece como `(Recomendada)` y queda seleccionado, y ya no hay un idioma fijo marcado como recomendado. Si el país no coincide con ningún idioma de la lista, o no se pudo detectar, el menú aparece sin recomendación.
 
 ### Fixed
 

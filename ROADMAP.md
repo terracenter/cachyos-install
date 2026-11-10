@@ -18,7 +18,8 @@ Instalador reproducible basado en CachyOS + Omarchy + personalizaciones propias:
 - [x] El asistente pide el nombre completo del usuario.
 - [x] Cada pregunta del asistente tiene opción de regresar, y Cancelar nunca asigna un valor por defecto.
 - [x] La zona horaria se detecta por IP y queda marcada como recomendada.
-- [ ] El idioma y el teclado quedan recomendados según la zona horaria y el idioma elegidos.
+- [x] El idioma del sistema queda recomendado según el país detectado por IP.
+- [ ] El teclado queda recomendado según la zona horaria y el idioma elegidos.
 - [ ] Segunda confirmación, explícita, antes de borrar el disco.
 - [ ] Instalación base validada en hardware real.
 
@@ -57,6 +58,7 @@ Instalador reproducible basado en CachyOS + Omarchy + personalizaciones propias:
 
 - [ ] Instalador en Rust: respaldo más seguro para la zona horaria, sin enviar la IP a un servicio de geolocalización (la IP con `ifconfig.me` y la zona desde una base de datos local; por validar).
 - [ ] Telemetría del instalador: al terminar todos los issues actuales, evaluar cómo hacerla usando GitHub y si genera costos.
+- [ ] Instalador multidioma (en el instalador en Rust): español e inglés, cada uno con sus variantes; el idioma se elige o se detecta al inicio, antes de la zona horaria. Hoy el instalador está solo en español de Venezuela. La primera pantalla debe ser bilingüe y dejar elegir, porque el idioma detectado por IP es solo una recomendación.
 
 ## Regla de calidad
 

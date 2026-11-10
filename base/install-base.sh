@@ -147,6 +147,7 @@ FULLNAME=""
 USERPASS=""
 TIMEZONE="America/Caracas"
 TZ_DETECTED=""        # zona horaria detectada por IP; vacía si no se pudo detectar
+COUNTRY_DETECTED=""   # país detectado por IP (dos letras mayúsculas); vacío si no se pudo detectar
 TZ_DETECT_DONE=false  # la consulta a ipinfo.io se hace una sola vez
 LOCALE="es_VE.UTF-8"
 KEYMAP="us"        # vconsole (/etc/vconsole.conf)
@@ -238,17 +239,21 @@ suggest_swap() {
 }
 
 # ─── Selección de zona horaria ───────────────────────────────────────────────
-# Consulta una sola vez a ipinfo.io para recomendar la zona: la IP pública sale hacia ese servicio.
-# Deja TZ_DETECTED vacía si no hay curl, no hay respuesta o el valor no parece una zona IANA.
+# Consulta una sola vez a ipinfo.io para recomendar la zona y el idioma: la IP pública sale hacia ese servicio.
+# Lee solo "timezone" y "country". Deja TZ_DETECTED y COUNTRY_DETECTED vacías si no hay curl, no hay respuesta
+# o el valor no tiene el formato esperado (zona IANA; dos letras mayúsculas).
 # No guarda la respuesta, no reintenta y nunca detiene el asistente.
 detect_timezone() {
-    local json tz
+    local json tz cc
     TZ_DETECT_DONE=true
     TZ_DETECTED=""
+    COUNTRY_DETECTED=""
     command -v curl &>/dev/null || return 0
     json=$(curl -fs --max-time 5 https://ipinfo.io/json 2>/dev/null) || return 0
     tz=$(printf '%s\n' "$json" | sed -n 's/.*"timezone"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)
     if [[ $tz =~ ^[A-Za-z_]+(/[A-Za-z0-9_+-]+)+$ ]]; then TZ_DETECTED="$tz"; fi
+    cc=$(printf '%s\n' "$json" | sed -n 's/.*"country"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)
+    if [[ $cc =~ ^[[:upper:]]{2}$ ]]; then COUNTRY_DETECTED="$cc"; fi
     return 0
 }
 
@@ -285,30 +290,43 @@ ask_timezone() {
 
 
 # ─── Selección de locale ──────────────────────────────────────────────────────
+# La recomendación es el idioma de la lista cuyo nombre termina en _<país>.UTF-8, con el país que devuelve ipinfo.
 ask_locale() {
-    local def=() cur=9
-    if answered; then
-        case "$LOCALE" in
-            es_VE.UTF-8) cur=1 ;;
-            es_ES.UTF-8) cur=2 ;;
-            es_MX.UTF-8) cur=3 ;;
-            es_AR.UTF-8) cur=4 ;;
-            es_CO.UTF-8) cur=5 ;;
-            es_CL.UTF-8) cur=6 ;;
-            en_US.UTF-8) cur=7 ;;
-            en_GB.UTF-8) cur=8 ;;
-        esac
-        def=(--default-item "$cur")
+    $TZ_DETECT_DONE || detect_timezone
+    local def=() cur=9 rec=0 i loc msg
+    local locs=(es_VE.UTF-8 es_ES.UTF-8 es_MX.UTF-8 es_AR.UTF-8 es_CO.UTF-8 es_CL.UTF-8 en_US.UTF-8 en_GB.UTF-8)
+    local names=("Español Venezuela" "Español España" "Español México" "Español Argentina" "Español Colombia" "Español Chile" "Inglés EE.UU." "Inglés Reino Unido")
+    local labels=()
+    for i in "${!locs[@]}"; do
+        loc="${locs[$i]}"
+        labels+=("$loc (${names[$i]})")
+        if [[ -n "$COUNTRY_DETECTED" && "$loc" == *_"$COUNTRY_DETECTED".UTF-8 ]]; then
+            labels[i]="$loc (${names[$i]}) (Recomendada)"
+            rec=$((i + 1))
+        fi
+        if [[ "$loc" == "$LOCALE" ]]; then cur=$((i + 1)); fi
+    done
+    if (( rec > 0 )); then
+        msg="Selecciona el idioma del sistema (Recomendada = país por IP):"
+    elif [[ -n "$COUNTRY_DETECTED" ]]; then
+        msg="Selecciona el idioma del sistema (sin recomendación):"
+    else
+        msg="Selecciona el idioma del sistema (no se pudo detectar por IP):"
     fi
-    wt --title "Locale del Sistema" "${def[@]}" --menu "Selecciona el idioma del sistema:" 20 70 12 \
-        "1" "es_VE.UTF-8 (Español Venezuela - Recomendado)" \
-        "2" "es_ES.UTF-8 (Español España)" \
-        "3" "es_MX.UTF-8 (Español México)" \
-        "4" "es_AR.UTF-8 (Español Argentina)" \
-        "5" "es_CO.UTF-8 (Español Colombia)" \
-        "6" "es_CL.UTF-8 (Español Chile)" \
-        "7" "en_US.UTF-8 (Inglés EE.UU.)" \
-        "8" "en_GB.UTF-8 (Inglés Reino Unido)" \
+    if answered; then
+        def=(--default-item "$cur")
+    elif (( rec > 0 )); then
+        def=(--default-item "$rec")
+    fi
+    wt --title "Locale del Sistema" "${def[@]}" --menu "$msg" 20 70 12 \
+        "1" "${labels[0]}" \
+        "2" "${labels[1]}" \
+        "3" "${labels[2]}" \
+        "4" "${labels[3]}" \
+        "5" "${labels[4]}" \
+        "6" "${labels[5]}" \
+        "7" "${labels[6]}" \
+        "8" "${labels[7]}" \
         "9" "Otro (entrada manual)" || return 1
     
     case "$WT_OUT" in
