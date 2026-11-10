@@ -4,7 +4,8 @@
 
 set -e
 
-export CACHY_INSTALL="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CACHY_INSTALL="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export CACHY_INSTALL
 export CACHY_LOG="$CACHY_INSTALL/install-hyprland-apps.log"
 
 run_logged() {
@@ -14,6 +15,7 @@ run_logged() {
     exit 1
   fi
   echo "==> Instalando paquete de apps: $(basename "$script_path")" | tee -a "$CACHY_LOG"
+  # shellcheck source=/dev/null
   source "$script_path" 2>&1 | tee -a "$CACHY_LOG"
   if (( PIPESTATUS[0] != 0 )); then
     echo "ERROR: Falló la instalación del módulo $(basename "$script_path")" | tee -a "$CACHY_LOG"

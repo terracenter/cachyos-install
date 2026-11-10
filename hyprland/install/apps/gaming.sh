@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Módulo: Instalación de Gaming (Nativo + Cloud)
 # Combina optimizaciones nativas de CachyOS con las apps extra de Omarchy.
 
