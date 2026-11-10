@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 960 690" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="cf-flow-title cf-flow-desc" id="flujo-instalacion-root">
+        <title id="cf-flow-title">install.sh: del menú a un sistema instalado</title>
+        <desc id="cf-flow-desc">El punto de entrada install.sh abre un menú whiptail con cinco opciones. La opción 1 ejecuta base/install-base.sh, que formatea el disco, crea BTRFS con subvolúmenes, instala el sistema con pacstrap, configura GRUB con grub-btrfs, Snapper y el usuario, toma un snapshot inicial y pide reiniciar. La opción 2 abre un submenú de Hyprland con tres acciones: instalar el escritorio, instalar apps y gaming, o desinstalar. La opción 3 abre un submenú de Qtile con instalar y desinstalar. La opción 4 ejecuta la suite de aplicaciones genéricas. La opción 5 sale.</desc>
+        <style>
+          text { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+          .node { fill: #e4ddcd; stroke: #b5ab94; stroke-width: 1.5; }
+          .node.note { stroke-dasharray: 5 4; }
+          .node.prep { stroke: #7c3aed; fill: rgba(124,58,237,.07); }
+          .node.focal { stroke: #0284c7; fill: rgba(2,132,199,.07); }
+          .node.risk { stroke: #e7000b; fill: rgba(231,0,11,.07); }
+          .node.ok { stroke: #059669; fill: rgba(5,150,105,.08); }
+          .kicker { font: 600 9px ui-monospace, "SF Mono", Menlo, monospace; letter-spacing: .14em; fill: #5a5444; }
+          .title { font: 600 13.5px system-ui, -apple-system, "Segoe UI", sans-serif; fill: #1d2226; }
+          .step { font: 500 11.5px system-ui, -apple-system, "Segoe UI", sans-serif; fill: #1d2226; }
+          .sub { font: 400 9.5px ui-monospace, "SF Mono", Menlo, monospace; fill: #5a5444; }
+          .connector { stroke: #5a5444; stroke-width: 1.5; fill: none; }
+          .connector.ok { stroke: #059669; }
+        </style>
+        <defs>
+      <style>#flujo-instalacion-root { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: #1d2226; }
+      #flujo-instalacion-root .diagram-container { width: 100%; overflow-x: auto; }
+      @media print {
+#flujo-instalacion-root .diagram-container { overflow-x: visible; }
+}
+      #flujo-instalacion-root text { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+      #flujo-instalacion-root .node { fill: #e4ddcd; stroke: #b5ab94; stroke-width: 1.5; }
+      #flujo-instalacion-root .node.note { stroke-dasharray: 5 4; }
+      #flujo-instalacion-root .node.prep { stroke: #7c3aed; fill: rgba(124,58,237,.07); }
+      #flujo-instalacion-root .node.focal { stroke: #0284c7; fill: rgba(2,132,199,.07); }
+      #flujo-instalacion-root .node.risk { stroke: #e7000b; fill: rgba(231,0,11,.07); }
+      #flujo-instalacion-root .node.ok { stroke: #059669; fill: rgba(5,150,105,.08); }
+      #flujo-instalacion-root .kicker { font: 600 9px ui-monospace, "SF Mono", Menlo, monospace; letter-spacing: .14em; fill: #5a5444; }
+      #flujo-instalacion-root .title { font: 600 13.5px system-ui, -apple-system, "Segoe UI", sans-serif; fill: #1d2226; }
+      #flujo-instalacion-root .step { font: 500 11.5px system-ui, -apple-system, "Segoe UI", sans-serif; fill: #1d2226; }
+      #flujo-instalacion-root .sub { font: 400 9.5px ui-monospace, "SF Mono", Menlo, monospace; fill: #5a5444; }
+      #flujo-instalacion-root .connector { stroke: #5a5444; stroke-width: 1.5; fill: none; }
+      #flujo-instalacion-root .connector.ok { stroke: #059669; }</style>
+          <marker id="flujo-instalacion-cf-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#5a5444"/></marker>
+          <marker id="flujo-instalacion-cf-arrow-ok" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#059669"/></marker>
+        </defs>
+        <rect width="100%" height="100%" fill="#f1ece0"/>
+        <text x="26" y="34" font-size="10" font-weight="500" letter-spacing="1.8" fill="#5a5444" font-family="ui-monospace, Menlo, monospace">FLUJO · CACHYOS-INSTALL</text>
+        <text x="26" y="66" font-size="24" font-weight="600" letter-spacing="-0.4" fill="#1d2226">install.sh: del menú a un sistema instalado</text>
+
+        <g><rect class="node" x="26" y="104" width="908" height="76" rx="6"/><text class="kicker" x="40" y="126">ENTRADA</text><text class="title" x="40" y="150">install.sh · CachyOS Installation Suite</text><text class="sub" x="40" y="168">Live USB: sudo ./install.sh · Sistema instalado: ./install.sh · menú whiptail</text></g>
+
+        <g><rect class="node risk" x="26" y="210" width="212" height="88" rx="6"/><text class="kicker" x="40" y="233">OPCIÓN 1 · LIVE USB</text><text class="title" x="40" y="258">Instalación base</text><text class="sub" x="40" y="276">base/install-base.sh</text><text class="sub" x="40" y="289">formatea el disco · pide sudo</text></g>
+        <g><rect class="node focal" x="258" y="210" width="212" height="88" rx="6"/><text class="kicker" x="272" y="233">OPCIÓN 2</text><text class="title" x="272" y="258">Hyprland (Wayland)</text><text class="sub" x="272" y="276">submenú de 3 acciones</text><text class="sub" x="272" y="289">hyprland/</text></g>
+        <g><rect class="node focal" x="490" y="210" width="212" height="88" rx="6"/><text class="kicker" x="504" y="233">OPCIÓN 3</text><text class="title" x="504" y="258">Qtile (X11)</text><text class="sub" x="504" y="276">submenú de 2 acciones</text><text class="sub" x="504" y="289">qtile/</text></g>
+        <g><rect class="node" x="722" y="210" width="212" height="88" rx="6"/><text class="kicker" x="736" y="233">OPCIÓN 4</text><text class="title" x="736" y="258">Apps genéricas</text><text class="sub" x="736" y="276">suite del menú principal</text><text class="sub" x="736" y="289">sin submenú</text></g>
+
+        <g><rect class="node focal" x="26" y="326" width="212" height="178" rx="6"/><text class="kicker" x="40" y="348">install-base.sh · ETAPAS</text><text class="step" x="40" y="372">1  Preguntas y confirmación</text><text class="step" x="40" y="396">2  Partición (LUKS opcional)</text><text class="step" x="40" y="420">3  BTRFS + subvolúmenes</text><text class="step" x="40" y="444">4  pacstrap + fstab</text><text class="step" x="40" y="468">5  GRUB + grub-btrfs</text><text class="step" x="40" y="492">6  Snapper + usuario</text></g>
+        <g><rect class="node ok" x="26" y="516" width="212" height="84" rx="6"/><text class="kicker" x="40" y="538">FINAL</text><text class="title" x="40" y="562">Snapshot inicial</text><text class="sub" x="40" y="580">sistema-base-instalado</text><text class="sub" x="40" y="593">retira el USB y reinicia</text></g>
+
+        <g><rect class="node focal" x="258" y="326" width="212" height="84" rx="6"/><text class="kicker" x="272" y="348">2.1 · INSTALAR BASE</text><text class="title" x="272" y="372">Escritorio Hyprland</text><text class="sub" x="272" y="390">install-hyprland-desktop.sh</text><text class="sub" x="272" y="403">basico + configuracion</text></g>
+        <g><rect class="node focal" x="258" y="421" width="212" height="84" rx="6"/><text class="kicker" x="272" y="443">2.2 · APPS</text><text class="title" x="272" y="467">Apps y gaming</text><text class="sub" x="272" y="485">install-hyprland-apps.sh</text><text class="sub" x="272" y="498">install/apps/*</text></g>
+        <g><rect class="node risk" x="258" y="516" width="212" height="84" rx="6"/><text class="kicker" x="272" y="538">2.3 · DESINSTALAR</text><text class="title" x="272" y="562">Limpieza completa</text><text class="sub" x="272" y="580">uninstall-hyprland-omarchy.sh</text></g>
+
+        <g><rect class="node focal" x="490" y="326" width="212" height="84" rx="6"/><text class="kicker" x="504" y="348">3.1 · INSTALAR</text><text class="title" x="504" y="372">Escritorio Qtile</text><text class="sub" x="504" y="390">install-qtile-omarchy.sh</text><text class="sub" x="504" y="403">X11 + modesetting Intel DRI3</text></g>
+        <g><rect class="node risk" x="490" y="421" width="212" height="84" rx="6"/><text class="kicker" x="504" y="443">3.2 · DESINSTALAR</text><text class="title" x="504" y="467">Limpieza completa X11</text><text class="sub" x="504" y="485">uninstall-qtile-omarchy.sh</text></g>
+
+        <g><rect class="node" x="722" y="326" width="212" height="84" rx="6"/><text class="kicker" x="736" y="348">SCRIPT</text><text class="title" x="736" y="372">QEMU y ofimática</text><text class="sub" x="736" y="390">apps/install-apps.sh</text></g>
+
+        <g><rect class="node note" x="490" y="516" width="444" height="84" rx="6"/><text class="kicker" x="504" y="538">NAVEGACIÓN</text><text class="title" x="504" y="562">Volver y salir</text><text class="sub" x="504" y="580">Los submenús 2 y 3 terminan en «Volver al menú principal».</text><text class="sub" x="504" y="593">La opción 5 del menú principal cierra el instalador.</text></g>
+
+        <polyline class="connector" points="132,181 132,209" marker-end="url(#flujo-instalacion-cf-arrow)"/>
+        <polyline class="connector" points="364,181 364,209" marker-end="url(#flujo-instalacion-cf-arrow)"/>
+        <polyline class="connector" points="596,181 596,209" marker-end="url(#flujo-instalacion-cf-arrow)"/>
+        <polyline class="connector" points="828,181 828,209" marker-end="url(#flujo-instalacion-cf-arrow)"/>
+        <polyline class="connector" points="132,299 132,325" marker-end="url(#flujo-instalacion-cf-arrow)"/>
+        <polyline class="connector" points="364,299 364,325" marker-end="url(#flujo-instalacion-cf-arrow)"/>
+        <polyline class="connector" points="596,299 596,325" marker-end="url(#flujo-instalacion-cf-arrow)"/>
+        <polyline class="connector" points="828,299 828,325" marker-end="url(#flujo-instalacion-cf-arrow)"/>
+        <polyline class="connector ok" points="132,505 132,515" marker-end="url(#flujo-instalacion-cf-arrow-ok)"/>
+
+        <rect x="26" y="621" width="10" height="10" rx="2" fill="#e4ddcd" stroke="#b5ab94" stroke-width="1.5"/><text x="42" y="630" font-size="10" fill="#5a5444">Menú y apps genéricas</text>
+        <rect x="190" y="621" width="10" height="10" rx="2" fill="#0284c7" stroke="#0284c7" stroke-width="1.5" fill-opacity=".07"/><text x="206" y="630" font-size="10" fill="#5a5444">Instalación</text>
+        <rect x="300" y="621" width="10" height="10" rx="2" fill="#e7000b" stroke="#e7000b" stroke-width="1.5" fill-opacity=".07"/><text x="316" y="630" font-size="10" fill="#5a5444">Destructivo (formatea o desinstala)</text>
+        <rect x="540" y="621" width="10" height="10" rx="2" fill="#059669" stroke="#059669" stroke-width="1.5" fill-opacity=".08"/><text x="556" y="630" font-size="10" fill="#5a5444">Resultado</text>
+        <line x1="26" y1="648" x2="934" y2="648" stroke="#b5ab94" stroke-width="1"/>
+        <text x="26" y="668" font-size="11" fill="#1d2226"><tspan font-weight="600">Figura 1 (v1).</tspan> Flujo de install.sh: el menú principal y lo que ejecuta cada opción.</text>
+        <text x="934" y="668" font-size="10" fill="#5a5444" text-anchor="end" font-family="ui-monospace, Menlo, monospace">2026-11-10</text>
+      </svg>

@@ -43,6 +43,10 @@ cd ~/cachyos-install
 ./install.sh
 ```
 
+## Flujo de instalación
+
+![Flujo de instalación](docs/flujo-instalacion.svg)
+
 ## Estructura
 
 ```text

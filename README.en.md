@@ -32,6 +32,10 @@ cd cachyos-install
 ./install.sh
 ```
 
+## Installation flow
+
+![Installation flow (labels in Spanish, as in the installer menu)](docs/flujo-instalacion.svg)
+
 ## License
 
 GPL-3.0 (see `LICENSE`). Based on Omarchy (MIT); its notice is in `THIRD-PARTY-LICENSES.md`.
