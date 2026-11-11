@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - La instalación base consulta una sola vez a `ipinfo.io` (la IP pública sale hacia ese servicio, con un máximo de 5 segundos y sin guardar la respuesta) para detectar la zona horaria: la zona detectada aparece en el menú como `(Recomendada)` y queda seleccionada. Si no hay respuesta, el menú aparece sin recomendación.
 - El menú de idioma del sistema de la instalación base recomienda el idioma según el país que devuelve esa misma consulta a `ipinfo.io`: el idioma de la lista que corresponde a ese país aparece como `(Recomendada)` y queda seleccionado, y ya no hay un idioma fijo marcado como recomendado. Si el país no coincide con ningún idioma de la lista, o no se pudo detectar, el menú aparece sin recomendación.
 - El menú de teclado de la instalación base recomienda la distribución según el idioma elegido en la pregunta anterior: si el país del idioma coincide con una distribución de la lista (`us`, `es`, `fr`, `de`, `pt`) aparece esa como `(Recomendada)` y queda seleccionada, y si el idioma es español y el país no es España se recomienda `latam`. Con cualquier otro idioma el menú aparece sin recomendación.
-- El resumen de la instalación base pide una última confirmación antes de borrar el disco: al elegir «CONFIRMAR E INSTALAR» pregunta si se está seguro de borrar todos los datos del disco, con «No» como botón por defecto; «No» vuelve al resumen.
+- El resumen de la instalación base pide una última confirmación antes de borrar el disco: al elegir «Confirmar la instalación» pregunta si se está seguro de borrar todos los datos del disco, con «No» como botón por defecto; «No» vuelve al resumen.
 - La instalación base descarga el repositorio en `/home/<usuario>/cachyos-install` y, en el primer inicio de sesión, muestra un aviso una sola vez con el comando `cd ~/cachyos-install && ./install.sh` para continuar. Si la descarga falla, avisa y la instalación continúa sin el aviso.
 
 ### Fixed
@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- El resumen de la instalación base se muestra dentro del cuadro de diálogo, con la ayuda a la vista y solo dos opciones: «Confirmar la instalación» y «¿Deseas modificar alguna opción?». La segunda abre la lista de preguntas, con «Volver al resumen» y «Salir del instalador»; al cambiar una pregunta se vuelve al resumen con el valor nuevo.
 - El menú de `install.sh` ya no pide la segunda confirmación («Confirmación final») antes de la instalación base: quedan el aviso crítico del inicio y la última confirmación del resumen, que nombra el disco que se borrará.
 - Cancelar en las preguntas del asistente de la instalación base ya no asigna un valor por defecto: cada respuesta es la que el usuario eligió.
 - El asistente de la instalación base ya no limpia el disco (`wipefs -a`) al elegirlo: solo avisa si tiene datos previos, y no se borra nada hasta la confirmación final.

@@ -618,65 +618,74 @@ step_shell() {
 }
 
 # ─── 5. Resumen y confirmación ────────────────────────────────────────────────
-print_summary() {
-    header "Resumen de instalación"
-
-    echo -e "   ${BOLD}Disco          :${NC} ${RED}${BOLD}$TARGET_DISK — TODO EL CONTENIDO SERÁ ELIMINADO${NC}"
-    echo -e "   ${BOLD}Hostname       :${NC} $SYS_HOSTNAME"
-    echo -e "   ${BOLD}Usuario        :${NC} $USERNAME"
-    echo -e "   ${BOLD}Nombre completo:${NC} $FULLNAME"
-    echo -e "   ${BOLD}Zona horaria   :${NC} $TIMEZONE"
-    echo -e "   ${BOLD}Locale         :${NC} $LOCALE"
-    echo -e "   ${BOLD}Teclado        :${NC} ${XKB_LAYOUT}${XKB_VARIANT:+ / $XKB_VARIANT}  (vconsole: $KEYMAP)"
-    echo -e "   ${BOLD}Cifrado LUKS2  :${NC} $( $USE_LUKS     && echo 'SI' || echo 'NO' )"
-    echo -e "   ${BOLD}Hibernación    :${NC} $( $USE_HIBERNATE && echo 'SI' || echo 'NO' )"
-    echo -e "   ${BOLD}Swap           :${NC} ${SWAP_SIZE} GB"
-    echo -e "   ${BOLD}GPU            :${NC} $GPU_TYPE${EXTRA_KERNEL_PARAMS:+ ($EXTRA_KERNEL_PARAMS)}"
-    echo -e "   ${BOLD}Docker subvol  :${NC} $( $USE_DOCKER   && echo 'SI' || echo 'NO' )"
-    local _shell_desc="sin cambios (bash)"
-    [[ "$SHELL_CHOICE" == "bash" ]] && _shell_desc="Bash mejorado (ble.sh + Oh My Bash)"
-    [[ "$SHELL_CHOICE" == "zsh"  ]] && _shell_desc="ZSH con plugins"
-    [[ "$SHELL_CHOICE" == "none" ]] && _shell_desc="Ninguno (bash sin modificar)"
-    echo -e "   ${BOLD}Shell          :${NC} $_shell_desc"
-
-    echo -e "\n   ${BOLD}Subvolúmenes BTRFS:${NC}"
-    info "@            →  /"
-    info "@home        →  /home"
-    info "@log         →  /var/log"
-    info "@snapshots   →  /.snapshots"
-    info "@pkg         →  /var/cache/pacman/pkg"
-    info "@swap        →  /swap  (${SWAP_SIZE} GB, nodatacow)"
-    $USE_DOCKER && info "@docker      →  /var/lib/docker  (nodatacow)"
-
-    echo -e "\n   ${RED}${BOLD}ADVERTENCIA: OPERACIÓN IRREVERSIBLE.${NC}"
-    echo -e "   ${RED}Se borrarán TODOS los datos de $TARGET_DISK.${NC}\n"
+# Texto del cuadro de diálogo del resumen: un renglón de introducción, seis renglones con las
+# respuestas y una ayuda. Cabe en una terminal de 24 filas.
+summary_text() {
+    local shell_desc="sin cambios (bash)" subvols="@  @home  @log  @snapshots  @pkg  @swap"
+    case "$SHELL_CHOICE" in
+        bash) shell_desc="Bash mejorado" ;;
+        zsh)  shell_desc="ZSH con plugins" ;;
+        none) shell_desc="ninguno (bash sin modificar)" ;;
+    esac
+    if $USE_DOCKER; then subvols+="  @docker"; fi
+    echo "Revisa tus respuestas. No se escribe nada en el disco hasta que confirmes."
+    echo
+    echo "Disco:      $TARGET_DISK  (se borra TODO su contenido)"
+    echo "Equipo:     $SYS_HOSTNAME  ·  usuario $USERNAME ($FULLNAME)"
+    echo "Región:     $TIMEZONE  ·  $LOCALE  ·  teclado ${XKB_LAYOUT}${XKB_VARIANT:+ / $XKB_VARIANT}"
+    echo "Seguridad:  LUKS2 $( $USE_LUKS && echo 'SI' || echo 'NO' )  ·  hibernación $( $USE_HIBERNATE && echo 'SI' || echo 'NO' )  ·  swap ${SWAP_SIZE} GB"
+    echo "Sistema:    GPU $GPU_TYPE  ·  Docker $( $USE_DOCKER && echo 'SI' || echo 'NO' )  ·  shell $shell_desc"
+    echo "BTRFS:      $subvols"
+    echo
+    echo "Elige con ↑ ↓ y Enter. Atrás vuelve a la última pregunta; Esc pide salir."
 }
 
-# Muestra el resumen como menú: confirma la instalación o salta directo a cualquier pregunta.
-# «Confirmar e instalar» pide una última confirmación, con «No» por defecto; «No» vuelve a este menú.
-# Atrás vuelve a la última pregunta; Esc o «Salir» piden confirmar la salida.
-show_summary() {
+# Lista de preguntas que se pueden cambiar. Al cambiar una se vuelve al resumen, que ya muestra
+# el valor nuevo. «Volver al resumen» y Atrás regresan sin cambiar nada; «Salir» pide confirmar.
+modify_menu() {
     local items choice i
+    items=(
+        "step_disk"     "Disco: $TARGET_DISK"
+        "step_hostname" "Hostname: $SYS_HOSTNAME"
+        "step_username" "Usuario: $USERNAME"
+        "step_fullname" "Nombre completo: $FULLNAME"
+        "step_userpass" "Contraseña: ********"
+        "ask_timezone"  "Zona horaria: $TIMEZONE"
+        "ask_locale"    "Idioma: $LOCALE"
+        "ask_keyboard"  "Teclado: ${XKB_LAYOUT}${XKB_VARIANT:+ / $XKB_VARIANT} (vconsole: $KEYMAP)"
+        "step_luks"     "Cifrado LUKS2: $( $USE_LUKS && echo 'SI' || echo 'NO' )"
+        "step_swap"     "Hibernación: $( $USE_HIBERNATE && echo 'SI' || echo 'NO' ) — Swap: ${SWAP_SIZE} GB"
+        "step_docker"   "Subvolumen @docker: $( $USE_DOCKER && echo 'SI' || echo 'NO' )"
+        "step_shell"    "Shell: $SHELL_CHOICE"
+        "volver"        "Volver al resumen"
+        "salir"         "Salir del instalador"
+    )
     while true; do
-        print_summary
-        items=(
-            "instalar"      "CONFIRMAR E INSTALAR (se borra TODO $TARGET_DISK)"
-            "step_disk"     "Disco: $TARGET_DISK"
-            "step_hostname" "Hostname: $SYS_HOSTNAME"
-            "step_username" "Usuario: $USERNAME"
-            "step_fullname" "Nombre completo: $FULLNAME"
-            "step_userpass" "Contraseña: ********"
-            "ask_timezone"  "Zona horaria: $TIMEZONE"
-            "ask_locale"    "Idioma: $LOCALE"
-            "ask_keyboard"  "Teclado: ${XKB_LAYOUT}${XKB_VARIANT:+ / $XKB_VARIANT} (vconsole: $KEYMAP)"
-            "step_luks"     "Cifrado LUKS2: $( $USE_LUKS && echo 'SI' || echo 'NO' )"
-            "step_swap"     "Hibernación: $( $USE_HIBERNATE && echo 'SI' || echo 'NO' ) — Swap: ${SWAP_SIZE} GB"
-            "step_docker"   "Subvolumen @docker: $( $USE_DOCKER && echo 'SI' || echo 'NO' )"
-            "step_shell"    "Shell: $SHELL_CHOICE"
-            "salir"         "Salir del instalador"
-        )
+        wt --title "Modificar una opción" --notags --menu "Elige la opción que quieres cambiar:" 22 78 14 "${items[@]}" || return 0
+        choice="$WT_OUT"
+        case "$choice" in
+            volver) return 0 ;;
+            salir)  confirm_exit ;;
+            *)
+                for i in "${!WIZARD_STEPS[@]}"; do
+                    [[ "${WIZARD_STEPS[$i]}" == "$choice" ]] && run_wizard "$i" solo
+                done
+                return 0
+                ;;
+        esac
+    done
+}
+
+# Muestra el resumen dentro del cuadro de diálogo con dos opciones: confirmar la instalación o
+# modificar alguna respuesta. «Confirmar la instalación» pide una última confirmación, con «No»
+# por defecto; «No» vuelve a este menú. Atrás vuelve a la última pregunta; Esc pide confirmar la salida.
+show_summary() {
+    local choice
+    while true; do
         if ! wt --title "Resumen de instalación" --notags --default-item "instalar" \
-                --menu "Elige una pregunta para cambiarla, o confirma la instalación:" 22 78 15 "${items[@]}"; then
+                --menu "$(summary_text)" 21 78 2 \
+                "instalar"  "Confirmar la instalación" \
+                "modificar" "¿Deseas modificar alguna opción?"; then
             run_wizard $(( ${#WIZARD_STEPS[@]} - 1 ))
             continue
         fi
@@ -687,12 +696,7 @@ show_summary() {
                     return 0
                 fi
                 ;;
-            salir)    confirm_exit ;;
-            *)
-                for i in "${!WIZARD_STEPS[@]}"; do
-                    [[ "${WIZARD_STEPS[$i]}" == "$choice" ]] && run_wizard "$i" solo
-                done
-                ;;
+            modificar) modify_menu ;;
         esac
     done
 }
