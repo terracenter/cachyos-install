@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- El menú de `install.sh` ya no pide la segunda confirmación («Confirmación final») antes de la instalación base: quedan el aviso crítico del inicio y la última confirmación del resumen, que nombra el disco que se borrará.
 - Cancelar en las preguntas del asistente de la instalación base ya no asigna un valor por defecto: cada respuesta es la que el usuario eligió.
 - El asistente de la instalación base ya no limpia el disco (`wipefs -a`) al elegirlo: solo avisa si tiene datos previos, y no se borra nada hasta la confirmación final.
 - Licencia cambiada de AGPL-3.0 a GPL-3.0; se conserva el aviso MIT de Omarchy en `THIRD-PARTY-LICENSES.md`.
