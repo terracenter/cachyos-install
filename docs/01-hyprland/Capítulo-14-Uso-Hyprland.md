@@ -147,6 +147,26 @@ En equipos de producción, evita cerrar sesión o reiniciar salvo que sea impres
 hyprctl reload
 ```
 
+## Pantalla y energía
+
+El bloqueo por inactividad, el apagado de pantalla y la suspensión los ejecuta `hypridle`, que lee `~/.config/hypr/hypridle.conf`. El instalador escribe ese archivo con valores iniciales: bloqueo a los 10 minutos, apagado de pantalla a los 15 y ninguna suspensión automática.
+
+Para cambiarlos abre «Pantalla y energía» desde el lanzador de aplicaciones (`Super + Espacio`) o con:
+
+```bash
+~/.local/bin/idle-settings
+```
+
+El menú pregunta, en este orden:
+
+- Tiempo de bloqueo: 5, 10, 15, 20, 30, 60 o 120 minutos, o Nunca.
+- Acción de energía: Suspender, Hibernar (solo si el equipo tiene swap y soporta hibernación) o Ninguna.
+- Tiempo de la acción, que debe ser mayor que el de bloqueo.
+
+La pantalla se apaga 5 minutos después del bloqueo; si ese momento coincide o pasa de la hora de la acción de energía, no se apaga aparte. Con el bloqueo en Nunca tampoco se bloquea antes de suspender. Al terminar, el menú reescribe `hypridle.conf`, reinicia `hypridle` y guarda los valores en `~/.config/hypr/idle/` para conservarlos entre sesiones.
+
+Si ya tienes un `hypridle.conf` propio (sin la primera línea «Generado por idle-settings»), ni el instalador ni el menú lo tocan. Para usar el menú, renombra tu archivo.
+
 ## Pantalla de bloqueo
 
 El bloqueo muestra hora, fecha y un campo de contraseña. La firma es configurable desde:

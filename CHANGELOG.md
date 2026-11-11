@@ -17,12 +17,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - El menú de teclado de la instalación base recomienda la distribución según el idioma elegido en la pregunta anterior: si el país del idioma coincide con una distribución de la lista (`us`, `es`, `fr`, `de`, `pt`) aparece esa como `(Recomendada)` y queda seleccionada, y si el idioma es español y el país no es España se recomienda `latam`. Con cualquier otro idioma el menú aparece sin recomendación.
 - El resumen de la instalación base pide una última confirmación antes de borrar el disco: al elegir «Confirmar la instalación» pregunta si se está seguro de borrar todos los datos del disco, con «No» como botón por defecto; «No» vuelve al resumen.
 - La instalación base descarga el repositorio en `/home/<usuario>/cachyos-install` y, en el primer inicio de sesión, muestra un aviso una sola vez con el comando `cd ~/cachyos-install && ./install.sh` para continuar. Si la descarga falla, avisa y la instalación continúa sin el aviso.
+- Hyprland tiene el menú «Pantalla y energía» (`idle-settings`, también en el lanzador de aplicaciones): permite elegir el tiempo de bloqueo por inactividad, la acción de energía (suspender o hibernar) y su tiempo; el apagado de pantalla queda 5 minutos después del bloqueo. Reescribe `~/.config/hypr/hypridle.conf`, reinicia `hypridle` y conserva los valores entre sesiones.
 
 ### Fixed
 
 - Las contraseñas del asistente de la instalación base se escribían con un teclado distinto al del sistema instalado (la consola del instalador quedaba con un teclado fijo y el teclado se elegía después de la contraseña del usuario), por lo que una clave con símbolos podía no aceptarse al arrancar o al iniciar sesión. Ahora el teclado se pregunta antes de cualquier nombre o contraseña, se carga en la consola del instalador, las pantallas de contraseña indican el teclado activo y, si el teclado cambia, las contraseñas se piden de nuevo.
 - El menú de selección de disco de la instalación base no respondía al teclado cuando se lanzaba desde `install.sh`; ahora el instalador base corre bajo `script` en vez de un pipe a `tee`.
 - El instalador de aplicaciones de Hyprland abortaba sin root porque escribía su log en /var/log; ahora lo escribe junto al script (hyprland/install-hyprland-apps.log, ignorado por git).
+- El instalador de Hyprland iniciaba `hypridle` sin escribir nunca `~/.config/hypr/hypridle.conf`: `hypridle` terminaba al arrancar con «No hypridle.conf file found» y no funcionaban el bloqueo por inactividad, el apagado de pantalla ni la suspensión automática. Ahora el instalador escribe ese archivo con valores iniciales (bloqueo a los 10 minutos, apagado de pantalla a los 15, sin suspensión) y no pisa uno propio.
 
 ### Changed
 

@@ -335,6 +335,23 @@ chmod 755 "$bin_dir/lockscreen-settings"
 [[ -f "$lock_dir/position" ]] || printf 'right\n' > "$lock_dir/position"
 [[ -f "$lock_dir/image-size" ]] || printf '320\n' > "$lock_dir/image-size"
 
+# >>> pantalla y energia (hypridle)
+install -Dm755 "$HYPRLAND_DIR/configs/idle-settings.sh" "$bin_dir/idle-settings"
+mkdir -p "$HOME/.local/share/applications"
+cat > "$HOME/.local/share/applications/idle-settings.desktop" <<EOF_DESKTOP
+[Desktop Entry]
+Name=Pantalla y energía
+Comment=Configura el bloqueo, el apagado de pantalla y la suspensión por inactividad
+Exec=$bin_dir/idle-settings
+Icon=preferences-system-power
+Terminal=false
+Type=Application
+Categories=Settings;System;
+Keywords=idle;ahorro;pantalla;suspension;energia;bloqueo;
+EOF_DESKTOP
+"$bin_dir/idle-settings" --render
+# <<< pantalla y energia (hypridle)
+
 "$bin_dir/render-lockscreen"
 "$bin_dir/theme-apply" nord
 ok "Apariencia, firma y controles instalados"
