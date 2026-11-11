@@ -102,12 +102,6 @@ menu_base() {
         return 0
     fi
 
-    if ! whiptail --title "Confirmación final" --defaultno \
-        --yesno "¿Reconfirmas que deseas continuar? Se perderán todos los datos del disco seleccionado." 10 70; then
-        whiptail --title "Cancelado" --msgbox "Operación abortada por seguridad." 8 50
-        return 0
-    fi
-
     require_script "$SCRIPT_DIR/base/install-base.sh"
 
     step "Solicitando privilegios administrativos para la instalación base..."
