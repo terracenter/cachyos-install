@@ -112,12 +112,12 @@ askpass() {
     local prompt="$1" var="$2" pass1 pass2 hint=""
     if [[ -n "${!var}" ]]; then hint=" (vacío = conservar la actual)"; fi
     while true; do
-        wt --title "Contraseña" --passwordbox "${prompt}${hint}" 10 60 || return 1
+        wt --title "Contraseña" --passwordbox "${prompt}${hint}"$'\n'"Teclado activo: $KEYMAP" 12 70 || return 1
         pass1="$WT_OUT"
         if [[ -z "$pass1" && -n "${!var}" ]]; then
             return 0
         fi
-        wt --title "Confirmar Contraseña" --passwordbox "Confirma: $prompt" 10 60 || continue
+        wt --title "Confirmar Contraseña" --passwordbox "Confirma: $prompt"$'\n'"Teclado activo: $KEYMAP" 12 70 || continue
         pass2="$WT_OUT"
         if [[ "$pass1" == "$pass2" ]]; then
             printf -v "$var" '%s' "$pass1"
@@ -175,8 +175,10 @@ BACKTITLE="Instalador base CachyOS — Esc = salir"
 WT_OUT=""           # respuesta de la última pantalla de whiptail
 CURRENT_STEP=""     # pregunta en curso
 declare -A STEP_OK=()  # preguntas ya respondidas (para marcar su valor al volver a ellas)
-WIZARD_STEPS=(step_disk step_hostname step_username step_fullname step_userpass
-              ask_timezone ask_locale ask_keyboard step_luks step_swap step_docker step_shell)
+# El teclado se pregunta antes de cualquier nombre o contraseña: lo que se escribe aquí es lo que se
+# escribirá al arrancar y al iniciar sesión.
+WIZARD_STEPS=(step_disk ask_timezone ask_locale ask_keyboard step_hostname step_username
+              step_fullname step_userpass step_luks step_swap step_docker step_shell)
 
 # ─── 1. Verificaciones previas ────────────────────────────────────────────────
 check_prereqs() {
@@ -351,7 +353,7 @@ ask_locale() {
 # ─── Selección de teclado ────────────────────────────────────────────────────
 # La recomendación sale del idioma elegido (LOCALE, con la forma idioma_PAÍS): si el país coincide con una distribución
 # de la lista (us, es, fr, de, pt) se recomienda esa; si el idioma es español y el país no es España, se recomienda latam.
-ask_keyboard() {
+pick_keyboard() {
     local def=() cur=8 rec=0 km xl xv lang cc msg
     local labels=("us (Inglés estándar, sin acentos)" "us / intl (Inglés internacional con teclas muertas)" "es (Español España)" "latam (Latinoamérica)" "fr (Francés)" "de (Alemán)" "pt (Portugués)")
     if [[ $LOCALE =~ ^([a-z]{2,3})_([A-Z]{2})([.@]|$) ]]; then
@@ -413,6 +415,52 @@ ask_keyboard() {
             KEYMAP="$km"; XKB_LAYOUT="$xl"; XKB_VARIANT="$xv"
             ;;
     esac
+    return 0
+}
+
+# Posición de una pregunta en WIZARD_STEPS.
+step_index() {
+    local i
+    for i in "${!WIZARD_STEPS[@]}"; do
+        if [[ "${WIZARD_STEPS[$i]}" == "$1" ]]; then echo "$i"; return 0; fi
+    done
+    return 1
+}
+
+# Carga en la consola del instalador el teclado elegido, para que las contraseñas que se escriban
+# después usen el mismo teclado con el que se escribirán al arrancar y al iniciar sesión.
+apply_console_keymap() {
+    if ! command -v loadkeys >/dev/null 2>&1; then
+        warn "loadkeys no está disponible: el teclado de la consola del instalador no se cambió."
+        return 0
+    fi
+    if loadkeys "$KEYMAP" 2>/dev/null; then
+        ok "Teclado de la consola del instalador: $KEYMAP"
+        return 0
+    fi
+    return 1
+}
+
+# Si ya había contraseñas escritas con otro teclado, se borran: se vuelven a pedir antes de instalar.
+forget_passwords_for_keyboard() {
+    [[ -n "$USERPASS" || -n "$LUKS_PASS" ]] || return 0
+    USERPASS=""
+    LUKS_PASS=""
+    unset 'STEP_OK[step_userpass]' 'STEP_OK[step_luks]'
+    whiptail --title "Teclado cambiado" --msgbox "Cambiaste el teclado. Las contraseñas se escribieron con el anterior: escríbelas de nuevo." 9 70
+}
+
+# Pregunta el teclado y lo deja activo en la consola. Va antes que cualquier contraseña. Un teclado que
+# loadkeys no reconoce se avisa y se vuelve a preguntar; si el teclado cambia, se borran las contraseñas.
+ask_keyboard() {
+    local prev_km="$KEYMAP" prev_xl="$XKB_LAYOUT" prev_xv="$XKB_VARIANT"
+    while true; do
+        pick_keyboard || return 1
+        apply_console_keymap && break
+        whiptail --title "Error" --msgbox "No pude cargar el teclado «$KEYMAP» en la consola. Elige otro." 8 70
+        KEYMAP="$prev_km"; XKB_LAYOUT="$prev_xl"; XKB_VARIANT="$prev_xv"
+    done
+    if [[ "$KEYMAP" != "$prev_km" ]]; then forget_passwords_for_keyboard; fi
     return 0
 }
 
@@ -740,6 +788,14 @@ modify_menu() {
 show_summary() {
     local choice
     while true; do
+        if [[ -z "$USERPASS" ]]; then
+            run_wizard "$(step_index step_userpass)" solo
+            continue
+        fi
+        if $USE_LUKS && [[ -z "$LUKS_PASS" ]]; then
+            run_wizard "$(step_index step_luks)" solo
+            continue
+        fi
         if ! wt --title "Resumen de instalación" --notags --default-item "instalar" \
                 --menu "$(summary_text)" 21 78 2 \
                 "instalar"  "Confirmar la instalación" \

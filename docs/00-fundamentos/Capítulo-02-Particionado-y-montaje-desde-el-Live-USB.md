@@ -47,6 +47,7 @@ Todas las pantallas de preguntas se manejan igual:
 - **Atrás** vuelve a la pregunta anterior con la respuesta que ya diste marcada: si no la tocas se queda, y si eliges otra, cambia. En la primera pregunta, Atrás pide confirmar la salida.
 - **Esc** pregunta si quieres salir del instalador. Si respondes que no, la misma pantalla se repite. Ni Atrás ni Esc asignan nunca un valor por defecto.
 - Las contraseñas no se muestran al volver: dejar el campo vacío conserva la actual.
+- El teclado se elige **antes** de cualquier nombre o contraseña y queda activo en la consola del instalador: lo que escribes al instalar es lo que escribirás al arrancar y al iniciar sesión, y las pantallas de contraseña indican el teclado activo. Si cambias el teclado desde el resumen, las contraseñas se borran y se piden de nuevo.
 
 Al final, el resumen aparece dentro de un cuadro con todas tus respuestas y dos opciones: «Confirmar la instalación» o «¿Deseas modificar alguna opción?». La segunda abre la lista de preguntas: eliges una, la cambias y vuelves al resumen con el valor nuevo. En esa lista también están «Volver al resumen» y «Salir del instalador».
 
