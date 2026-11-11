@@ -157,6 +157,7 @@ XKB_VARIANT=""
 
 USE_LUKS=false
 LUKS_PASS=""
+SAME_PASS=false    # true: la clave de LUKS es la misma contraseña del usuario (solo con LUKS)
 USE_HIBERNATE=false
 USE_DOCKER=false
 SHELL_CHOICE="none"
@@ -523,14 +524,37 @@ step_fullname() {
     return 0
 }
 
+# Una clave compartida con LUKS: mínimo 8 caracteres y solo ASCII imprimible (sin acentos ni ñ), para
+# que se escriba igual en el arranque, antes de que cargue el teclado de la sesión. Si no sirve,
+# imprime el motivo y retorna 1.
+shared_pass_error() {
+    local LC_ALL=C c="$1"
+    if (( ${#c} < 8 )); then
+        printf 'tiene menos de 8 caracteres'
+        return 1
+    fi
+    if [[ ! "$c" =~ ^[[:print:]]+$ ]]; then
+        printf 'solo puede llevar letras sin acento, números y símbolos (ASCII)'
+        return 1
+    fi
+    return 0
+}
+
 step_userpass() {
-    local v="$USERPASS"
+    local v="$USERPASS" err
     while true; do
         askpass "Contraseña para $USERNAME" v || return 1
-        [[ -n "$v" ]] && break
-        whiptail --title "Error" --msgbox "La contraseña no puede estar vacía." 8 60
+        if [[ -z "$v" ]]; then
+            whiptail --title "Error" --msgbox "La contraseña no puede estar vacía." 8 60
+        elif $SAME_PASS && ! err=$(shared_pass_error "$v"); then
+            whiptail --title "Error" --msgbox "Esta contraseña también es la clave de LUKS y ${err}." 8 70
+            v="$USERPASS"
+        else
+            break
+        fi
     done
     USERPASS="$v"
+    if $SAME_PASS; then LUKS_PASS="$v"; fi
     return 0
 }
 
@@ -547,15 +571,47 @@ ask_luks_pass() {
     done
 }
 
+# $1 = nombre de la variable donde queda la clave única (disco y usuario). Retorna 1 con Atrás.
+ask_shared_pass() {
+    local name="$1" val err
+    while true; do
+        askpass "Clave única: será la clave del disco (LUKS) y la contraseña de $USERNAME" "$name" || return 1
+        val="${!name}"
+        if err=$(shared_pass_error "$val"); then return 0; fi
+        whiptail --title "Error" --msgbox "La clave ${err}." 8 70
+        printf -v "$name" '%s' ""
+    done
+}
+
+# Con LUKS pregunta si el disco y el usuario usan la misma clave (por defecto No). Sin inicio de sesión
+# automático: al arrancar se escribe la clave del disco y después se inicia sesión. Los cambios solo se guardan al terminar.
 step_luks() {
-    local use="$USE_LUKS" pass="$LUKS_PASS" seen=""
+    local use="$USE_LUKS" pass="$LUKS_PASS" same="$SAME_PASS" up="$USERPASS" seen="" err
+    local shared_set=false
     while true; do
         ask_yesno "¿Cifrado completo del disco con LUKS2?" use "$seen" || return 1
         seen=1
         if [[ "$use" == "false" ]]; then
             pass=""
+            same=false
             break
         fi
+        ask_yesno "¿Usar la misma clave para el disco y para $USERNAME?
+
+Una sola clave; se cambia con «sudo cambiar-clave», no con passwd." same 1 || continue
+        if [[ "$same" == "true" ]]; then
+            if ! err=$(shared_pass_error "$up"); then
+                whiptail --title "Aviso" --msgbox "La contraseña actual de $USERNAME ${err}.
+Escribe una nueva: será la clave del disco y la del usuario." 9 70
+                ask_shared_pass up || continue
+            fi
+            pass="$up"
+            shared_set=true
+            ok "Cifrado LUKS2 habilitado, con la misma clave para el disco y $USERNAME"
+            break
+        fi
+        if [[ "$SAME_PASS" == "true" || "$shared_set" == "true" ]]; then pass=""; fi
+        shared_set=false
         if ask_luks_pass pass; then
             ok "Cifrado LUKS2 habilitado"
             break
@@ -563,6 +619,8 @@ step_luks() {
     done
     USE_LUKS="$use"
     LUKS_PASS="$pass"
+    SAME_PASS="$same"
+    if [[ "$same" == "true" ]]; then USERPASS="$up"; fi
     return 0
 }
 
@@ -633,7 +691,7 @@ summary_text() {
     echo "Disco:      $TARGET_DISK  (se borra TODO su contenido)"
     echo "Equipo:     $SYS_HOSTNAME  ·  usuario $USERNAME ($FULLNAME)"
     echo "Región:     $TIMEZONE  ·  $LOCALE  ·  teclado ${XKB_LAYOUT}${XKB_VARIANT:+ / $XKB_VARIANT}"
-    echo "Seguridad:  LUKS2 $( $USE_LUKS && echo 'SI' || echo 'NO' )  ·  hibernación $( $USE_HIBERNATE && echo 'SI' || echo 'NO' )  ·  swap ${SWAP_SIZE} GB"
+    echo "Seguridad:  LUKS2 $( $USE_LUKS && echo 'SI' || echo 'NO' )$( $SAME_PASS && echo ' (clave única)' )  ·  hibernación $( $USE_HIBERNATE && echo 'SI' || echo 'NO' )  ·  swap ${SWAP_SIZE} GB"
     echo "Sistema:    GPU $GPU_TYPE  ·  Docker $( $USE_DOCKER && echo 'SI' || echo 'NO' )  ·  shell $shell_desc"
     echo "BTRFS:      $subvols"
     echo
@@ -649,11 +707,11 @@ modify_menu() {
         "step_hostname" "Hostname: $SYS_HOSTNAME"
         "step_username" "Usuario: $USERNAME"
         "step_fullname" "Nombre completo: $FULLNAME"
-        "step_userpass" "Contraseña: ********"
+        "step_userpass" "Contraseña: ********$( $SAME_PASS && echo ' (también la clave de LUKS)' )"
         "ask_timezone"  "Zona horaria: $TIMEZONE"
         "ask_locale"    "Idioma: $LOCALE"
         "ask_keyboard"  "Teclado: ${XKB_LAYOUT}${XKB_VARIANT:+ / $XKB_VARIANT} (vconsole: $KEYMAP)"
-        "step_luks"     "Cifrado LUKS2: $( $USE_LUKS && echo 'SI' || echo 'NO' )"
+        "step_luks"     "Cifrado LUKS2: $( $USE_LUKS && echo 'SI' || echo 'NO' )$( $SAME_PASS && echo ', misma clave que el usuario' )"
         "step_swap"     "Hibernación: $( $USE_HIBERNATE && echo 'SI' || echo 'NO' ) — Swap: ${SWAP_SIZE} GB"
         "step_docker"   "Subvolumen @docker: $( $USE_DOCKER && echo 'SI' || echo 'NO' )"
         "step_shell"    "Shell: $SHELL_CHOICE"
@@ -1310,6 +1368,226 @@ ROLLBACK_SCRIPT
     ok "Helper btrfs-rollback instalado en /usr/local/bin"
 }
 
+# ─── Comando cambiar-clave ────────────────────────────────────────────────────
+# Solo con la misma clave para el disco y el usuario: cambia las dos a la vez, con comprobaciones
+# para no quedar sin acceso al equipo.
+install_clave_helper() {
+    $SAME_PASS || return 0
+    step "Instalando el comando cambiar-clave..."
+
+    cat > /mnt/usr/local/bin/cambiar-clave << 'CLAVE_SCRIPT'
+#!/bin/bash
+# cambiar-clave — cambia a la vez la clave del disco (LUKS) y la contraseña de tu usuario.
+# Uso: sudo cambiar-clave
+#
+# Orden de seguridad: la clave nueva se AGREGA al disco sin quitar la vieja, se comprueba que abre,
+# se cambia la contraseña del usuario y solo al final se quita la vieja. Si algo falla antes del
+# último paso, la clave vieja sigue abriendo el disco y lo ya cambiado se deshace. Si se interrumpe
+# (Ctrl-C), el disco sigue abriendo con la clave vieja.
+set -uo pipefail
+
+aviso() { printf '%s\n' "$*"; }
+falla() { printf 'ERROR: %s\n' "$*" >&2; }
+
+es_root() { [[ $EUID -eq 0 ]]; }
+
+# Dispositivo LUKS que respalda la raíz ("/"); no imprime nada si la raíz no está cifrada.
+luks_device() {
+    local src name dev
+    src=$(findmnt -n -o SOURCE --target / 2>/dev/null) || return 0
+    src=${src%%\[*}
+    [[ "$src" == /dev/mapper/* ]] || return 0
+    name=${src#/dev/mapper/}
+    dev=$(cryptsetup status "$name" 2>/dev/null | awk '$1 == "device:" {print $2}')
+    if [[ -n "$dev" ]] && cryptsetup isLuks "$dev" 2>/dev/null; then
+        printf '%s\n' "$dev"
+    fi
+    return 0
+}
+
+# ¿La clave $2 abre el disco $1? No activa nada.
+abre_con() {
+    printf '%s' "$2" | cryptsetup open --test-passphrase --type luks --key-file=- "$1" >/dev/null 2>&1
+}
+
+# Agrega la clave $3 al disco $1, autorizada con la clave $2. La clave vieja no se toca.
+agrega_clave() {
+    printf '%s' "$2" | cryptsetup luksAddKey --batch-mode --key-file=- "$1" /dev/fd/3 3< <(printf '%s' "$3") >/dev/null 2>&1
+}
+
+# Quita del disco $1 la ranura que abre con la clave $2.
+quita_clave() {
+    printf '%s' "$2" | cryptsetup luksRemoveKey --batch-mode --key-file=- "$1" >/dev/null 2>&1
+}
+
+# Cantidad de ranuras de clave ocupadas en el disco $1 (0 si no se pueden leer).
+ranuras() {
+    cryptsetup luksDump "$1" 2>/dev/null | awk '/^Keyslots:/ {k = 1; next} /^[A-Za-z]/ {k = 0} k && $1 ~ /^[0-9]+:$/ {n++} END {print n + 0}'
+}
+
+# Contraseña cifrada (hash) del usuario $1.
+usuario_hash() { getent shadow "$1" | cut -d: -f2; }
+
+# Cambia la contraseña del usuario $1 por $2.
+cambia_usuario() { printf '%s:%s\n' "$1" "$2" | chpasswd; }
+
+# Lee una clave sin mostrarla. $1 = texto, $2 = nombre de la variable.
+lee_clave() {
+    local v
+    IFS= read -r -s -p "$1" v || return 1
+    printf '\n' >&2
+    printf -v "$2" '%s' "$v"
+}
+
+# Una clave sirve si tiene al menos 8 caracteres y solo ASCII imprimible (sin acentos ni ñ): así se
+# escribe igual en el arranque, antes de que cargue el teclado de la sesión. Si no sirve, imprime el
+# motivo y retorna 1.
+clave_error() {
+    local LC_ALL=C c="$1"
+    if (( ${#c} < 8 )); then
+        printf 'tiene menos de 8 caracteres'
+        return 1
+    fi
+    if [[ ! "$c" =~ ^[[:print:]]+$ ]]; then
+        printf 'solo puede llevar letras sin acento, números y símbolos (ASCII)'
+        return 1
+    fi
+    return 0
+}
+
+cambiar_clave() {
+    local user dev vieja nueva nueva2 resp err hash_antes hash_despues n rc
+    user="${SUDO_USER:-}"
+    if [[ -z "$user" || "$user" == root ]] || ! getent passwd "$user" >/dev/null; then
+        falla "Ejecútalo con sudo desde tu usuario normal: sudo cambiar-clave"
+        return 1
+    fi
+
+    dev=$(luks_device)
+    if [[ -z "$dev" ]]; then
+        aviso "El disco de este equipo no está cifrado con LUKS: solo se cambia la contraseña de $user."
+        passwd "$user"
+        return $?
+    fi
+    n=$(ranuras "$dev")
+    if (( n < 1 )); then
+        falla "No pude leer las ranuras de clave de $dev (¿no es LUKS2?). No se cambió nada."
+        return 1
+    fi
+
+    aviso "Este comando cambia a la vez la clave del disco ($dev) y la contraseña de $user."
+    aviso "La clave nueva se agrega primero; la vieja se quita solo al final, si todo salió bien."
+    lee_clave "Clave actual: " vieja || return 1
+    if ! abre_con "$dev" "$vieja"; then
+        falla "La clave actual no abre el disco. No se cambió nada."
+        return 1
+    fi
+    lee_clave "Clave nueva: " nueva || return 1
+    lee_clave "Repite la clave nueva: " nueva2 || return 1
+    if [[ "$nueva" != "$nueva2" ]]; then
+        falla "Las claves nuevas no coinciden. No se cambió nada."
+        return 1
+    fi
+    if ! err=$(clave_error "$nueva"); then
+        falla "La clave nueva $err. No se cambió nada."
+        return 1
+    fi
+    if [[ "$nueva" == "$vieja" ]]; then
+        falla "La clave nueva es igual a la actual. No se cambió nada."
+        return 1
+    fi
+    if abre_con "$dev" "$nueva"; then
+        falla "La clave nueva ya abre el disco (¿es otra de las claves guardadas?). Elige otra. No se cambió nada."
+        return 1
+    fi
+    hash_antes=$(usuario_hash "$user")
+    if [[ -z "$hash_antes" ]]; then
+        falla "No pude leer la contraseña actual de $user. No se cambió nada."
+        return 1
+    fi
+    read -r -p "Escribe SI para cambiar la clave del disco y la de $user a la vez: " resp || return 1
+    if [[ "$resp" != SI ]]; then
+        aviso "No se cambió nada."
+        return 1
+    fi
+
+    aviso "1/4 Agregando la clave nueva al disco (la actual sigue funcionando)..."
+    if ! agrega_clave "$dev" "$vieja" "$nueva"; then
+        falla "No se pudo agregar la clave nueva. No se cambió nada."
+        return 1
+    fi
+    if ! abre_con "$dev" "$vieja"; then
+        falla "Después de agregar la clave nueva, la actual dejó de abrir el disco. No sigo: revisa con: cryptsetup luksDump $dev"
+        return 1
+    fi
+    if ! abre_con "$dev" "$nueva"; then
+        falla "La clave nueva no abre el disco. Se conserva la actual y no se cambió nada más."
+        quita_clave "$dev" "$nueva" || true
+        return 1
+    fi
+
+    aviso "2/4 Cambiando la contraseña de $user..."
+    cambia_usuario "$user" "$nueva" >/dev/null 2>&1
+    rc=$?
+    hash_despues=$(usuario_hash "$user")
+    if (( rc != 0 )) || [[ "$hash_despues" == "$hash_antes" ]]; then
+        falla "No se pudo cambiar la contraseña de $user. Se deshace el cambio del disco."
+        if quita_clave "$dev" "$nueva" && abre_con "$dev" "$vieja" && ! abre_con "$dev" "$nueva"; then
+            aviso "Deshecho en el disco: sigue abriendo solo con la clave de antes."
+        else
+            falla "No pude comprobar que se deshizo; la clave actual sigue abriendo el disco. Revisa con: cryptsetup luksDump $dev"
+        fi
+        if [[ "$hash_despues" != "$hash_antes" ]]; then
+            falla "OJO: la contraseña de $user sí quedó cambiada a la nueva y el disco conserva la de antes."
+        fi
+        return 1
+    fi
+
+    aviso "3/4 Quitando la clave vieja del disco..."
+    n=$(ranuras "$dev")
+    if (( n < 2 )); then
+        falla "Solo hay una ranura de clave en el disco: no quito nada. La contraseña de $user ya es la nueva."
+        return 1
+    fi
+    if ! quita_clave "$dev" "$vieja"; then
+        falla "No pude quitar la clave vieja. La contraseña de $user ya es la nueva y el disco abre con la vieja y con la nueva; quita la vieja a mano cuando puedas."
+        return 1
+    fi
+
+    aviso "4/4 Comprobando el resultado..."
+    if abre_con "$dev" "$nueva" && ! abre_con "$dev" "$vieja"; then
+        aviso "Listo: el disco y $user usan ahora la misma clave nueva."
+        return 0
+    fi
+    falla "El resultado no es el esperado. Revisa de inmediato con: cryptsetup luksDump $dev"
+    return 1
+}
+
+main() {
+    if ! es_root; then
+        falla "Ejecútalo con sudo: sudo cambiar-clave"
+        return 1
+    fi
+    # Un solo cambio a la vez: dos corridas juntas podrían dejar claves a medias.
+    exec 9> /run/cambiar-clave.lock
+    if ! flock -n 9; then
+        falla "Ya hay otro cambio de clave en curso."
+        return 1
+    fi
+    cambiar_clave
+}
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    main "$@"
+    exit $?
+fi
+CLAVE_SCRIPT
+
+    chmod 755 /mnt/usr/local/bin/cambiar-clave
+    bash -n /mnt/usr/local/bin/cambiar-clave || die "El comando cambiar-clave quedó con errores de sintaxis"
+    ok "Comando cambiar-clave instalado en /usr/local/bin"
+}
+
 # ─── 16. Snapshot inicial ─────────────────────────────────────────────────────
 take_snapshot() {
     step "Creando snapshot inicial..."
@@ -1364,6 +1642,9 @@ final_summary() {
     $USE_DOCKER && info "@docker      →  /var/lib/docker  (nodatacow)"
 
     $USE_LUKS && echo -e "\n   ${YELLOW}${BOLD}⚠  No pierdas la passphrase LUKS — sin ella el disco es irrecuperable.${NC}"
+    if $SAME_PASS; then
+        echo -e "   ${YELLOW}${BOLD}⚠  Tu clave es la misma para el disco y para $USERNAME. Para cambiarla usa «sudo cambiar-clave»: «passwd» solo cambia la del usuario.${NC}"
+    fi
 
     echo -e "\n   ${BOLD}Proximos pasos:${NC}"
     info "1. Retira el USB y reinicia el equipo:"
@@ -1428,6 +1709,7 @@ configure_chroot
 install_shell_enhancement
 install_repo_home
 install_rollback_helper
+install_clave_helper
 take_snapshot
 unmount_all
 final_summary

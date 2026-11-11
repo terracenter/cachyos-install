@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Con LUKS, el asistente de la instalación base pregunta si el disco y el usuario usan la misma clave (por defecto No; nunca hay inicio de sesión automático). Con «Sí» queda instalado el comando `sudo cambiar-clave`, que cambia la clave del disco y la contraseña del usuario a la vez: agrega la clave nueva antes de quitar la vieja, comprueba cada paso y deshace el cambio si algo falla. `base/probar-cambiar-clave.sh` lo prueba con un archivo cifrado real.
 - El asistente de la instalación base pide el nombre completo del usuario y lo guarda en el campo de comentario de la cuenta.
 - Cada pregunta del asistente de la instalación base tiene el botón Atrás, que vuelve a la pregunta anterior con la respuesta ya dada marcada; Esc pregunta si se quiere salir del instalador, y el resumen final es un menú que permite ir directo a cualquier pregunta antes de confirmar.
 - La instalación base consulta una sola vez a `ipinfo.io` (la IP pública sale hacia ese servicio, con un máximo de 5 segundos y sin guardar la respuesta) para detectar la zona horaria: la zona detectada aparece en el menú como `(Recomendada)` y queda seleccionada. Si no hay respuesta, el menú aparece sin recomendación.
