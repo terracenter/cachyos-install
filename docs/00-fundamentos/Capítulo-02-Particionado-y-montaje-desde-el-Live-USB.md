@@ -48,7 +48,7 @@ Todas las pantallas de preguntas se manejan igual:
 - **Esc** pregunta si quieres salir del instalador. Si respondes que no, la misma pantalla se repite. Ni Atrás ni Esc asignan nunca un valor por defecto.
 - Las contraseñas no se muestran al volver: dejar el campo vacío conserva la actual.
 
-Al final, el resumen es un menú: puedes confirmar la instalación o ir directo a cualquier pregunta, cambiarla y volver al resumen.
+Al final, el resumen aparece dentro de un cuadro con todas tus respuestas y dos opciones: «Confirmar la instalación» o «¿Deseas modificar alguna opción?». La segunda abre la lista de preguntas: eliges una, la cambias y vuelves al resumen con el valor nuevo. En esa lista también están «Volver al resumen» y «Salir del instalador».
 
 ## Confirmaciones de seguridad
 
@@ -57,7 +57,7 @@ El instalador:
 1. Comprueba que el destino sea un dispositivo de bloque.
 2. Advierte si contiene firmas o datos previos; en ese momento no borra nada.
 3. Muestra un resumen final, desde el que puedes cambiar cualquier respuesta antes de confirmar.
-4. Al elegir «CONFIRMAR E INSTALAR», pregunta una última vez si estás seguro de borrar todos los datos del disco. El botón marcado por defecto es «No», que te devuelve al resumen.
+4. Al elegir «Confirmar la instalación», pregunta una última vez si estás seguro de borrar todos los datos del disco. El botón marcado por defecto es «No», que te devuelve al resumen.
 
 Solo después de ese «Sí» la función de particionado ejecuta `wipefs -af`, inmediatamente antes de crear la tabla GPT. Esto asegura que no queden firmas antiguas.
 
