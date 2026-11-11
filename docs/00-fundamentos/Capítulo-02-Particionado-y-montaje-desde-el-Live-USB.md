@@ -96,6 +96,10 @@ Si se selecciona cifrado, la segunda partición se abre como:
 
 Btrfs se crea sobre ese dispositivo mapeado. La partición EFI permanece sin cifrar para permitir el arranque UEFI.
 
+Con LUKS, el asistente pregunta si usarás **la misma clave para el disco y para tu usuario** (por defecto, No). Con «Sí» escribes una sola clave de al menos 8 caracteres, solo ASCII (sin acentos ni ñ, para que se escriba igual en el arranque). El instalador nunca configura el inicio de sesión automático: al arrancar escribes la clave del disco y después inicias sesión con la misma clave.
+
+Para cambiarla después usa `sudo cambiar-clave`, que cambia la clave del disco y la contraseña del usuario a la vez; `passwd` solo cambia la del usuario. El comando agrega la clave nueva sin quitar la vieja, comprueba que abre el disco, cambia la contraseña del usuario y solo al final quita la vieja; si algo falla antes, la clave vieja sigue abriendo el disco y lo ya cambiado se deshace. `base/probar-cambiar-clave.sh` lo prueba con un archivo cifrado real, sin tocar discos.
+
 ## Sistema de archivos
 
 El instalador aplica:
